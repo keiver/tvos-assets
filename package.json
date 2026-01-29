@@ -1,0 +1,32 @@
+{
+  "name": "tvos-image-creator",
+  "version": "1.0.0",
+  "description": "CLI tool to generate tvOS Images.xcassets from icon and background images",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "tvos-image-creator": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "tvos",
+    "apple-tv",
+    "xcassets",
+    "react-native",
+    "image-generator"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

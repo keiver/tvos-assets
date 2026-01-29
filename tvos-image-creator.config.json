@@ -1,0 +1,75 @@
+{
+  "inputs": {
+    "iconImage": "./icon.png",
+    "backgroundImage": "./background.png",
+    "backgroundColor": "#B43939"
+  },
+  "output": {
+    "directory": "./Images.xcassets",
+    "cleanBeforeGenerate": true
+  },
+  "brandAssets": {
+    "appIconSmall": {
+      "enabled": true,
+      "name": "App Icon",
+      "size": { "width": 400, "height": 240 },
+      "scales": ["1x", "2x"],
+      "layers": {
+        "front": { "source": "icon" },
+        "middle": { "source": "icon" },
+        "back": { "source": "background" }
+      }
+    },
+    "appIconLarge": {
+      "enabled": true,
+      "name": "App Icon - App Store",
+      "size": { "width": 1280, "height": 768 },
+      "scales": ["1x"],
+      "layers": {
+        "front": { "source": "icon" },
+        "middle": { "source": "icon" },
+        "back": { "source": "background" }
+      }
+    },
+    "topShelfImage": {
+      "enabled": true,
+      "name": "Top Shelf Image",
+      "size": { "width": 1920, "height": 720 },
+      "scales": ["1x", "2x"],
+      "filePrefix": "top"
+    },
+    "topShelfImageWide": {
+      "enabled": true,
+      "name": "Top Shelf Image Wide",
+      "size": { "width": 2320, "height": 720 },
+      "scales": ["1x", "2x"],
+      "filePrefix": "wide"
+    }
+  },
+  "splashScreen": {
+    "logo": {
+      "enabled": true,
+      "name": "SplashScreenLogo",
+      "baseSize": 200,
+      "filePrefix": "200-icon",
+      "universal": { "scales": ["1x", "2x", "3x"] },
+      "tv": { "scales": ["1x", "2x"] }
+    },
+    "background": {
+      "enabled": true,
+      "name": "SplashScreenBackground",
+      "universal": {
+        "light": "#B43939",
+        "dark": "#B43939"
+      },
+      "tv": {
+        "light": "#B43939",
+        "dark": "#B43939"
+      }
+    }
+  },
+  "xcassetsMeta": {
+    "author": "xcode",
+    "version": 1
+  }
+}
