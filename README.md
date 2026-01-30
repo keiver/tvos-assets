@@ -195,10 +195,36 @@ Images.xcassets/
 
 ## Configuration File
 
-For full control, create a JSON config file. All sections are optional — omitted values use built-in defaults.
+For full control, create a JSON config file. All sections are optional — omitted values use built-in defaults. The config file has a JSON Schema for editor autocompletion and validation.
+
+Add the `$schema` field to enable it:
 
 ```json
 {
+  "$schema": "./schema.json"
+}
+```
+
+### Minimal config (inputs only)
+
+Everything else uses built-in defaults:
+
+```json
+{
+  "$schema": "./schema.json",
+  "inputs": {
+    "iconImage": "./icon.png",
+    "backgroundImage": "./background.png",
+    "backgroundColor": "#B43939"
+  }
+}
+```
+
+### Full config
+
+```json
+{
+  "$schema": "./schema.json",
   "inputs": {
     "iconImage": "./icon.png",
     "backgroundImage": "./background.png",
@@ -261,63 +287,163 @@ For full control, create a JSON config file. All sections are optional — omitt
       "universal": { "light": "#B43939", "dark": "#B43939" },
       "tv": { "light": "#B43939", "dark": "#B43939" }
     }
+  },
+  "xcassetsMeta": {
+    "author": "xcode",
+    "version": 1
   }
 }
 ```
 
 ### Config Reference
 
+---
+
 #### `inputs`
 
-| Key | Type | Description |
-|---|---|---|
-| `iconImage` | string | Path to icon PNG with transparent background |
-| `backgroundImage` | string | Path to background image PNG |
-| `backgroundColor` | string | Hex color (`#RRGGBB`) for splash screen background |
+Source images and color used to generate all assets.
+
+| Key | Type | Required | Description |
+|---|---|---|---|
+| `iconImage` | string | Yes | Path to the app icon PNG. Must have a transparent background. Composited onto the background for app icons and Top Shelf images; rendered standalone for the splash logo. |
+| `backgroundImage` | string | Yes | Path to the background PNG. Used as the base layer for app icons and Top Shelf images. Resized with cover-fit and center-cropped to each required dimension. |
+| `backgroundColor` | string | Yes | Hex color (`#RRGGBB`). Used for the splash screen background colorset. Applied to both light and dark appearances unless overridden in `splashScreen.background`. |
+
+---
 
 #### `output`
 
+Controls where and how the `Images.xcassets` bundle is written.
+
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `directory` | string | `~/Desktop/Images.xcassets` | Output directory path |
-| `cleanBeforeGenerate` | boolean | `true` | Delete output directory before regenerating |
+| `directory` | string | `~/Desktop/Images.xcassets` | Output directory path. The full xcassets structure is generated here. |
+| `cleanBeforeGenerate` | boolean | `true` | When `true`, the output directory is deleted and recreated on every run, ensuring a clean build with no stale files. |
+
+---
 
 #### `brandAssets`
 
-Each brand asset (`appIconSmall`, `appIconLarge`, `topShelfImage`, `topShelfImageWide`) supports:
+tvOS Brand Assets catalog. Contains app icons (layered imagestacks for the parallax effect) and Top Shelf images (flat composited banners). All four are required by tvOS but can be individually disabled with `"enabled": false`.
 
-| Key | Type | Description |
+##### `brandAssets.appIconSmall` — Home screen app icon
+
+3-layer parallax imagestack shown on the tvOS home screen.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | boolean | `true` | Set to `false` to skip this asset. |
+| `name` | string | `"App Icon"` | Folder name in the Brand Assets catalog. |
+| `size` | `{width, height}` | `{400, 240}` | Base size in points. Multiplied by each scale factor to get pixel dimensions. |
+| `scales` | string[] | `["1x", "2x"]` | Scale factors to generate. Each produces a separate PNG per layer. |
+| `layers` | object | see below | Layer configuration for the parallax imagestack. |
+
+##### `brandAssets.appIconLarge` — App Store icon
+
+Same structure as `appIconSmall`, used for the App Store listing.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | boolean | `true` | Set to `false` to skip this asset. |
+| `name` | string | `"App Icon - App Store"` | Folder name in the Brand Assets catalog. |
+| `size` | `{width, height}` | `{1280, 768}` | Base size in points. |
+| `scales` | string[] | `["1x"]` | App Store only needs 1x. |
+| `layers` | object | see below | Layer configuration. |
+
+##### Layer configuration (`layers`)
+
+Each imagestack has three layers that tvOS renders with a depth/parallax effect when the user moves the Siri Remote:
+
+```json
+"layers": {
+  "front":  { "source": "icon" },
+  "middle": { "source": "icon" },
+  "back":   { "source": "background" }
+}
+```
+
+| Layer | Position | Description |
 |---|---|---|
-| `enabled` | boolean | Toggle generation of this asset |
-| `name` | string | Folder name in the asset catalog |
-| `size` | `{width, height}` | Base size in points |
-| `scales` | string[] | Scale factors (`"1x"`, `"2x"`, `"3x"`) |
-| `layers` | object | (Imagestacks only) Front/middle/back layer sources |
-| `filePrefix` | string | (Imagesets only) Filename prefix for generated PNGs |
+| `front` | Closest to viewer | Moves the most. Typically the icon composited on background. |
+| `middle` | Center | Moderate movement. Typically the icon composited on background. |
+| `back` | Farthest from viewer | Least movement. Typically the background only. Always rendered opaque (no alpha). |
 
-Layer `source` values: `"icon"` or `"background"`.
+`source` values:
+- `"icon"` — composites the icon centered on the background image.
+- `"background"` — uses the background image only (opaque, no alpha channel).
 
-#### `splashScreen.logo`
+##### `brandAssets.topShelfImage` — Top Shelf banner
 
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `enabled` | boolean | `true` | Toggle splash logo generation |
-| `name` | string | `SplashScreenLogo` | Imageset folder name |
-| `baseSize` | number | `200` | Base icon size in pixels |
-| `filePrefix` | string | `200-icon` | Filename prefix |
-| `universal.scales` | string[] | `["1x","2x","3x"]` | Universal device scales |
-| `tv.scales` | string[] | `["1x","2x"]` | Apple TV scales |
-
-#### `splashScreen.background`
+Flat composited image displayed when the app is focused on the home screen top row.
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `enabled` | boolean | `true` | Toggle splash background generation |
-| `name` | string | `SplashScreenBackground` | Colorset folder name |
-| `universal.light` | string | Same as `--color` | Light mode color (universal) |
-| `universal.dark` | string | Same as `--color` | Dark mode color (universal) |
-| `tv.light` | string | Same as `--color` | Light mode color (tv) |
-| `tv.dark` | string | Same as `--color` | Dark mode color (tv) |
+| `enabled` | boolean | `true` | Set to `false` to skip this asset. |
+| `name` | string | `"Top Shelf Image"` | Folder name in the Brand Assets catalog. |
+| `size` | `{width, height}` | `{1920, 720}` | Base size in points. |
+| `scales` | string[] | `["1x", "2x"]` | Scale factors to generate. |
+| `filePrefix` | string | `"top"` | Filename prefix. Produces `top@1x.png`, `top@2x.png`. |
+
+##### `brandAssets.topShelfImageWide` — Wide Top Shelf banner
+
+Same as `topShelfImage` but wider.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | boolean | `true` | Set to `false` to skip this asset. |
+| `name` | string | `"Top Shelf Image Wide"` | Folder name in the Brand Assets catalog. |
+| `size` | `{width, height}` | `{2320, 720}` | Base size in points. |
+| `scales` | string[] | `["1x", "2x"]` | Scale factors to generate. |
+| `filePrefix` | string | `"wide"` | Filename prefix. Produces `wide@1x.png`, `wide@2x.png`. |
+
+Top Shelf images are always written as **opaque RGB PNGs** (no alpha channel), as required by tvOS.
+
+---
+
+#### `splashScreen`
+
+Launch screen assets. Includes a logo imageset and a background colorset.
+
+##### `splashScreen.logo` — Splash screen icon
+
+The icon rendered on a transparent background at multiple scale factors. Generated for both universal (iOS/iPadOS) and Apple TV idioms.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | boolean | `true` | Set to `false` to skip the splash logo. |
+| `name` | string | `"SplashScreenLogo"` | Imageset folder name inside `Images.xcassets`. Must match the name in your LaunchScreen storyboard. |
+| `baseSize` | number | `200` | Base icon size in pixels. Multiplied by each scale factor (e.g. 200 x 2x = 400px). |
+| `filePrefix` | string | `"200-icon"` | Filename prefix. Produces `200-icon@1x.png`, `200-icon@2x.png`, etc. |
+| `universal.scales` | string[] | `["1x", "2x", "3x"]` | Scale factors for non-TV devices. |
+| `tv.scales` | string[] | `["1x", "2x"]` | Scale factors for Apple TV. |
+
+##### `splashScreen.background` — Splash screen background color
+
+An Xcode colorset with light/dark appearance variants for both universal and Apple TV idioms. No image files — just color definitions in `Contents.json`.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | boolean | `true` | Set to `false` to skip the splash background. |
+| `name` | string | `"SplashScreenBackground"` | Colorset folder name. Must match the name in your LaunchScreen storyboard. |
+| `universal.light` | string | Same as `--color` | Light mode color for non-TV devices (`#RRGGBB`). |
+| `universal.dark` | string | Same as `--color` | Dark mode color for non-TV devices (`#RRGGBB`). |
+| `tv.light` | string | Same as `--color` | Light mode color for Apple TV (`#RRGGBB`). |
+| `tv.dark` | string | Same as `--color` | Dark mode color for Apple TV (`#RRGGBB`). |
+
+---
+
+#### `xcassetsMeta`
+
+Metadata written into every `Contents.json` file in the output. Xcode expects specific values here.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `author` | string | `"xcode"` | Author field. Xcode uses `"xcode"`. |
+| `version` | integer | `1` | Version field. Xcode uses `1`. |
+
+Only change these if you know what you are doing.
+
+---
 
 ## Input Requirements
 

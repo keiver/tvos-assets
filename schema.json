@@ -1,0 +1,321 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/tvos-image-creator/schema.json",
+  "title": "tvos-image-creator configuration",
+  "description": "Configuration file for tvos-image-creator. Defines input images, output settings, brand asset sizes, splash screen options, and Xcode metadata.",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Path or URL to the JSON Schema for editor validation and autocompletion."
+    },
+    "inputs": {
+      "type": "object",
+      "description": "Source images and color used to generate all assets.",
+      "properties": {
+        "iconImage": {
+          "type": "string",
+          "description": "Path to the app icon PNG. Must have a transparent background. The icon is composited onto the background image for app icons and Top Shelf images, and rendered standalone for the splash screen logo."
+        },
+        "backgroundImage": {
+          "type": "string",
+          "description": "Path to the background PNG. Used as the base layer for app icons and Top Shelf images. Resized with cover-fit and center-cropped to each required dimension."
+        },
+        "backgroundColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Hex color (#RRGGBB) used for the splash screen background colorset. Applied to both light and dark appearances unless overridden in splashScreen.background."
+        }
+      },
+      "required": ["iconImage", "backgroundImage", "backgroundColor"],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "description": "Controls where and how the Images.xcassets bundle is written.",
+      "properties": {
+        "directory": {
+          "type": "string",
+          "description": "Output directory path. The full Images.xcassets structure is generated here. Defaults to ~/Desktop/Images.xcassets when omitted.",
+          "default": "~/Desktop/Images.xcassets"
+        },
+        "cleanBeforeGenerate": {
+          "type": "boolean",
+          "description": "When true, the output directory is deleted and recreated on every run, ensuring a clean build with no stale files. Set to false to preserve existing files (not recommended).",
+          "default": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "brandAssets": {
+      "type": "object",
+      "description": "tvOS Brand Assets catalog. Contains app icons (layered imagestacks) and Top Shelf images (flat imagesets). All four assets are required by tvOS but can be individually disabled.",
+      "properties": {
+        "appIconSmall": {
+          "$ref": "#/$defs/imageStackAsset",
+          "description": "Small app icon shown on the tvOS home screen. Rendered as a 3-layer parallax imagestack (front, middle, back). Default: 400x240 at 1x and 2x."
+        },
+        "appIconLarge": {
+          "$ref": "#/$defs/imageStackAsset",
+          "description": "Large app icon used in the App Store. Same 3-layer structure as the small icon. Default: 1280x768 at 1x only."
+        },
+        "topShelfImage": {
+          "$ref": "#/$defs/imageSetAsset",
+          "description": "Top Shelf banner displayed when the app is focused on the top row. The icon is composited centered on the background. Output is opaque (no alpha). Default: 1920x720 at 1x and 2x."
+        },
+        "topShelfImageWide": {
+          "$ref": "#/$defs/imageSetAsset",
+          "description": "Wide variant of the Top Shelf banner. Same compositing as topShelfImage. Default: 2320x720 at 1x and 2x."
+        }
+      },
+      "additionalProperties": false
+    },
+    "splashScreen": {
+      "type": "object",
+      "description": "Splash screen (launch screen) assets. Includes a logo imageset and a background colorset.",
+      "properties": {
+        "logo": {
+          "type": "object",
+          "description": "Splash screen logo. The icon is rendered on a transparent background at multiple scales for both universal and Apple TV idioms.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Set to false to skip generating the splash logo imageset.",
+              "default": true
+            },
+            "name": {
+              "type": "string",
+              "description": "Folder name for the imageset inside Images.xcassets. Must match the name referenced in your LaunchScreen storyboard.",
+              "default": "SplashScreenLogo"
+            },
+            "baseSize": {
+              "type": "number",
+              "minimum": 1,
+              "description": "Base icon size in pixels. Multiplied by each scale factor to produce the final image dimensions (e.g. 200 base x 2x = 400px).",
+              "default": 200
+            },
+            "filePrefix": {
+              "type": "string",
+              "description": "Filename prefix for generated PNGs. Produces files like {filePrefix}@1x.png, {filePrefix}@2x.png, etc.",
+              "default": "200-icon"
+            },
+            "universal": {
+              "type": "object",
+              "description": "Scale variants for non-TV devices (iOS, iPadOS).",
+              "properties": {
+                "scales": {
+                  "$ref": "#/$defs/scaleFactorArray",
+                  "description": "Scale factors for universal idiom.",
+                  "default": ["1x", "2x", "3x"]
+                }
+              },
+              "additionalProperties": false
+            },
+            "tv": {
+              "type": "object",
+              "description": "Scale variants for Apple TV.",
+              "properties": {
+                "scales": {
+                  "$ref": "#/$defs/scaleFactorArray",
+                  "description": "Scale factors for tv idiom.",
+                  "default": ["1x", "2x"]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "background": {
+          "type": "object",
+          "description": "Splash screen background color. Generates an Xcode colorset with light/dark appearance variants for both universal and Apple TV idioms.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Set to false to skip generating the splash background colorset.",
+              "default": true
+            },
+            "name": {
+              "type": "string",
+              "description": "Folder name for the colorset inside Images.xcassets. Must match the name referenced in your LaunchScreen storyboard.",
+              "default": "SplashScreenBackground"
+            },
+            "universal": {
+              "$ref": "#/$defs/colorEntry",
+              "description": "Light and dark mode colors for non-TV devices."
+            },
+            "tv": {
+              "$ref": "#/$defs/colorEntry",
+              "description": "Light and dark mode colors for Apple TV."
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "xcassetsMeta": {
+      "type": "object",
+      "description": "Metadata written into every Contents.json file. Xcode expects author \"xcode\" and version 1. Only change this if you know what you are doing.",
+      "properties": {
+        "author": {
+          "type": "string",
+          "description": "Author field in Contents.json. Xcode uses \"xcode\".",
+          "default": "xcode"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Version field in Contents.json. Xcode uses 1.",
+          "default": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "scaleFactor": {
+      "type": "string",
+      "enum": ["1x", "2x", "3x"],
+      "description": "Image scale factor. 1x = base resolution, 2x = retina, 3x = super retina."
+    },
+    "scaleFactorArray": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scaleFactor" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "size": {
+      "type": "object",
+      "description": "Dimensions in points. Multiplied by each scale factor to get pixel dimensions.",
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Width in points."
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Height in points."
+        }
+      },
+      "required": ["width", "height"],
+      "additionalProperties": false
+    },
+    "imageSource": {
+      "type": "string",
+      "enum": ["icon", "background"],
+      "description": "Which input image to use. \"icon\" composites the icon on the background. \"background\" uses the background image only."
+    },
+    "layerConfig": {
+      "type": "object",
+      "description": "Configuration for a single imagestack layer.",
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/imageSource",
+          "description": "Image source for this layer. \"icon\" renders the icon composited on the background. \"background\" renders the background only (opaque)."
+        }
+      },
+      "required": ["source"],
+      "additionalProperties": false
+    },
+    "layers": {
+      "type": "object",
+      "description": "Three-layer parallax imagestack. tvOS renders these with a depth effect when the user moves the Siri Remote.",
+      "properties": {
+        "front": {
+          "$ref": "#/$defs/layerConfig",
+          "description": "Foreground layer (closest to viewer). Typically the icon."
+        },
+        "middle": {
+          "$ref": "#/$defs/layerConfig",
+          "description": "Middle layer. Typically the icon."
+        },
+        "back": {
+          "$ref": "#/$defs/layerConfig",
+          "description": "Background layer (farthest from viewer). Typically the background image. Always rendered opaque."
+        }
+      },
+      "required": ["front", "middle", "back"],
+      "additionalProperties": false
+    },
+    "imageStackAsset": {
+      "type": "object",
+      "description": "A layered imagestack asset (used for app icons). Produces a 3-layer parallax stack with Front, Middle, and Back layers.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Set to false to skip generating this asset.",
+          "default": true
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name and folder name in the Brand Assets catalog (e.g. \"App Icon\", \"App Icon - App Store\")."
+        },
+        "size": {
+          "$ref": "#/$defs/size",
+          "description": "Base dimensions in points. Each scale factor multiplies these to get pixel dimensions."
+        },
+        "scales": {
+          "$ref": "#/$defs/scaleFactorArray",
+          "description": "Scale factors to generate. Each produces a separate PNG per layer."
+        },
+        "layers": {
+          "$ref": "#/$defs/layers",
+          "description": "Layer configuration for the parallax imagestack."
+        }
+      },
+      "required": ["enabled", "name", "size", "scales", "layers"],
+      "additionalProperties": false
+    },
+    "imageSetAsset": {
+      "type": "object",
+      "description": "A flat imageset asset (used for Top Shelf images). Produces a single composited image at each scale.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Set to false to skip generating this asset.",
+          "default": true
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name and folder name in the Brand Assets catalog (e.g. \"Top Shelf Image\")."
+        },
+        "size": {
+          "$ref": "#/$defs/size",
+          "description": "Base dimensions in points. Each scale factor multiplies these to get pixel dimensions."
+        },
+        "scales": {
+          "$ref": "#/$defs/scaleFactorArray",
+          "description": "Scale factors to generate."
+        },
+        "filePrefix": {
+          "type": "string",
+          "description": "Filename prefix for generated PNGs. Produces files like {filePrefix}@1x.png."
+        }
+      },
+      "required": ["enabled", "name", "size", "scales", "filePrefix"],
+      "additionalProperties": false
+    },
+    "colorEntry": {
+      "type": "object",
+      "description": "A pair of colors for light and dark appearance modes.",
+      "properties": {
+        "light": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Color for light mode (#RRGGBB)."
+        },
+        "dark": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Color for dark mode (#RRGGBB)."
+        }
+      },
+      "required": ["light", "dark"],
+      "additionalProperties": false
+    }
+  }
+}
