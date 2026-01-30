@@ -1,7 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ImageStackAssetConfig, TvOSImageCreatorConfig } from "../types.js";
-import { ensureDir } from "../utils/fs.js";
+import { ensureDir, writeContentsJson } from "../utils/fs.js";
 import {
   resizeImageOpaque,
   compositeIconOnBackground,
@@ -95,7 +95,7 @@ export async function generateImageStack(
     LAYER_NAMES.map((n) => `${n}.imagestacklayer`),
     config.xcassetsMeta,
   );
-  writeFileSync(join(stackDir, "Contents.json"), JSON.stringify(stackContents, null, 2));
+  writeContentsJson(join(stackDir, "Contents.json"), stackContents);
 
   // Generate each layer
   for (const layerName of LAYER_NAMES) {
@@ -104,7 +104,7 @@ export async function generateImageStack(
 
     // Write layer Contents.json
     const layerContents = imageStackLayerContentsJson(config.xcassetsMeta);
-    writeFileSync(join(layerDir, "Contents.json"), JSON.stringify(layerContents, null, 2));
+    writeContentsJson(join(layerDir, "Contents.json"), layerContents);
 
     // Create Content.imageset inside the layer
     const imagesetDir = join(layerDir, "Content.imageset");
@@ -113,10 +113,7 @@ export async function generateImageStack(
     // Build image entries for Contents.json
     const imageEntries = buildImageStackImageEntries(layerName, asset.scales, isAppStore);
     const imagesetContents = imageSetContentsJson(imageEntries, config.xcassetsMeta);
-    writeFileSync(
-      join(imagesetDir, "Contents.json"),
-      JSON.stringify(imagesetContents, null, 2),
-    );
+    writeContentsJson(join(imagesetDir, "Contents.json"), imagesetContents);
 
     // Generate actual PNG files
     await generateLayerImages(layerName, asset, config, imagesetDir, isAppStore);

@@ -6,7 +6,7 @@ import type {
   TvOSImageCreatorConfig,
   ScaleFactor,
 } from "../types.js";
-import { ensureDir } from "../utils/fs.js";
+import { ensureDir, writeContentsJson } from "../utils/fs.js";
 import { compositeIconOnBackground, renderIconOnTransparent } from "../utils/image-processing.js";
 import {
   imageSetContentsJson,
@@ -32,7 +32,7 @@ export async function generateTopShelfImageSet(
   // Write Contents.json
   const imageEntries = buildTopShelfImageEntries(asset.filePrefix, asset.scales);
   const contents = imageSetContentsJson(imageEntries, config.xcassetsMeta);
-  writeFileSync(join(imagesetDir, "Contents.json"), JSON.stringify(contents, null, 2));
+  writeContentsJson(join(imagesetDir, "Contents.json"), contents);
 
   // Generate PNGs at each scale
   for (const scale of asset.scales) {
@@ -71,7 +71,7 @@ export async function generateSplashLogoImageSet(
     logoConfig.tv.scales,
   );
   const contents = imageSetContentsJson(imageEntries, config.xcassetsMeta);
-  writeFileSync(join(imagesetDir, "Contents.json"), JSON.stringify(contents, null, 2));
+  writeContentsJson(join(imagesetDir, "Contents.json"), contents);
 
   // Generate universal scale variants
   for (const scale of logoConfig.universal.scales) {
@@ -83,11 +83,11 @@ export async function generateSplashLogoImageSet(
     writeFileSync(join(imagesetDir, filename), buffer);
   }
 
-  // Generate tv scale variants (filename has " 1" suffix)
+  // Generate tv scale variants
   for (const scale of logoConfig.tv.scales) {
     const multiplier = scaleMultiplier(scale);
     const size = logoConfig.baseSize * multiplier;
-    const filename = `${logoConfig.filePrefix}@${scale} 1.png`;
+    const filename = `${logoConfig.filePrefix}-tv@${scale}.png`;
 
     const buffer = await renderIconOnTransparent(config.inputs.iconImage, size);
     writeFileSync(join(imagesetDir, filename), buffer);

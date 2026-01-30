@@ -66,7 +66,7 @@ export function buildSplashLogoImageEntries(filePrefix, universalScales, tvScale
     }
     for (const scale of tvScales) {
         entries.push({
-            filename: `${filePrefix}@${scale} 1.png`,
+            filename: `${filePrefix}-tv@${scale}.png`,
             idiom: "tv",
             scale,
         });

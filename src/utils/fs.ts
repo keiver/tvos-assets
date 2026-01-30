@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, existsSync } from "node:fs";
+import { mkdirSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const SAFETY_MARKERS = ["package.json", "src", ".git", "node_modules"];
@@ -20,4 +20,10 @@ export function cleanDir(dirPath: string): void {
   }
 
   rmSync(dirPath, { recursive: true, force: true });
+}
+
+/** Write a Contents.json with Xcode-style formatting (space before colon, trailing newline) */
+export function writeContentsJson(filePath: string, data: unknown): void {
+  const json = JSON.stringify(data, null, 2).replace(/"(\w[^"]*)":/g, '"$1" :');
+  writeFileSync(filePath, json + "\n");
 }

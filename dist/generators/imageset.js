@@ -44,11 +44,11 @@ export async function generateSplashLogoImageSet(parentDir, logoConfig, config) 
         const buffer = await renderIconOnTransparent(config.inputs.iconImage, size);
         writeFileSync(join(imagesetDir, filename), buffer);
     }
-    // Generate tv scale variants (filename has " 1" suffix)
+    // Generate tv scale variants
     for (const scale of logoConfig.tv.scales) {
         const multiplier = scaleMultiplier(scale);
         const size = logoConfig.baseSize * multiplier;
-        const filename = `${logoConfig.filePrefix}@${scale} 1.png`;
+        const filename = `${logoConfig.filePrefix}-tv@${scale}.png`;
         const buffer = await renderIconOnTransparent(config.inputs.iconImage, size);
         writeFileSync(join(imagesetDir, filename), buffer);
     }

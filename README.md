@@ -56,14 +56,14 @@ The output is **idempotent** — if `Images.xcassets` already exists at the targ
 
 ### Using the included sample content
 
-Generate to the current directory:
+Generate into an `Images.xcassets` folder in the current directory:
 
 ```bash
 npx tsx src/index.ts \
   --icon ./sample-content/icon.png \
   --background ./sample-content/source.png \
   --color "#F39C12" \
-  --output ./
+  --output ./Images.xcassets
 ```
 
 Generate to Desktop (default when `--output` is omitted):
@@ -187,8 +187,8 @@ Images.xcassets/
 │   ├── 200-icon@1x.png
 │   ├── 200-icon@2x.png
 │   ├── 200-icon@3x.png
-│   ├── 200-icon@1x 1.png    (tv)
-│   └── 200-icon@2x 1.png    (tv)
+│   ├── 200-icon-tv@1x.png    (tv)
+│   └── 200-icon-tv@2x.png    (tv)
 └── SplashScreenBackground.colorset/
     └── Contents.json
 ```

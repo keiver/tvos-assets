@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig } from "./config.js";
 import { rootContentsJson } from "./generators/contents-json.js";
 import { generateBrandAssets } from "./generators/brand-assets.js";
 import { generateSplashLogoImageSet } from "./generators/imageset.js";
 import { generateColorSet } from "./generators/colorset.js";
-import { ensureDir, cleanDir } from "./utils/fs.js";
+import { generateIcon } from "./generators/icon.js";
+import { ensureDir, cleanDir, writeContentsJson } from "./utils/fs.js";
 
 const program = new Command();
 
@@ -50,10 +50,7 @@ program
 
       // Write root Contents.json
       const rootContents = rootContentsJson(config.xcassetsMeta);
-      writeFileSync(
-        join(config.output.directory, "Contents.json"),
-        JSON.stringify(rootContents, null, 2),
-      );
+      writeContentsJson(join(config.output.directory, "Contents.json"), rootContents);
 
       // Generate Brand Assets (app icons + top shelf images)
       console.log("Generating Brand Assets...");
@@ -82,6 +79,10 @@ program
           config,
         );
       }
+
+      // Generate standalone icon.png
+      console.log("Generating icon.png (1024x1024)...");
+      await generateIcon(config);
 
       console.log();
       console.log("Done! Generated Images.xcassets at:");

@@ -1,7 +1,6 @@
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { TvOSImageCreatorConfig, BrandAssetEntry } from "../types.js";
-import { ensureDir } from "../utils/fs.js";
+import { ensureDir, writeContentsJson } from "../utils/fs.js";
 import { brandAssetsContentsJson } from "./contents-json.js";
 import { generateImageStack } from "./imagestack.js";
 import { generateTopShelfImageSet } from "./imageset.js";
@@ -52,7 +51,7 @@ export async function generateBrandAssets(config: TvOSImageCreatorConfig): Promi
 
   // Write Brand Assets Contents.json
   const contents = brandAssetsContentsJson(assets, config.xcassetsMeta);
-  writeFileSync(join(brandDir, "Contents.json"), JSON.stringify(contents, null, 2));
+  writeContentsJson(join(brandDir, "Contents.json"), contents);
 
   // Generate imagestacks (app icons)
   await generateImageStack(brandDir, brandAssets.appIconSmall, config);
