@@ -1,6 +1,14 @@
 # tvos-image-creator
 
-CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon and a background image. Produces all required Brand Assets (app icons, Top Shelf images), splash screen logo, and splash screen background color set — ready to drop into an Xcode or React Native tvOS project.
+CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon and a background image. Produces all required Brand Assets (app icons with parallax layers, Top Shelf images), splash screen assets, and a standalone `icon.png` — ready to drop into an Xcode or React Native tvOS project.
+
+## Quick Start
+
+```bash
+npx tsx src/index.ts --icon ./sample-content/icon.png --background ./sample-content/source.png --color "#F39C12"
+```
+
+Generates `Images.xcassets` on your Desktop with every tvOS asset your app needs.
 
 ## Requirements
 
@@ -13,24 +21,13 @@ CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon an
 npm install
 ```
 
-Build the project:
+## Usage
 
 ```bash
-npm run build
+npx tsx src/index.ts --icon <path> --background <path> --color <hex> [--output <path>] [--config <path>]
 ```
 
-## Quick Start
-
-```bash
-npx tsx src/index.ts \
-  --icon ./sample-content/icon.png \
-  --background ./sample-content/source.png \
-  --color "#F39C12"
-```
-
-This generates `Images.xcassets` on your Desktop with all tvOS assets.
-
-## CLI Options
+### CLI Options
 
 | Option | Required | Description |
 |---|---|---|
@@ -42,11 +39,7 @@ This generates `Images.xcassets` on your Desktop with all tvOS assets.
 | `--version` | No | Print version |
 | `--help` | No | Show help |
 
-### Priority
-
 CLI arguments override config file values, which override built-in defaults.
-
-### Output Path
 
 When `--output` is omitted the tool writes to `~/Desktop/Images.xcassets`. If the Desktop folder does not exist (e.g. on a Linux server) it falls back to `~/Images.xcassets`.
 
@@ -54,48 +47,25 @@ The output is **idempotent** — if `Images.xcassets` already exists at the targ
 
 ## Examples
 
-### Using the included sample content
-
-Generate into an `Images.xcassets` folder in the current directory:
+Generate to Desktop (default):
 
 ```bash
-npx tsx src/index.ts \
-  --icon ./sample-content/icon.png \
-  --background ./sample-content/source.png \
-  --color "#F39C12" \
-  --output ./Images.xcassets
+npx tsx src/index.ts --icon ./sample-content/icon.png --background ./sample-content/source.png --color "#F39C12"
 ```
 
-Generate to Desktop (default when `--output` is omitted):
+Generate into a specific directory:
 
 ```bash
-npx tsx src/index.ts \
-  --icon ./sample-content/icon.png \
-  --background ./sample-content/source.png \
-  --color "#F39C12"
+npx tsx src/index.ts --icon ./sample-content/icon.png --background ./sample-content/source.png --color "#F39C12" --output ./my-tvos-app/Images.xcassets
 ```
 
-Generate to a specific project path:
+Use your own assets:
 
 ```bash
-npx tsx src/index.ts \
-  --icon ./sample-content/icon.png \
-  --background ./sample-content/source.png \
-  --color "#F39C12" \
-  --output ./my-tvos-app/Images.xcassets
+npx tsx src/index.ts --icon /path/to/your/icon.png --background /path/to/your/background.png --color "#B43939" --output ./Images.xcassets
 ```
 
-### Using your own assets
-
-```bash
-npx tsx src/index.ts \
-  --icon /path/to/your/icon.png \
-  --background /path/to/your/background.png \
-  --color "#B43939" \
-  --output ./Images.xcassets
-```
-
-### Using a config file
+Use a config file:
 
 ```bash
 npx tsx src/index.ts --config ./tvos-image-creator.config.json
@@ -104,52 +74,21 @@ npx tsx src/index.ts --config ./tvos-image-creator.config.json
 Config file with CLI overrides (CLI args always win):
 
 ```bash
-npx tsx src/index.ts \
-  --config ./tvos-image-creator.config.json \
-  --color "#00FF00" \
-  --output ./output/Images.xcassets
+npx tsx src/index.ts --config ./tvos-image-creator.config.json --color "#00FF00" --output ./output/Images.xcassets
 ```
 
-### Using the compiled build
+Using the compiled build:
 
 ```bash
-npm run build
-node dist/index.js \
-  --icon ./sample-content/icon.png \
-  --background ./sample-content/source.png \
-  --color "#F39C12"
+npm run build && node dist/index.js --icon ./sample-content/icon.png --background ./sample-content/source.png --color "#F39C12"
 ```
 
-## Generated Assets
+## Generated Files
 
-The tool produces the following tvOS asset catalog structure:
-
-### Brand Assets
-
-| Asset | Size (points) | Scales | Output Files |
-|---|---|---|---|
-| App Icon | 400 x 240 | 1x, 2x | 3-layer imagestack (front, middle, back) |
-| App Icon - App Store | 1280 x 768 | 1x | 3-layer imagestack |
-| Top Shelf Image | 1920 x 720 | 1x, 2x | `top@1x.png`, `top@2x.png` |
-| Top Shelf Image Wide | 2320 x 720 | 1x, 2x | `wide@1x.png`, `wide@2x.png` |
-
-**App Icon layers:**
-- **Front** — icon composited on background
-- **Middle** — icon composited on background
-- **Back** — background only (opaque, no alpha)
-
-**Top Shelf images** are composited (icon centered on background) and written as opaque RGB PNGs (no alpha channel), as required by tvOS.
-
-### Splash Screen
-
-| Asset | Type | Output |
-|---|---|---|
-| SplashScreenLogo | Imageset | Icon on transparent background at 1x/2x/3x (universal) + 1x/2x (tv) |
-| SplashScreenBackground | Colorset | Light/dark color definitions for universal + tv idioms |
-
-### Output Directory Structure
+The tool produces **41 files** (21 `Contents.json` + 20 PNGs) plus a standalone `icon.png` next to the output directory.
 
 ```
+icon.png                                                                         (1024x1024, icon on background)
 Images.xcassets/
 ├── Contents.json
 ├── Brand Assets.brandassets/
@@ -160,44 +99,105 @@ Images.xcassets/
 │   │   │   ├── Contents.json
 │   │   │   └── Content.imageset/
 │   │   │       ├── Contents.json
-│   │   │       ├── front@1x.png
-│   │   │       └── front@2x.png
+│   │   │       ├── front@1x.png                                                 (400x240, icon on transparent)
+│   │   │       └── front@2x.png                                                 (800x480, icon on transparent)
 │   │   ├── Middle.imagestacklayer/
+│   │   │   ├── Contents.json
 │   │   │   └── Content.imageset/
 │   │   │       ├── Contents.json
-│   │   │       ├── middle@1x.png
-│   │   │       └── middle@2x.png
+│   │   │       ├── middle@1x.png                                                (400x240, icon on transparent)
+│   │   │       └── middle@2x.png                                                (800x480, icon on transparent)
 │   │   └── Back.imagestacklayer/
+│   │       ├── Contents.json
 │   │       └── Content.imageset/
 │   │           ├── Contents.json
-│   │           ├── back@1x.png
-│   │           └── back@2x.png
+│   │           ├── back@1x.png                                                  (400x240, background only, opaque)
+│   │           └── back@2x.png                                                  (800x480, background only, opaque)
 │   ├── App Icon - App Store.imagestack/
-│   │   └── (same structure, 1x only)
+│   │   ├── Contents.json
+│   │   ├── Front.imagestacklayer/
+│   │   │   ├── Contents.json
+│   │   │   └── Content.imageset/
+│   │   │       ├── Contents.json
+│   │   │       └── front@1x.png                                                 (1280x768, icon on transparent)
+│   │   ├── Middle.imagestacklayer/
+│   │   │   ├── Contents.json
+│   │   │   └── Content.imageset/
+│   │   │       ├── Contents.json
+│   │   │       └── middle@1x.png                                                (1280x768, icon on transparent)
+│   │   └── Back.imagestacklayer/
+│   │       ├── Contents.json
+│   │       └── Content.imageset/
+│   │           ├── Contents.json
+│   │           └── back.png                                                     (1280x768, background only, opaque)
 │   ├── Top Shelf Image.imageset/
 │   │   ├── Contents.json
-│   │   ├── top@1x.png
-│   │   └── top@2x.png
+│   │   ├── top@1x.png                                                          (1920x720, icon on background, opaque)
+│   │   └── top@2x.png                                                          (3840x1440, icon on background, opaque)
 │   └── Top Shelf Image Wide.imageset/
 │       ├── Contents.json
-│       ├── wide@1x.png
-│       └── wide@2x.png
+│       ├── wide@1x.png                                                         (2320x720, icon on background, opaque)
+│       └── wide@2x.png                                                         (4640x1440, icon on background, opaque)
 ├── SplashScreenLogo.imageset/
 │   ├── Contents.json
-│   ├── 200-icon@1x.png
-│   ├── 200-icon@2x.png
-│   ├── 200-icon@3x.png
-│   ├── 200-icon-tv@1x.png    (tv)
-│   └── 200-icon-tv@2x.png    (tv)
+│   ├── 200-icon@1x.png                                                         (200px, icon on transparent)
+│   ├── 200-icon@2x.png                                                         (400px, icon on transparent)
+│   ├── 200-icon@3x.png                                                         (600px, icon on transparent)
+│   ├── 200-icon-tv@1x.png                                                      (200px, icon on transparent, tv)
+│   └── 200-icon-tv@2x.png                                                      (400px, icon on transparent, tv)
 └── SplashScreenBackground.colorset/
-    └── Contents.json
+    └── Contents.json                                                            (light/dark color definitions)
 ```
+
+## Features
+
+- Generates all required tvOS Brand Assets from two images and a color
+- **Parallax-correct imagestack layers** — Front/Middle layers render the icon on a transparent canvas (PNG with alpha); Back layer is the opaque background. This gives tvOS the separate depth layers it needs for the parallax effect on the home screen.
+- Top Shelf images (standard and wide) composited as opaque PNGs
+- Splash screen logo at all scale factors for universal and Apple TV idioms
+- Splash screen background colorset with light/dark variants
+- Standalone 1024x1024 `icon.png` for general use
+- JSON config file support with schema validation for editor autocompletion
+- CLI args override config file values for flexible workflows
+- Idempotent output — safe to run repeatedly
+
+## Input Requirements
+
+- **Icon**: PNG with transparent background. Centered and scaled to 60% of the shorter output dimension.
+- **Background**: Any PNG. Resized with cover-fit and center-cropped to each required dimension.
+- **Color**: Hex format `#RRGGBB` (e.g. `#F39C12`). Used for the splash screen background colorset.
+
+## Brand Asset Details
+
+### App Icon Layers (Parallax)
+
+tvOS app icons use a 3-layer imagestack for the parallax depth effect when the user moves the Siri Remote:
+
+| Layer | Content | Format |
+|---|---|---|
+| **Front** | Icon on transparent canvas | PNG with alpha |
+| **Middle** | Icon on transparent canvas | PNG with alpha |
+| **Back** | Background image only | Opaque PNG (no alpha) |
+
+### Top Shelf Images
+
+Composited images (icon centered on background), written as opaque RGB PNGs as required by tvOS.
+
+| Asset | Size (points) | Scales |
+|---|---|---|
+| Top Shelf Image | 1920x720 | 1x, 2x |
+| Top Shelf Image Wide | 2320x720 | 1x, 2x |
+
+### Splash Screen
+
+| Asset | Type | Description |
+|---|---|---|
+| SplashScreenLogo | Imageset | Icon on transparent background at 1x/2x/3x (universal) + 1x/2x (tv) |
+| SplashScreenBackground | Colorset | Light/dark color definitions for universal + tv idioms |
 
 ## Configuration File
 
-For full control, create a JSON config file. All sections are optional — omitted values use built-in defaults. The config file has a JSON Schema for editor autocompletion and validation.
-
-Add the `$schema` field to enable it:
+For full control, create a JSON config file. All sections are optional — omitted values use built-in defaults. Add the `$schema` field for editor autocompletion:
 
 ```json
 {
@@ -205,9 +205,7 @@ Add the `$schema` field to enable it:
 }
 ```
 
-### Minimal config (inputs only)
-
-Everything else uses built-in defaults:
+### Minimal config
 
 ```json
 {
@@ -297,62 +295,46 @@ Everything else uses built-in defaults:
 
 ### Config Reference
 
----
-
 #### `inputs`
-
-Source images and color used to generate all assets.
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `iconImage` | string | Yes | Path to the app icon PNG. Must have a transparent background. Composited onto the background for app icons and Top Shelf images; rendered standalone for the splash logo. |
-| `backgroundImage` | string | Yes | Path to the background PNG. Used as the base layer for app icons and Top Shelf images. Resized with cover-fit and center-cropped to each required dimension. |
-| `backgroundColor` | string | Yes | Hex color (`#RRGGBB`). Used for the splash screen background colorset. Applied to both light and dark appearances unless overridden in `splashScreen.background`. |
-
----
+| `iconImage` | string | Yes | Path to the app icon PNG (transparent background). |
+| `backgroundImage` | string | Yes | Path to the background PNG. |
+| `backgroundColor` | string | Yes | Hex color `#RRGGBB` for the splash screen background. |
 
 #### `output`
 
-Controls where and how the `Images.xcassets` bundle is written.
-
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `directory` | string | `~/Desktop/Images.xcassets` | Output directory path. The full xcassets structure is generated here. |
-| `cleanBeforeGenerate` | boolean | `true` | When `true`, the output directory is deleted and recreated on every run, ensuring a clean build with no stale files. |
-
----
+| `directory` | string | `~/Desktop/Images.xcassets` | Output directory path. |
+| `cleanBeforeGenerate` | boolean | `true` | Delete and recreate output on every run. |
 
 #### `brandAssets`
 
-tvOS Brand Assets catalog. Contains app icons (layered imagestacks for the parallax effect) and Top Shelf images (flat composited banners). All four are required by tvOS but can be individually disabled with `"enabled": false`.
+All four assets are required by tvOS but can be individually disabled with `"enabled": false`.
 
-##### `brandAssets.appIconSmall` — Home screen app icon
-
-3-layer parallax imagestack shown on the tvOS home screen.
+**`appIconSmall`** — Home screen app icon (3-layer parallax imagestack)
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `enabled` | boolean | `true` | Set to `false` to skip this asset. |
+| `enabled` | boolean | `true` | Set to `false` to skip. |
 | `name` | string | `"App Icon"` | Folder name in the Brand Assets catalog. |
-| `size` | `{width, height}` | `{400, 240}` | Base size in points. Multiplied by each scale factor to get pixel dimensions. |
-| `scales` | string[] | `["1x", "2x"]` | Scale factors to generate. Each produces a separate PNG per layer. |
-| `layers` | object | see below | Layer configuration for the parallax imagestack. |
+| `size` | `{width, height}` | `{400, 240}` | Base size in points. Multiplied by each scale. |
+| `scales` | string[] | `["1x", "2x"]` | Scale factors to generate. |
+| `layers` | object | see below | Layer configuration. |
 
-##### `brandAssets.appIconLarge` — App Store icon
-
-Same structure as `appIconSmall`, used for the App Store listing.
+**`appIconLarge`** — App Store icon (same structure, 1x only)
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `enabled` | boolean | `true` | Set to `false` to skip this asset. |
+| `enabled` | boolean | `true` | Set to `false` to skip. |
 | `name` | string | `"App Icon - App Store"` | Folder name in the Brand Assets catalog. |
 | `size` | `{width, height}` | `{1280, 768}` | Base size in points. |
 | `scales` | string[] | `["1x"]` | App Store only needs 1x. |
 | `layers` | object | see below | Layer configuration. |
 
-##### Layer configuration (`layers`)
-
-Each imagestack has three layers that tvOS renders with a depth/parallax effect when the user moves the Siri Remote:
+**Layer configuration:**
 
 ```json
 "layers": {
@@ -362,102 +344,58 @@ Each imagestack has three layers that tvOS renders with a depth/parallax effect 
 }
 ```
 
-| Layer | Position | Description |
-|---|---|---|
-| `front` | Closest to viewer | Moves the most. Typically the icon composited on background. |
-| `middle` | Center | Moderate movement. Typically the icon composited on background. |
-| `back` | Farthest from viewer | Least movement. Typically the background only. Always rendered opaque (no alpha). |
-
-`source` values:
-- `"icon"` — composites the icon centered on the background image.
+- `"icon"` — renders the icon centered on a transparent canvas (PNG with alpha).
 - `"background"` — uses the background image only (opaque, no alpha channel).
 
-##### `brandAssets.topShelfImage` — Top Shelf banner
+**`topShelfImage`** / **`topShelfImageWide`**
 
-Flat composited image displayed when the app is focused on the home screen top row.
-
-| Key | Type | Default | Description |
+| Key | Type | Default (standard / wide) | Description |
 |---|---|---|---|
-| `enabled` | boolean | `true` | Set to `false` to skip this asset. |
-| `name` | string | `"Top Shelf Image"` | Folder name in the Brand Assets catalog. |
-| `size` | `{width, height}` | `{1920, 720}` | Base size in points. |
-| `scales` | string[] | `["1x", "2x"]` | Scale factors to generate. |
-| `filePrefix` | string | `"top"` | Filename prefix. Produces `top@1x.png`, `top@2x.png`. |
-
-##### `brandAssets.topShelfImageWide` — Wide Top Shelf banner
-
-Same as `topShelfImage` but wider.
-
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `enabled` | boolean | `true` | Set to `false` to skip this asset. |
-| `name` | string | `"Top Shelf Image Wide"` | Folder name in the Brand Assets catalog. |
-| `size` | `{width, height}` | `{2320, 720}` | Base size in points. |
-| `scales` | string[] | `["1x", "2x"]` | Scale factors to generate. |
-| `filePrefix` | string | `"wide"` | Filename prefix. Produces `wide@1x.png`, `wide@2x.png`. |
-
-Top Shelf images are always written as **opaque RGB PNGs** (no alpha channel), as required by tvOS.
-
----
+| `enabled` | boolean | `true` | Set to `false` to skip. |
+| `name` | string | `"Top Shelf Image"` / `"Top Shelf Image Wide"` | Folder name. |
+| `size` | `{width, height}` | `{1920, 720}` / `{2320, 720}` | Base size in points. |
+| `scales` | string[] | `["1x", "2x"]` | Scale factors. |
+| `filePrefix` | string | `"top"` / `"wide"` | Filename prefix. |
 
 #### `splashScreen`
 
-Launch screen assets. Includes a logo imageset and a background colorset.
-
-##### `splashScreen.logo` — Splash screen icon
-
-The icon rendered on a transparent background at multiple scale factors. Generated for both universal (iOS/iPadOS) and Apple TV idioms.
+**`splashScreen.logo`**
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `enabled` | boolean | `true` | Set to `false` to skip the splash logo. |
-| `name` | string | `"SplashScreenLogo"` | Imageset folder name inside `Images.xcassets`. Must match the name in your LaunchScreen storyboard. |
-| `baseSize` | number | `200` | Base icon size in pixels. Multiplied by each scale factor (e.g. 200 x 2x = 400px). |
-| `filePrefix` | string | `"200-icon"` | Filename prefix. Produces `200-icon@1x.png`, `200-icon@2x.png`, etc. |
-| `universal.scales` | string[] | `["1x", "2x", "3x"]` | Scale factors for non-TV devices. |
-| `tv.scales` | string[] | `["1x", "2x"]` | Scale factors for Apple TV. |
+| `enabled` | boolean | `true` | Set to `false` to skip. |
+| `name` | string | `"SplashScreenLogo"` | Imageset folder name. Must match LaunchScreen storyboard. |
+| `baseSize` | number | `200` | Base icon size in px. Multiplied by each scale. |
+| `filePrefix` | string | `"200-icon"` | Filename prefix. |
+| `universal.scales` | string[] | `["1x", "2x", "3x"]` | Scales for non-TV devices. |
+| `tv.scales` | string[] | `["1x", "2x"]` | Scales for Apple TV. |
 
-##### `splashScreen.background` — Splash screen background color
-
-An Xcode colorset with light/dark appearance variants for both universal and Apple TV idioms. No image files — just color definitions in `Contents.json`.
+**`splashScreen.background`**
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `enabled` | boolean | `true` | Set to `false` to skip the splash background. |
-| `name` | string | `"SplashScreenBackground"` | Colorset folder name. Must match the name in your LaunchScreen storyboard. |
-| `universal.light` | string | Same as `--color` | Light mode color for non-TV devices (`#RRGGBB`). |
-| `universal.dark` | string | Same as `--color` | Dark mode color for non-TV devices (`#RRGGBB`). |
-| `tv.light` | string | Same as `--color` | Light mode color for Apple TV (`#RRGGBB`). |
-| `tv.dark` | string | Same as `--color` | Dark mode color for Apple TV (`#RRGGBB`). |
-
----
+| `enabled` | boolean | `true` | Set to `false` to skip. |
+| `name` | string | `"SplashScreenBackground"` | Colorset folder name. Must match LaunchScreen storyboard. |
+| `universal.light` | string | Same as `--color` | Light mode color for non-TV. |
+| `universal.dark` | string | Same as `--color` | Dark mode color for non-TV. |
+| `tv.light` | string | Same as `--color` | Light mode color for Apple TV. |
+| `tv.dark` | string | Same as `--color` | Dark mode color for Apple TV. |
 
 #### `xcassetsMeta`
 
-Metadata written into every `Contents.json` file in the output. Xcode expects specific values here.
-
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `author` | string | `"xcode"` | Author field. Xcode uses `"xcode"`. |
-| `version` | integer | `1` | Version field. Xcode uses `1`. |
-
-Only change these if you know what you are doing.
-
----
-
-## Input Requirements
-
-- **Icon**: PNG with transparent background. Gets composited onto the background and scaled to 60% of the shorter output dimension.
-- **Background**: Any PNG image. Gets resized with cover-fit and center-cropped to each required dimension.
-- **Color**: Hex format `#RRGGBB` (e.g. `#F39C12`). Used for the splash screen background colorset.
+| `author` | string | `"xcode"` | Author field in Contents.json. |
+| `version` | integer | `1` | Version field in Contents.json. |
 
 ## npm Scripts
 
-| Script | Command | Description |
-|---|---|---|
-| `npm run dev` | `tsx src/index.ts` | Run directly from TypeScript source |
-| `npm run build` | `tsc` | Compile to JavaScript in `dist/` |
-| `npm start` | `node dist/index.js` | Run compiled build |
+| Script | Description |
+|---|---|
+| `npm run dev` | Run directly from TypeScript source |
+| `npm run build` | Compile to JavaScript in `dist/` |
+| `npm start` | Run compiled build |
+| `npm test` | Run tests |
 
 ## License
 

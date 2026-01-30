@@ -70,3 +70,26 @@ export async function renderIconOnTransparent(
     .png()
     .toBuffer();
 }
+
+export async function renderIconOnTransparentCanvas(
+  iconPath: string,
+  width: number,
+  height: number,
+  options?: { iconScale?: number },
+): Promise<Buffer> {
+  const iconScale = options?.iconScale ?? 0.6;
+  const shortSide = Math.min(width, height);
+  const iconSize = Math.round(shortSide * iconScale);
+
+  const iconBuffer = await sharp(iconPath)
+    .resize(iconSize, iconSize, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+
+  return sharp({
+    create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite([{ input: iconBuffer, gravity: "center" }])
+    .png()
+    .toBuffer();
+}

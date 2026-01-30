@@ -4,7 +4,7 @@ import type { ImageStackAssetConfig, TvOSImageCreatorConfig } from "../types.js"
 import { ensureDir, writeContentsJson } from "../utils/fs.js";
 import {
   resizeImageOpaque,
-  compositeIconOnBackground,
+  renderIconOnTransparentCanvas,
 } from "../utils/image-processing.js";
 import {
   imageStackContentsJson,
@@ -42,12 +42,7 @@ async function generateLayerImages(
     if (layerConfig.source === "background" || isBackLayer) {
       buffer = await resizeImageOpaque(config.inputs.backgroundImage, w, h);
     } else {
-      buffer = await compositeIconOnBackground(
-        config.inputs.backgroundImage,
-        config.inputs.iconImage,
-        w,
-        h,
-      );
+      buffer = await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h);
     }
 
     writeFileSync(join(imagesetDir, filename), buffer);
@@ -66,13 +61,8 @@ async function generateLayerImages(
       // Back layer: opaque (no alpha)
       buffer = await resizeImageOpaque(config.inputs.backgroundImage, w, h);
     } else {
-      // Front/Middle: icon composited on background
-      buffer = await compositeIconOnBackground(
-        config.inputs.backgroundImage,
-        config.inputs.iconImage,
-        w,
-        h,
-      );
+      // Front/Middle: icon on transparent canvas
+      buffer = await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h);
     }
 
     writeFileSync(join(imagesetDir, filename), buffer);
