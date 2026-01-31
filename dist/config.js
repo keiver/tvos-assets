@@ -14,6 +14,7 @@ function getDefaultConfig(iconImage, backgroundImage, backgroundColor) {
             iconImage,
             backgroundImage,
             backgroundColor,
+            iconBorderRadius: 0,
         },
         output: {
             directory: defaultOutputDirectory(),
@@ -120,6 +121,15 @@ function assertPngExtension(filePath, label) {
         throw new Error(`${label} must be a PNG file (got "${ext}"): ${filePath}`);
     }
 }
+function validateImagePath(rawPath, label) {
+    const resolved = resolve(rawPath);
+    if (!existsSync(resolved)) {
+        throw new Error(`${label} not found: ${resolved}`);
+    }
+    assertNotSymlink(resolved, label);
+    assertPngExtension(resolved, label);
+    return resolved;
+}
 const SAFE_ASSET_NAME = /^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/;
 function validateAssetName(name, label) {
     if (!SAFE_ASSET_NAME.test(name)) {
@@ -160,23 +170,17 @@ export function resolveConfig(cliArgs) {
     if (!backgroundColor) {
         throw new Error("Background color is required. Use --color or set inputs.backgroundColor in config.");
     }
-    // Validate icon path exists, is not a symlink, and is a PNG
-    const resolvedIcon = resolve(iconImage);
-    if (!existsSync(resolvedIcon)) {
-        throw new Error(`Icon image not found: ${resolvedIcon}`);
-    }
-    assertNotSymlink(resolvedIcon, "Icon image");
-    assertPngExtension(resolvedIcon, "Icon image");
-    // Validate background path exists, is not a symlink, and is a PNG
-    const resolvedBg = resolve(backgroundImage);
-    if (!existsSync(resolvedBg)) {
-        throw new Error(`Background image not found: ${resolvedBg}`);
-    }
-    assertNotSymlink(resolvedBg, "Background image");
-    assertPngExtension(resolvedBg, "Background image");
+    const resolvedIcon = validateImagePath(iconImage, "Icon image");
+    const resolvedBg = validateImagePath(backgroundImage, "Background image");
     // Validate color format
     if (!/^#[0-9a-fA-F]{6}$/.test(backgroundColor)) {
         throw new Error(`Invalid color format: "${backgroundColor}". Use hex format like "#B43939".`);
+    }
+    // Parse icon border radius: CLI > config file > default (0)
+    const rawBorderRadius = cliArgs.iconBorderRadius ?? fileConfig.inputs?.iconBorderRadius;
+    const iconBorderRadius = rawBorderRadius !== undefined ? Number(rawBorderRadius) : 0;
+    if (!Number.isInteger(iconBorderRadius) || iconBorderRadius < 0) {
+        throw new Error(`Invalid icon border radius: "${rawBorderRadius}". Must be a non-negative integer.`);
     }
     // Build default config with resolved values
     const defaults = getDefaultConfig(resolvedIcon, resolvedBg, backgroundColor);
@@ -194,6 +198,7 @@ export function resolveConfig(cliArgs) {
     merged.inputs.iconImage = resolvedIcon;
     merged.inputs.backgroundImage = resolvedBg;
     merged.inputs.backgroundColor = backgroundColor;
+    merged.inputs.iconBorderRadius = iconBorderRadius;
     // Apply CLI output override
     if (cliArgs.output) {
         merged.output.directory = cliArgs.output;
@@ -260,6 +265,7 @@ export async function validateInputImages(config) {
     if (bgW > MAX_DIMENSION || bgH > MAX_DIMENSION) {
         warnings.push(`Background image is very large (${bgW}x${bgH}). Processing may use significant memory.`);
     }
-    return { warnings };
+    const iconSourceSize = Math.min(iconW, iconH);
+    return { warnings, iconSourceSize };
 }
 //# sourceMappingURL=config.js.map

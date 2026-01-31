@@ -5,10 +5,12 @@ interface CLIArgs {
     color?: string;
     config?: string;
     output?: string;
+    iconBorderRadius?: string;
 }
 export declare function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig;
 export interface ImageValidationResult {
     warnings: string[];
+    iconSourceSize: number;
 }
 export declare function validateInputImages(config: TvOSImageCreatorConfig): Promise<ImageValidationResult>;
 export {};

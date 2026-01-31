@@ -30,7 +30,7 @@ jobs:
 
       - name: Check for uncommitted changes
         run: |
-          CHANGES=$(git status --porcelain | grep -v '^?? coverage/' | grep -v '^ M coverage/' || true)
+          CHANGES=$(git status --porcelain | grep -v 'coverage/' || true)
           if [ -n "$CHANGES" ]; then
             echo "Build produced uncommitted changes (other than coverage/):"
             echo "$CHANGES"

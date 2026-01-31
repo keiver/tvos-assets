@@ -22,6 +22,7 @@ export async function generateTopShelfImageSet(
   parentDir: string,
   asset: ImageSetAssetConfig,
   config: TvOSImageCreatorConfig,
+  iconSourceSize?: number,
 ): Promise<void> {
   if (!asset.enabled) return;
 
@@ -46,7 +47,11 @@ export async function generateTopShelfImageSet(
       config.inputs.iconImage,
       w,
       h,
-      { opaque: true },
+      {
+        opaque: true,
+        borderRadius: config.inputs.iconBorderRadius,
+        sourceIconSize: iconSourceSize,
+      },
     );
 
     safeWriteFile(join(imagesetDir, filename), buffer);
@@ -58,6 +63,7 @@ export async function generateSplashLogoImageSet(
   parentDir: string,
   logoConfig: SplashScreenLogoConfig,
   config: TvOSImageCreatorConfig,
+  iconSourceSize?: number,
 ): Promise<void> {
   if (!logoConfig.enabled) return;
 
@@ -73,6 +79,10 @@ export async function generateSplashLogoImageSet(
   const contents = imageSetContentsJson(imageEntries, config.xcassetsMeta);
   writeContentsJson(join(imagesetDir, "Contents.json"), contents);
 
+  const borderOpts = config.inputs.iconBorderRadius > 0 && iconSourceSize
+    ? { borderRadius: config.inputs.iconBorderRadius, sourceIconSize: iconSourceSize }
+    : undefined;
+
   // Generate universal scale variants
   for (const scale of logoConfig.universal.scales) {
     const multiplier = scaleMultiplier(scale);
@@ -80,7 +90,7 @@ export async function generateSplashLogoImageSet(
     validateOutputDimensions(size, size, `${logoConfig.name} universal @${scale}`);
     const filename = `${logoConfig.filePrefix}@${scale}.png`;
 
-    const buffer = await renderIconOnTransparent(config.inputs.iconImage, size);
+    const buffer = await renderIconOnTransparent(config.inputs.iconImage, size, borderOpts);
     safeWriteFile(join(imagesetDir, filename), buffer);
   }
 
@@ -91,7 +101,7 @@ export async function generateSplashLogoImageSet(
     validateOutputDimensions(size, size, `${logoConfig.name} tv @${scale}`);
     const filename = `${logoConfig.filePrefix}-tv@${scale}.png`;
 
-    const buffer = await renderIconOnTransparent(config.inputs.iconImage, size);
+    const buffer = await renderIconOnTransparent(config.inputs.iconImage, size, borderOpts);
     safeWriteFile(join(imagesetDir, filename), buffer);
   }
 }

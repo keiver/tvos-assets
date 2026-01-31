@@ -5,7 +5,7 @@ import { brandAssetsContentsJson } from "./contents-json.js";
 import { generateImageStack } from "./imagestack.js";
 import { generateTopShelfImageSet } from "./imageset.js";
 
-export async function generateBrandAssets(config: TvOSImageCreatorConfig): Promise<void> {
+export async function generateBrandAssets(config: TvOSImageCreatorConfig, iconSourceSize?: number): Promise<void> {
   const brandDir = join(config.output.directory, `${config.brandAssets.name}.brandassets`);
   ensureDir(brandDir);
 
@@ -54,9 +54,9 @@ export async function generateBrandAssets(config: TvOSImageCreatorConfig): Promi
   writeContentsJson(join(brandDir, "Contents.json"), contents);
 
   await Promise.all([
-    generateImageStack(brandDir, brandAssets.appIconSmall, config),
-    generateImageStack(brandDir, brandAssets.appIconLarge, config),
-    generateTopShelfImageSet(brandDir, brandAssets.topShelfImage, config),
-    generateTopShelfImageSet(brandDir, brandAssets.topShelfImageWide, config),
+    generateImageStack(brandDir, brandAssets.appIconSmall, config, iconSourceSize),
+    generateImageStack(brandDir, brandAssets.appIconLarge, config, iconSourceSize),
+    generateTopShelfImageSet(brandDir, brandAssets.topShelfImage, config, iconSourceSize),
+    generateTopShelfImageSet(brandDir, brandAssets.topShelfImageWide, config, iconSourceSize),
   ]);
 }

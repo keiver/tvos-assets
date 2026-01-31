@@ -17,7 +17,7 @@ npm test             # Run Jest tests
 
 Run with arguments during development:
 ```bash
-npx tsx src/index.ts --icon ./sample-content/icon.png --background ./sample-content/source.png --color "#F39C12"
+npx tsx src/index.ts --icon ./input/icon.png --background ./input/bg.png --color "#F39C12"
 npx tsx src/index.ts --config ./tvos-image-creator.config.json
 ```
 
@@ -48,7 +48,7 @@ npx tsx src/index.ts --config ./tvos-image-creator.config.json
 - **Sharp** is the sole image processing library — all PNG operations go through it
 - **Contents.json format** must match Xcode exactly: `writeContentsJson()` in `src/utils/fs.ts` adds a space before every colon via regex replacement
 - **Directory safety**: `cleanDir()` checks for safety markers before deleting — never bypass this
-- **Generated output**: 41 files (21 Contents.json + 20 PNGs) plus icon.png written to parent of output directory
+- **Generated output**: 39 files (20 Contents.json + 18 PNGs) plus icon.png written to parent of output directory
 - **Icon scaling**: Icons are rendered at 60% of the shortest canvas dimension, centered — this ratio is hardcoded in the image processing utils
 
 ## Testing

@@ -19,7 +19,10 @@
       "WebFetch(domain:readybytes.in)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(npx jest:*)"
+      "Bash(npx jest:*)",
+      "Bash(node /Users/keiverhernandez/@keiver/tvos-image-creator/dist/index.js:*)",
+      "Bash(wc:*)",
+      "Bash(npm info:*)"
     ]
   }
 }

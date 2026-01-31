@@ -100,6 +100,101 @@ describe("resolveConfig", () => {
     expect(config.splashScreen.logo.enabled).toBe(true);
   });
 
+  // --- Icon border radius ---
+
+  it("defaults iconBorderRadius to 0", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const config = resolveConfig({
+      icon,
+      background: bg,
+      color: "#FF0000",
+    });
+    expect(config.inputs.iconBorderRadius).toBe(0);
+  });
+
+  it("accepts iconBorderRadius from CLI", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const config = resolveConfig({
+      icon,
+      background: bg,
+      color: "#FF0000",
+      iconBorderRadius: "50",
+    });
+    expect(config.inputs.iconBorderRadius).toBe(50);
+  });
+
+  it("accepts iconBorderRadius from config file", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "border-radius.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: {
+          iconImage: icon,
+          backgroundImage: bg,
+          backgroundColor: "#FF0000",
+          iconBorderRadius: 100,
+        },
+      }),
+    );
+    const config = resolveConfig({ config: configPath });
+    expect(config.inputs.iconBorderRadius).toBe(100);
+  });
+
+  it("CLI iconBorderRadius overrides config file value", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "border-radius-override.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: {
+          iconImage: icon,
+          backgroundImage: bg,
+          backgroundColor: "#FF0000",
+          iconBorderRadius: 100,
+        },
+      }),
+    );
+    const config = resolveConfig({ config: configPath, iconBorderRadius: "200" });
+    expect(config.inputs.iconBorderRadius).toBe(200);
+  });
+
+  it("rejects negative iconBorderRadius", async () => {
+    const { icon, bg } = await createStandardInputs();
+    expect(() =>
+      resolveConfig({
+        icon,
+        background: bg,
+        color: "#FF0000",
+        iconBorderRadius: "-10",
+      }),
+    ).toThrow(/Invalid icon border radius/);
+  });
+
+  it("rejects non-integer iconBorderRadius", async () => {
+    const { icon, bg } = await createStandardInputs();
+    expect(() =>
+      resolveConfig({
+        icon,
+        background: bg,
+        color: "#FF0000",
+        iconBorderRadius: "12.5",
+      }),
+    ).toThrow(/Invalid icon border radius/);
+  });
+
+  it("rejects non-numeric iconBorderRadius", async () => {
+    const { icon, bg } = await createStandardInputs();
+    expect(() =>
+      resolveConfig({
+        icon,
+        background: bg,
+        color: "#FF0000",
+        iconBorderRadius: "abc",
+      }),
+    ).toThrow(/Invalid icon border radius/);
+  });
+
   it("allows overriding brandAssets.name via config file", async () => {
     const { icon, bg } = await createStandardInputs();
     const configPath = join(TMP, "custom-name.json");
@@ -373,6 +468,14 @@ describe("validateInputImages", () => {
     const config = resolveConfig({ icon, background: bg, color: "#FF0000" });
     const result = await validateInputImages(config);
     expect(result.warnings).toHaveLength(0);
+  });
+
+  it("returns iconSourceSize as shortest icon dimension", async () => {
+    const icon = await createTestIcon(TMP);
+    const bg = await createTestBackground(TMP);
+    const config = resolveConfig({ icon, background: bg, color: "#FF0000" });
+    const result = await validateInputImages(config);
+    expect(result.iconSourceSize).toBeGreaterThanOrEqual(1280);
   });
 
   it("throws on undersized icon", async () => {

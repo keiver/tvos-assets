@@ -9,6 +9,7 @@ import {
   renderIconOnTransparentCanvas,
   scaleMultiplier,
   validateOutputDimensions,
+  applyBorderRadius,
 } from "../../src/utils/image-processing";
 import { createTestPng } from "../fixtures/create-fixtures";
 
@@ -186,6 +187,87 @@ describe("scaleMultiplier", () => {
 
   it("returns 3 for '3x'", () => {
     expect(scaleMultiplier("3x")).toBe(3);
+  });
+});
+
+describe("applyBorderRadius", () => {
+  it("returns unchanged buffer when radius <= 0", async () => {
+    const input = await sharp({
+      create: { width: 100, height: 100, channels: 4, background: { r: 255, g: 0, b: 0, alpha: 255 } },
+    })
+      .png()
+      .toBuffer();
+    const result = await applyBorderRadius(input, 100, 0);
+    expect(result).toBe(input);
+  });
+
+  it("returns a buffer with rounded corners when radius > 0", async () => {
+    const input = await sharp({
+      create: { width: 100, height: 100, channels: 4, background: { r: 255, g: 0, b: 0, alpha: 255 } },
+    })
+      .png()
+      .toBuffer();
+    const result = await applyBorderRadius(input, 100, 20);
+    const meta = await sharp(result).metadata();
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
+    expect(meta.channels).toBe(4);
+    // Corner pixel should be transparent after rounding
+    const { data } = await sharp(result).raw().toBuffer({ resolveWithObject: true });
+    const topLeftAlpha = data[3]; // alpha of pixel (0,0)
+    expect(topLeftAlpha).toBe(0);
+  });
+
+  it("clamps radius to produce circular output", async () => {
+    const input = await sharp({
+      create: { width: 100, height: 100, channels: 4, background: { r: 0, g: 255, b: 0, alpha: 255 } },
+    })
+      .png()
+      .toBuffer();
+    const result = await applyBorderRadius(input, 100, 9999);
+    const meta = await sharp(result).metadata();
+    expect(meta.width).toBe(100);
+    expect(meta.height).toBe(100);
+  });
+});
+
+describe("compositeIconOnBackground with borderRadius", () => {
+  it("applies border radius when options provided", async () => {
+    const icon = await makeIcon();
+    const bg = await makeBg();
+    const buffer = await compositeIconOnBackground(bg, icon, 400, 400, {
+      borderRadius: 100,
+      sourceIconSize: 1024,
+    });
+    expect(buffer.length).toBeGreaterThan(0);
+  });
+});
+
+describe("renderIconOnTransparent with borderRadius", () => {
+  it("applies border radius when options provided", async () => {
+    const icon = await makeIcon();
+    const buffer = await renderIconOnTransparent(icon, 200, {
+      borderRadius: 100,
+      sourceIconSize: 1024,
+    });
+    const meta = await sharp(buffer).metadata();
+    expect(meta.width).toBe(200);
+    expect(meta.height).toBe(200);
+    expect(meta.channels).toBe(4);
+  });
+});
+
+describe("renderIconOnTransparentCanvas with borderRadius", () => {
+  it("applies border radius when options provided", async () => {
+    const icon = await makeIcon();
+    const buffer = await renderIconOnTransparentCanvas(icon, 400, 240, {
+      borderRadius: 100,
+      sourceIconSize: 1024,
+    });
+    const meta = await sharp(buffer).metadata();
+    expect(meta.width).toBe(400);
+    expect(meta.height).toBe(240);
+    expect(meta.channels).toBe(4);
   });
 });
 

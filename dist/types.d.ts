@@ -70,6 +70,7 @@ export interface InputConfig {
     iconImage: string;
     backgroundImage: string;
     backgroundColor: string;
+    iconBorderRadius: number;
 }
 export interface OutputConfig {
     directory: string;

@@ -3,7 +3,7 @@ import { ensureDir, writeContentsJson } from "../utils/fs.js";
 import { brandAssetsContentsJson } from "./contents-json.js";
 import { generateImageStack } from "./imagestack.js";
 import { generateTopShelfImageSet } from "./imageset.js";
-export async function generateBrandAssets(config) {
+export async function generateBrandAssets(config, iconSourceSize) {
     const brandDir = join(config.output.directory, `${config.brandAssets.name}.brandassets`);
     ensureDir(brandDir);
     // Build asset manifest entries
@@ -44,11 +44,11 @@ export async function generateBrandAssets(config) {
     // Write Brand Assets Contents.json
     const contents = brandAssetsContentsJson(assets, config.xcassetsMeta);
     writeContentsJson(join(brandDir, "Contents.json"), contents);
-    // Generate imagestacks (app icons)
-    await generateImageStack(brandDir, brandAssets.appIconSmall, config);
-    await generateImageStack(brandDir, brandAssets.appIconLarge, config);
-    // Generate top shelf imagesets
-    await generateTopShelfImageSet(brandDir, brandAssets.topShelfImage, config);
-    await generateTopShelfImageSet(brandDir, brandAssets.topShelfImageWide, config);
+    await Promise.all([
+        generateImageStack(brandDir, brandAssets.appIconSmall, config, iconSourceSize),
+        generateImageStack(brandDir, brandAssets.appIconLarge, config, iconSourceSize),
+        generateTopShelfImageSet(brandDir, brandAssets.topShelfImage, config, iconSourceSize),
+        generateTopShelfImageSet(brandDir, brandAssets.topShelfImageWide, config, iconSourceSize),
+    ]);
 }
 //# sourceMappingURL=brand-assets.js.map

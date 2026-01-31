@@ -7,6 +7,25 @@ function wrapSharpError(err: unknown, context: string): never {
   throw new Error(`Image processing failed (${context}): ${message}`);
 }
 
+export async function applyBorderRadius(
+  buffer: Buffer,
+  size: number,
+  radius: number,
+): Promise<Buffer> {
+  if (radius <= 0) return buffer;
+  const r = Math.min(radius, size / 2);
+  const mask = Buffer.from(
+    `<svg width="${size}" height="${size}">
+      <rect x="0" y="0" width="${size}" height="${size}" rx="${r}" ry="${r}" fill="white"/>
+    </svg>`,
+  );
+  return sharp(buffer)
+    .ensureAlpha()
+    .composite([{ input: mask, blend: "dest-in" }])
+    .png()
+    .toBuffer();
+}
+
 export async function resizeImage(
   inputPath: string,
   width: number,
@@ -44,10 +63,12 @@ export async function compositeIconOnBackground(
   iconPath: string,
   width: number,
   height: number,
-  options?: { iconScale?: number; opaque?: boolean },
+  options?: { iconScale?: number; opaque?: boolean; borderRadius?: number; sourceIconSize?: number },
 ): Promise<Buffer> {
   const iconScale = options?.iconScale ?? 0.6;
   const opaque = options?.opaque ?? false;
+  const borderRadius = options?.borderRadius ?? 0;
+  const sourceIconSize = options?.sourceIconSize ?? 0;
 
   try {
     // Determine icon dimensions — scale relative to the shorter dimension
@@ -55,10 +76,15 @@ export async function compositeIconOnBackground(
     const iconSize = Math.round(shortSide * iconScale);
 
     // Resize icon preserving transparency
-    const iconBuffer = await sharp(iconPath)
+    let iconBuffer = await sharp(iconPath)
       .resize(iconSize, iconSize, { fit: "contain", background: TRANSPARENT })
       .png()
       .toBuffer();
+
+    if (borderRadius > 0 && sourceIconSize > 0) {
+      const scaledRadius = Math.round((borderRadius / sourceIconSize) * iconSize);
+      iconBuffer = await applyBorderRadius(iconBuffer, iconSize, scaledRadius);
+    }
 
     // Resize background and composite icon centered
     let pipeline = sharp(bgPath)
@@ -83,12 +109,23 @@ export async function compositeIconOnBackground(
 export async function renderIconOnTransparent(
   iconPath: string,
   size: number,
+  options?: { borderRadius?: number; sourceIconSize?: number },
 ): Promise<Buffer> {
+  const borderRadius = options?.borderRadius ?? 0;
+  const sourceIconSize = options?.sourceIconSize ?? 0;
+
   try {
-    return await sharp(iconPath)
+    let buffer = await sharp(iconPath)
       .resize(size, size, { fit: "contain", background: TRANSPARENT })
       .png()
       .toBuffer();
+
+    if (borderRadius > 0 && sourceIconSize > 0) {
+      const scaledRadius = Math.round((borderRadius / sourceIconSize) * size);
+      buffer = await applyBorderRadius(buffer, size, scaledRadius);
+    }
+
+    return buffer;
   } catch (err) {
     wrapSharpError(err, `rendering icon on transparent at ${size}x${size}`);
   }
@@ -98,17 +135,24 @@ export async function renderIconOnTransparentCanvas(
   iconPath: string,
   width: number,
   height: number,
-  options?: { iconScale?: number },
+  options?: { iconScale?: number; borderRadius?: number; sourceIconSize?: number },
 ): Promise<Buffer> {
   const iconScale = options?.iconScale ?? 0.6;
+  const borderRadius = options?.borderRadius ?? 0;
+  const sourceIconSize = options?.sourceIconSize ?? 0;
   const shortSide = Math.min(width, height);
   const iconSize = Math.round(shortSide * iconScale);
 
   try {
-    const iconBuffer = await sharp(iconPath)
+    let iconBuffer = await sharp(iconPath)
       .resize(iconSize, iconSize, { fit: "contain", background: TRANSPARENT })
       .png()
       .toBuffer();
+
+    if (borderRadius > 0 && sourceIconSize > 0) {
+      const scaledRadius = Math.round((borderRadius / sourceIconSize) * iconSize);
+      iconBuffer = await applyBorderRadius(iconBuffer, iconSize, scaledRadius);
+    }
 
     return await sharp({
       create: { width, height, channels: 4, background: TRANSPARENT },

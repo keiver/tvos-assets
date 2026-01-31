@@ -12,6 +12,7 @@ interface CLIArgs {
   color?: string;
   config?: string;
   output?: string;
+  iconBorderRadius?: string;
 }
 
 function defaultOutputDirectory(): string {
@@ -30,6 +31,7 @@ function getDefaultConfig(
       iconImage,
       backgroundImage,
       backgroundColor,
+      iconBorderRadius: 0,
     },
     output: {
       directory: defaultOutputDirectory(),
@@ -213,6 +215,15 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     throw new Error(`Invalid color format: "${backgroundColor}". Use hex format like "#B43939".`);
   }
 
+  // Parse icon border radius: CLI > config file > default (0)
+  const rawBorderRadius = cliArgs.iconBorderRadius ?? fileConfig.inputs?.iconBorderRadius;
+  const iconBorderRadius = rawBorderRadius !== undefined ? Number(rawBorderRadius) : 0;
+  if (!Number.isInteger(iconBorderRadius) || iconBorderRadius < 0) {
+    throw new Error(
+      `Invalid icon border radius: "${rawBorderRadius}". Must be a non-negative integer.`,
+    );
+  }
+
   // Build default config with resolved values
   const defaults = getDefaultConfig(resolvedIcon, resolvedBg, backgroundColor);
 
@@ -235,6 +246,7 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   merged.inputs.iconImage = resolvedIcon;
   merged.inputs.backgroundImage = resolvedBg;
   merged.inputs.backgroundColor = backgroundColor;
+  merged.inputs.iconBorderRadius = iconBorderRadius;
 
   // Apply CLI output override
   if (cliArgs.output) {
@@ -258,6 +270,7 @@ const BG_RECOMMENDED_HEIGHT = 1440;
 
 export interface ImageValidationResult {
   warnings: string[];
+  iconSourceSize: number;
 }
 
 export async function validateInputImages(
@@ -343,5 +356,7 @@ export async function validateInputImages(
     );
   }
 
-  return { warnings };
+  const iconSourceSize = Math.min(iconW, iconH);
+
+  return { warnings, iconSourceSize };
 }

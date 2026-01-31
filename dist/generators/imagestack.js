@@ -3,47 +3,38 @@ import { ensureDir, writeContentsJson, safeWriteFile } from "../utils/fs.js";
 import { resizeImageOpaque, renderIconOnTransparentCanvas, scaleMultiplier, validateOutputDimensions, } from "../utils/image-processing.js";
 import { imageStackContentsJson, imageStackLayerContentsJson, imageSetContentsJson, buildImageStackImageEntries, } from "./contents-json.js";
 const LAYER_NAMES = ["Front", "Middle", "Back"];
-async function generateLayerImages(layerName, asset, config, imagesetDir, isAppStore) {
+async function generateLayerImages(layerName, asset, config, imagesetDir, isAppStore, iconSourceSize) {
     const layerKey = layerName.toLowerCase();
     const layerConfig = asset.layers[layerKey];
-    const isBackLayer = layerName === "Back";
+    const borderRadius = config.inputs.iconBorderRadius;
+    const borderOpts = layerConfig.source !== "background" && borderRadius > 0 && iconSourceSize
+        ? { borderRadius, sourceIconSize: iconSourceSize }
+        : undefined;
     if (isAppStore) {
-        // App Store: single image, no scale suffix for back
         const w = asset.size.width;
         const h = asset.size.height;
         validateOutputDimensions(w, h, `${asset.name} ${layerName}`);
         const prefix = layerName.toLowerCase();
-        const filename = isBackLayer ? `${prefix}.png` : `${prefix}@1x.png`;
-        let buffer;
-        if (layerConfig.source === "background" || isBackLayer) {
-            buffer = await resizeImageOpaque(config.inputs.backgroundImage, w, h);
-        }
-        else {
-            buffer = await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h);
-        }
+        const filename = layerConfig.source === "background" ? `${prefix}.png` : `${prefix}@1x.png`;
+        const buffer = layerConfig.source === "background"
+            ? await resizeImageOpaque(config.inputs.backgroundImage, w, h)
+            : await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h, borderOpts);
         safeWriteFile(join(imagesetDir, filename), buffer);
         return;
     }
-    // Standard: generate each scale
     for (const scale of asset.scales) {
         const multiplier = scaleMultiplier(scale);
         const w = asset.size.width * multiplier;
         const h = asset.size.height * multiplier;
         validateOutputDimensions(w, h, `${asset.name} ${layerName} @${scale}`);
         const filename = `${layerName.toLowerCase()}@${scale}.png`;
-        let buffer;
-        if (layerConfig.source === "background" || isBackLayer) {
-            // Back layer: opaque (no alpha)
-            buffer = await resizeImageOpaque(config.inputs.backgroundImage, w, h);
-        }
-        else {
-            // Front/Middle: icon on transparent canvas
-            buffer = await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h);
-        }
+        const buffer = layerConfig.source === "background"
+            ? await resizeImageOpaque(config.inputs.backgroundImage, w, h)
+            : await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h, borderOpts);
         safeWriteFile(join(imagesetDir, filename), buffer);
     }
 }
-export async function generateImageStack(parentDir, asset, config) {
+export async function generateImageStack(parentDir, asset, config, iconSourceSize) {
     if (!asset.enabled)
         return;
     const isAppStore = asset.scales.length === 1 && asset.name.includes("App Store");
@@ -67,7 +58,7 @@ export async function generateImageStack(parentDir, asset, config) {
         const imagesetContents = imageSetContentsJson(imageEntries, config.xcassetsMeta);
         writeContentsJson(join(imagesetDir, "Contents.json"), imagesetContents);
         // Generate actual PNG files
-        await generateLayerImages(layerName, asset, config, imagesetDir, isAppStore);
+        await generateLayerImages(layerName, asset, config, imagesetDir, isAppStore, iconSourceSize);
     }
 }
 //# sourceMappingURL=imagestack.js.map

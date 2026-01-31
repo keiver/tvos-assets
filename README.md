@@ -2,6 +2,15 @@
 
 CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon and a background image. Produces all required Brand Assets (app icons with parallax layers, Top Shelf images), splash screen assets, and a standalone `icon.png` — ready to drop into an Xcode or React Native tvOS project.
 
+<p align="center">
+  <img src="docs/preview-tomo.png" alt="tvOS home screen preview — jellyfish icon from TomoTV" width="800">
+</p>
+
+<p align="center">
+  <img src="docs/preview-sea.png" alt="tvOS home screen preview — circular icon" width="400">
+  <img src="docs/preview-orange.png" alt="tvOS home screen preview — rounded square icon" width="400">
+</p>
+
 ## Quick Start
 
 ```bash
@@ -45,7 +54,7 @@ npm install
 ## Usage
 
 ```bash
-tvos-image-creator --icon <path> --background <path> --color <hex> [--output <path>] [--config <path>]
+tvos-image-creator --icon <path> --background <path> --color <hex> [--output <path>] [--icon-border-radius <px>] [--config <path>]
 ```
 
 ### CLI Options
@@ -56,6 +65,7 @@ tvos-image-creator --icon <path> --background <path> --color <hex> [--output <pa
 | `--background <path>` | Yes | Path to background PNG |
 | `--color <hex>` | Yes | Background color hex (e.g. `"#F39C12"`) |
 | `--output <path>` | No | Output directory. Defaults to `~/Desktop/Images.xcassets` |
+| `--icon-border-radius <px>` | No | Border radius for the icon in pixels. `0` = square (default), large value = circle. |
 | `--config <path>` | No | Path to a JSON config file for advanced customization |
 | `--version` | No | Print version |
 | `--help` | No | Show help |
@@ -232,7 +242,8 @@ For full control, create a JSON config file. All sections are optional — omitt
   "inputs": {
     "iconImage": "./icon.png",
     "backgroundImage": "./background.png",
-    "backgroundColor": "#B43939"
+    "backgroundColor": "#B43939",
+    "iconBorderRadius": 80
   },
   "output": {
     "directory": "./Images.xcassets",
@@ -309,6 +320,7 @@ For full control, create a JSON config file. All sections are optional — omitt
 | `iconImage` | string | Yes | Path to the app icon PNG (transparent background). |
 | `backgroundImage` | string | Yes | Path to the background PNG. |
 | `backgroundColor` | string | Yes | Hex color `#RRGGBB` for the splash screen background. |
+| `iconBorderRadius` | number | No | Border radius in pixels. `0` = square (default), large value = circle. |
 
 #### `output`
 

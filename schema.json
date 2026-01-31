@@ -25,6 +25,12 @@
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$",
           "description": "Hex color (#RRGGBB) used for the splash screen background colorset. Applied to both light and dark appearances unless overridden in splashScreen.background."
+        },
+        "iconBorderRadius": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Border radius in pixels applied to the icon. 0 = square corners. Use a value >= half the icon's width for a circular icon."
         }
       },
       "required": ["iconImage", "backgroundImage", "backgroundColor"],

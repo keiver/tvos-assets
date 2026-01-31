@@ -22,6 +22,7 @@ program
     .option("--color <hex>", 'Background color hex (e.g. "#B43939")')
     .option("--config <path>", "Path to config JSON file")
     .option("--output <path>", "Output directory (default: ~/Desktop/Images.xcassets)")
+    .option("--icon-border-radius <pixels>", "Border radius for icon in pixels (0 = square, large value = circle)", "0")
     .action(async (options) => {
     let outputDir;
     try {
@@ -31,6 +32,7 @@ program
             color: options.color,
             config: options.config,
             output: options.output,
+            iconBorderRadius: options.iconBorderRadius,
         });
         console.log();
         console.log(pc.bold("tvOS Image Creator"));
@@ -39,10 +41,13 @@ program
         console.log(`  Background: ${pc.cyan(config.inputs.backgroundImage)}`);
         console.log(`  Color:      ${pc.cyan(config.inputs.backgroundColor)}`);
         console.log(`  Output:     ${pc.cyan(config.output.directory)}`);
+        if (config.inputs.iconBorderRadius > 0) {
+            console.log(`  Radius:     ${pc.cyan(String(config.inputs.iconBorderRadius) + "px")}`);
+        }
         console.log();
         outputDir = config.output.directory;
         // Validate input image dimensions and file sizes
-        const { warnings } = await validateInputImages(config);
+        const { warnings, iconSourceSize } = await validateInputImages(config);
         for (const warning of warnings) {
             console.log(`  ${pc.yellow("Warning:")} ${warning}`);
         }
@@ -68,11 +73,11 @@ program
         step(++currentStep, totalSteps, `Generating ${pc.bold("App Icon - App Store")} (1280x768, @1x)...`);
         step(++currentStep, totalSteps, `Generating ${pc.bold("Top Shelf Image")} (1920x720, @1x + @2x)...`);
         step(++currentStep, totalSteps, `Generating ${pc.bold("Top Shelf Image Wide")} (2320x720, @1x + @2x)...`);
-        await generateBrandAssets(config);
+        await generateBrandAssets(config, iconSourceSize);
         // Generate Splash Screen Logo
         if (config.splashScreen.logo.enabled) {
             step(++currentStep, totalSteps, `Generating ${pc.bold("Splash Screen Logo")}...`);
-            await generateSplashLogoImageSet(config.output.directory, config.splashScreen.logo, config);
+            await generateSplashLogoImageSet(config.output.directory, config.splashScreen.logo, config, iconSourceSize);
         }
         else {
             currentStep++;
@@ -87,11 +92,11 @@ program
         }
         // Generate standalone icon.png
         step(++currentStep, totalSteps, `Generating ${pc.bold("icon.png")} (1024x1024)...`);
-        await generateIcon(config);
+        await generateIcon(config, iconSourceSize);
         // Summary banner
         console.log();
         console.log(pc.green(pc.bold("  Done!")));
-        console.log(`  ${pc.dim("Files:")}  38 assets (20 Contents.json + 18 PNGs) + icon.png`);
+        console.log(`  ${pc.dim("Files:")}  39 files (20 Contents.json + 18 PNGs + icon.png)`);
         console.log(`  ${pc.dim("Output:")} ${pc.cyan(config.output.directory)}`);
         console.log();
     }

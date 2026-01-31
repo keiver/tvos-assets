@@ -23,9 +23,14 @@ async function generateLayerImages(
   config: TvOSImageCreatorConfig,
   imagesetDir: string,
   isAppStore: boolean,
+  iconSourceSize?: number,
 ): Promise<void> {
   const layerKey = layerName.toLowerCase() as "front" | "middle" | "back";
   const layerConfig = asset.layers[layerKey];
+  const borderRadius = config.inputs.iconBorderRadius;
+  const borderOpts = layerConfig.source !== "background" && borderRadius > 0 && iconSourceSize
+    ? { borderRadius, sourceIconSize: iconSourceSize }
+    : undefined;
 
   if (isAppStore) {
     const w = asset.size.width;
@@ -36,7 +41,7 @@ async function generateLayerImages(
 
     const buffer = layerConfig.source === "background"
       ? await resizeImageOpaque(config.inputs.backgroundImage, w, h)
-      : await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h);
+      : await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h, borderOpts);
 
     safeWriteFile(join(imagesetDir, filename), buffer);
     return;
@@ -51,7 +56,7 @@ async function generateLayerImages(
 
     const buffer = layerConfig.source === "background"
       ? await resizeImageOpaque(config.inputs.backgroundImage, w, h)
-      : await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h);
+      : await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h, borderOpts);
 
     safeWriteFile(join(imagesetDir, filename), buffer);
   }
@@ -61,6 +66,7 @@ export async function generateImageStack(
   parentDir: string,
   asset: ImageStackAssetConfig,
   config: TvOSImageCreatorConfig,
+  iconSourceSize?: number,
 ): Promise<void> {
   if (!asset.enabled) return;
 
@@ -94,6 +100,6 @@ export async function generateImageStack(
     writeContentsJson(join(imagesetDir, "Contents.json"), imagesetContents);
 
     // Generate actual PNG files
-    await generateLayerImages(layerName, asset, config, imagesetDir, isAppStore);
+    await generateLayerImages(layerName, asset, config, imagesetDir, isAppStore, iconSourceSize);
   }
 }
