@@ -5,26 +5,47 @@ CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon an
 ## Quick Start
 
 ```bash
-npx tsx src/index.ts --icon ./sample-content/icon.png --background ./sample-content/source.png --color "#F39C12"
+npx tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12"
 ```
 
-Generates `Images.xcassets` on your Desktop with every tvOS asset your app needs.
+Generates `Images.xcassets` on your Desktop with all required tvOS assets.
+
+## Install
+
+**Global** (adds `tvos-image-creator` to your PATH):
+
+```bash
+npm install -g tvos-image-creator
+```
+
+**Run without installing** (via npx):
+
+```bash
+npx tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12"
+```
+
+**Project dependency** (e.g. for a build script):
+
+```bash
+npm install --save-dev tvos-image-creator
+```
 
 ## Requirements
 
-- Node.js >= 18
-- npm or yarn
+- Node.js >= 18 (this is a CLI tool — it does not run in the browser)
 
-## Installation
+## Development Setup
 
 ```bash
+git clone https://github.com/keiver/tvos-image-creator.git
+cd tvos-image-creator
 npm install
 ```
 
 ## Usage
 
 ```bash
-npx tsx src/index.ts --icon <path> --background <path> --color <hex> [--output <path>] [--config <path>]
+tvos-image-creator --icon <path> --background <path> --color <hex> [--output <path>] [--config <path>]
 ```
 
 ### CLI Options
@@ -50,37 +71,25 @@ The output is **idempotent** — if `Images.xcassets` already exists at the targ
 Generate to Desktop (default):
 
 ```bash
-npx tsx src/index.ts --icon ./sample-content/icon.png --background ./sample-content/source.png --color "#F39C12"
+tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12"
 ```
 
 Generate into a specific directory:
 
 ```bash
-npx tsx src/index.ts --icon ./sample-content/icon.png --background ./sample-content/source.png --color "#F39C12" --output ./my-tvos-app/Images.xcassets
-```
-
-Use your own assets:
-
-```bash
-npx tsx src/index.ts --icon /path/to/your/icon.png --background /path/to/your/background.png --color "#B43939" --output ./Images.xcassets
+tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12" --output ./my-tvos-app/Images.xcassets
 ```
 
 Use a config file:
 
 ```bash
-npx tsx src/index.ts --config ./tvos-image-creator.config.json
+tvos-image-creator --config ./tvos-image-creator.config.json
 ```
 
-Config file with CLI overrides (CLI args always win):
+Config file with CLI overrides (CLI args take precedence):
 
 ```bash
-npx tsx src/index.ts --config ./tvos-image-creator.config.json --color "#00FF00" --output ./output/Images.xcassets
-```
-
-Using the compiled build:
-
-```bash
-npm run build && node dist/index.js --icon ./sample-content/icon.png --background ./sample-content/source.png --color "#F39C12"
+tvos-image-creator --config ./tvos-image-creator.config.json --color "#00FF00" --output ./output/Images.xcassets
 ```
 
 ## Generated Files
@@ -148,18 +157,6 @@ Images.xcassets/
 └── SplashScreenBackground.colorset/
     └── Contents.json                                                            (light/dark color definitions)
 ```
-
-## Features
-
-- Generates all required tvOS Brand Assets from two images and a color
-- **Parallax-correct imagestack layers** — Front/Middle layers render the icon on a transparent canvas (PNG with alpha); Back layer is the opaque background. This gives tvOS the separate depth layers it needs for the parallax effect on the home screen.
-- Top Shelf images (standard and wide) composited as opaque PNGs
-- Splash screen logo at all scale factors for universal and Apple TV idioms
-- Splash screen background colorset with light/dark variants
-- Standalone 1024x1024 `icon.png` for general use
-- JSON config file support with schema validation for editor autocompletion
-- CLI args override config file values for flexible workflows
-- Idempotent output — safe to run repeatedly
 
 ## Input Requirements
 

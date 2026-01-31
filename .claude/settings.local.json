@@ -18,7 +18,8 @@
       "Bash(npm run test:coverage:*)",
       "WebFetch(domain:readybytes.in)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npx jest:*)"
     ]
   }
 }

@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import pc from "picocolors";
 import { resolveConfig, validateInputImages } from "./config.js";
@@ -49,7 +48,7 @@ program
         }
         if (warnings.length > 0)
             console.log();
-        const totalSteps = 8;
+        const totalSteps = 9;
         let currentStep = 0;
         // Clean output directory if configured
         if (config.output.cleanBeforeGenerate) {
@@ -99,9 +98,8 @@ program
     catch (error) {
         // Clean up partial output on failure
         try {
-            if (outputDir && existsSync(outputDir)) {
-                rmSync(outputDir, { recursive: true, force: true });
-            }
+            if (outputDir)
+                cleanDir(outputDir);
         }
         catch {
             // Best-effort cleanup — ignore failures

@@ -103,7 +103,10 @@ function getDefaultConfig(
   };
 }
 
-function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>, depth = 0): Record<string, unknown> {
+  if (depth > 10) {
+    throw new Error("Config nesting too deep (max 10 levels). Check for circular or excessively nested objects.");
+  }
   const result = { ...target };
   for (const key of Object.keys(source)) {
     if (DANGEROUS_KEYS.has(key)) continue;
@@ -119,6 +122,7 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
       result[key] = deepMerge(
         target[key] as Record<string, unknown>,
         source[key] as Record<string, unknown>,
+        depth + 1,
       );
     } else {
       result[key] = source[key];
@@ -141,6 +145,28 @@ function assertPngExtension(filePath: string, label: string): void {
   }
 }
 
+function validateImagePath(rawPath: string, label: string): string {
+  const resolved = resolve(rawPath);
+  if (!existsSync(resolved)) {
+    throw new Error(`${label} not found: ${resolved}`);
+  }
+  assertNotSymlink(resolved, label);
+  assertPngExtension(resolved, label);
+  return resolved;
+}
+
+const SAFE_ASSET_NAME = /^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/;
+
+function validateAssetName(name: string, label: string): void {
+  if (!SAFE_ASSET_NAME.test(name)) {
+    throw new Error(
+      `Invalid ${label} name: "${name}". Names must start with a letter or number and contain only letters, numbers, spaces, hyphens, and underscores.`,
+    );
+  }
+}
+
+const MAX_CONFIG_SIZE = 1024 * 1024; // 1 MB
+
 export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   let fileConfig: Partial<TvOSImageCreatorConfig> = {};
 
@@ -149,6 +175,10 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     const configPath = resolve(cliArgs.config);
     if (!existsSync(configPath)) {
       throw new Error(`Config file not found: ${configPath}`);
+    }
+    const configStat = statSync(configPath);
+    if (configStat.size > MAX_CONFIG_SIZE) {
+      throw new Error(`Config file too large (${(configStat.size / 1024).toFixed(0)}KB). Maximum is 1MB.`);
     }
     const raw = readFileSync(configPath, "utf-8");
     try {
@@ -175,21 +205,8 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     throw new Error("Background color is required. Use --color or set inputs.backgroundColor in config.");
   }
 
-  // Validate icon path exists, is not a symlink, and is a PNG
-  const resolvedIcon = resolve(iconImage);
-  if (!existsSync(resolvedIcon)) {
-    throw new Error(`Icon image not found: ${resolvedIcon}`);
-  }
-  assertNotSymlink(resolvedIcon, "Icon image");
-  assertPngExtension(resolvedIcon, "Icon image");
-
-  // Validate background path exists, is not a symlink, and is a PNG
-  const resolvedBg = resolve(backgroundImage);
-  if (!existsSync(resolvedBg)) {
-    throw new Error(`Background image not found: ${resolvedBg}`);
-  }
-  assertNotSymlink(resolvedBg, "Background image");
-  assertPngExtension(resolvedBg, "Background image");
+  const resolvedIcon = validateImagePath(iconImage, "Icon image");
+  const resolvedBg = validateImagePath(backgroundImage, "Background image");
 
   // Validate color format
   if (!/^#[0-9a-fA-F]{6}$/.test(backgroundColor)) {
@@ -204,6 +221,15 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     defaults as unknown as Record<string, unknown>,
     fileConfig as unknown as Record<string, unknown>,
   ) as unknown as TvOSImageCreatorConfig;
+
+  // Validate user-controlled asset names
+  validateAssetName(merged.brandAssets.name, "brandAssets.name");
+  validateAssetName(merged.brandAssets.appIconSmall.name, "brandAssets.appIconSmall.name");
+  validateAssetName(merged.brandAssets.appIconLarge.name, "brandAssets.appIconLarge.name");
+  validateAssetName(merged.brandAssets.topShelfImage.name, "brandAssets.topShelfImage.name");
+  validateAssetName(merged.brandAssets.topShelfImageWide.name, "brandAssets.topShelfImageWide.name");
+  validateAssetName(merged.splashScreen.logo.name, "splashScreen.logo.name");
+  validateAssetName(merged.splashScreen.background.name, "splashScreen.background.name");
 
   // Ensure CLI args always win for inputs
   merged.inputs.iconImage = resolvedIcon;
@@ -259,6 +285,18 @@ export async function validateInputImages(
     sharp(config.inputs.iconImage).metadata(),
     sharp(config.inputs.backgroundImage).metadata(),
   ]);
+
+  // Verify actual PNG format (not just extension)
+  if (iconMeta.format !== "png") {
+    throw new Error(
+      `Icon file is not a valid PNG (detected ${iconMeta.format ?? "unknown"} format). Rename is not enough — the file must be actual PNG data.`,
+    );
+  }
+  if (bgMeta.format !== "png") {
+    throw new Error(
+      `Background file is not a valid PNG (detected ${bgMeta.format ?? "unknown"} format). Rename is not enough — the file must be actual PNG data.`,
+    );
+  }
 
   const iconW = iconMeta.width ?? 0;
   const iconH = iconMeta.height ?? 0;

@@ -7,6 +7,8 @@ import {
   compositeIconOnBackground,
   renderIconOnTransparent,
   renderIconOnTransparentCanvas,
+  scaleMultiplier,
+  validateOutputDimensions,
 } from "../../src/utils/image-processing";
 import { createTestPng } from "../fixtures/create-fixtures";
 
@@ -66,6 +68,13 @@ describe("resizeImageOpaque", () => {
     expect(meta.width).toBe(400);
     expect(meta.height).toBe(240);
     expect(meta.channels).toBe(3);
+  });
+
+  it("throws with context on invalid input", async () => {
+    const badPath = join(TMP, "nonexistent.png");
+    await expect(resizeImageOpaque(badPath, 100, 100)).rejects.toThrow(
+      /Image processing failed/,
+    );
   });
 });
 
@@ -127,6 +136,13 @@ describe("renderIconOnTransparent", () => {
     const meta = await sharp(buffer).metadata();
     expect(meta.channels).toBe(4);
   });
+
+  it("throws with context on invalid input", async () => {
+    const badPath = join(TMP, "nonexistent.png");
+    await expect(renderIconOnTransparent(badPath, 200)).rejects.toThrow(
+      /Image processing failed/,
+    );
+  });
 });
 
 describe("renderIconOnTransparentCanvas", () => {
@@ -149,5 +165,44 @@ describe("renderIconOnTransparentCanvas", () => {
     const icon = await makeIcon();
     const buffer = await renderIconOnTransparentCanvas(icon, 400, 400, { iconScale: 0.8 });
     expect(buffer.length).toBeGreaterThan(0);
+  });
+
+  it("throws with context on invalid input", async () => {
+    const badPath = join(TMP, "nonexistent.png");
+    await expect(renderIconOnTransparentCanvas(badPath, 400, 240)).rejects.toThrow(
+      /Image processing failed/,
+    );
+  });
+});
+
+describe("scaleMultiplier", () => {
+  it("returns 1 for '1x'", () => {
+    expect(scaleMultiplier("1x")).toBe(1);
+  });
+
+  it("returns 2 for '2x'", () => {
+    expect(scaleMultiplier("2x")).toBe(2);
+  });
+
+  it("returns 3 for '3x'", () => {
+    expect(scaleMultiplier("3x")).toBe(3);
+  });
+});
+
+describe("validateOutputDimensions", () => {
+  it("accepts valid dimensions", () => {
+    expect(() => validateOutputDimensions(1920, 1080, "test")).not.toThrow();
+  });
+
+  it("rejects dimensions exceeding max", () => {
+    expect(() => validateOutputDimensions(40000, 100, "test")).toThrow(/out of range/);
+  });
+
+  it("rejects zero dimensions", () => {
+    expect(() => validateOutputDimensions(0, 100, "test")).toThrow(/out of range/);
+  });
+
+  it("rejects negative dimensions", () => {
+    expect(() => validateOutputDimensions(-1, 100, "test")).toThrow(/out of range/);
   });
 });

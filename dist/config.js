@@ -86,7 +86,10 @@ function getDefaultConfig(iconImage, backgroundImage, backgroundColor) {
         },
     };
 }
-function deepMerge(target, source) {
+function deepMerge(target, source, depth = 0) {
+    if (depth > 10) {
+        throw new Error("Config nesting too deep (max 10 levels). Check for circular or excessively nested objects.");
+    }
     const result = { ...target };
     for (const key of Object.keys(source)) {
         if (DANGEROUS_KEYS.has(key))
@@ -97,7 +100,7 @@ function deepMerge(target, source) {
             target[key] &&
             typeof target[key] === "object" &&
             !Array.isArray(target[key])) {
-            result[key] = deepMerge(target[key], source[key]);
+            result[key] = deepMerge(target[key], source[key], depth + 1);
         }
         else {
             result[key] = source[key];
@@ -117,6 +120,13 @@ function assertPngExtension(filePath, label) {
         throw new Error(`${label} must be a PNG file (got "${ext}"): ${filePath}`);
     }
 }
+const SAFE_ASSET_NAME = /^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/;
+function validateAssetName(name, label) {
+    if (!SAFE_ASSET_NAME.test(name)) {
+        throw new Error(`Invalid ${label} name: "${name}". Names must start with a letter or number and contain only letters, numbers, spaces, hyphens, and underscores.`);
+    }
+}
+const MAX_CONFIG_SIZE = 1024 * 1024; // 1 MB
 export function resolveConfig(cliArgs) {
     let fileConfig = {};
     // Load config file if specified
@@ -124,6 +134,10 @@ export function resolveConfig(cliArgs) {
         const configPath = resolve(cliArgs.config);
         if (!existsSync(configPath)) {
             throw new Error(`Config file not found: ${configPath}`);
+        }
+        const configStat = statSync(configPath);
+        if (configStat.size > MAX_CONFIG_SIZE) {
+            throw new Error(`Config file too large (${(configStat.size / 1024).toFixed(0)}KB). Maximum is 1MB.`);
         }
         const raw = readFileSync(configPath, "utf-8");
         try {
@@ -168,6 +182,14 @@ export function resolveConfig(cliArgs) {
     const defaults = getDefaultConfig(resolvedIcon, resolvedBg, backgroundColor);
     // Merge: file config overrides defaults, then apply CLI overrides
     const merged = deepMerge(defaults, fileConfig);
+    // Validate user-controlled asset names
+    validateAssetName(merged.brandAssets.name, "brandAssets.name");
+    validateAssetName(merged.brandAssets.appIconSmall.name, "brandAssets.appIconSmall.name");
+    validateAssetName(merged.brandAssets.appIconLarge.name, "brandAssets.appIconLarge.name");
+    validateAssetName(merged.brandAssets.topShelfImage.name, "brandAssets.topShelfImage.name");
+    validateAssetName(merged.brandAssets.topShelfImageWide.name, "brandAssets.topShelfImageWide.name");
+    validateAssetName(merged.splashScreen.logo.name, "splashScreen.logo.name");
+    validateAssetName(merged.splashScreen.background.name, "splashScreen.background.name");
     // Ensure CLI args always win for inputs
     merged.inputs.iconImage = resolvedIcon;
     merged.inputs.backgroundImage = resolvedBg;
@@ -204,6 +226,13 @@ export async function validateInputImages(config) {
         sharp(config.inputs.iconImage).metadata(),
         sharp(config.inputs.backgroundImage).metadata(),
     ]);
+    // Verify actual PNG format (not just extension)
+    if (iconMeta.format !== "png") {
+        throw new Error(`Icon file is not a valid PNG (detected ${iconMeta.format ?? "unknown"} format). Rename is not enough — the file must be actual PNG data.`);
+    }
+    if (bgMeta.format !== "png") {
+        throw new Error(`Background file is not a valid PNG (detected ${bgMeta.format ?? "unknown"} format). Rename is not enough — the file must be actual PNG data.`);
+    }
     const iconW = iconMeta.width ?? 0;
     const iconH = iconMeta.height ?? 0;
     const bgW = bgMeta.width ?? 0;

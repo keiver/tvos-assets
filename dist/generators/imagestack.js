@@ -1,11 +1,8 @@
 import { join } from "node:path";
 import { ensureDir, writeContentsJson, safeWriteFile } from "../utils/fs.js";
-import { resizeImageOpaque, renderIconOnTransparentCanvas, } from "../utils/image-processing.js";
+import { resizeImageOpaque, renderIconOnTransparentCanvas, scaleMultiplier, validateOutputDimensions, } from "../utils/image-processing.js";
 import { imageStackContentsJson, imageStackLayerContentsJson, imageSetContentsJson, buildImageStackImageEntries, } from "./contents-json.js";
 const LAYER_NAMES = ["Front", "Middle", "Back"];
-function scaleMultiplier(scale) {
-    return parseInt(scale.replace("x", ""), 10);
-}
 async function generateLayerImages(layerName, asset, config, imagesetDir, isAppStore) {
     const layerKey = layerName.toLowerCase();
     const layerConfig = asset.layers[layerKey];
@@ -14,6 +11,7 @@ async function generateLayerImages(layerName, asset, config, imagesetDir, isAppS
         // App Store: single image, no scale suffix for back
         const w = asset.size.width;
         const h = asset.size.height;
+        validateOutputDimensions(w, h, `${asset.name} ${layerName}`);
         const prefix = layerName.toLowerCase();
         const filename = isBackLayer ? `${prefix}.png` : `${prefix}@1x.png`;
         let buffer;
@@ -31,6 +29,7 @@ async function generateLayerImages(layerName, asset, config, imagesetDir, isAppS
         const multiplier = scaleMultiplier(scale);
         const w = asset.size.width * multiplier;
         const h = asset.size.height * multiplier;
+        validateOutputDimensions(w, h, `${asset.name} ${layerName} @${scale}`);
         const filename = `${layerName.toLowerCase()}@${scale}.png`;
         let buffer;
         if (layerConfig.source === "background" || isBackLayer) {

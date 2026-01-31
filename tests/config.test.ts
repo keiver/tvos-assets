@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import sharp from "sharp";
 import { resolveConfig, validateInputImages } from "../src/config";
 import {
   createTestIcon,
@@ -267,6 +268,83 @@ describe("resolveConfig", () => {
     ).toThrow(/must be a PNG file/);
   });
 
+  // --- Asset name validation ---
+
+  it("rejects asset names with path traversal", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "traversal-name.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: { iconImage: icon, backgroundImage: bg, backgroundColor: "#FF0000" },
+        brandAssets: { name: "../../etc" },
+      }),
+    );
+    expect(() => resolveConfig({ config: configPath })).toThrow(/Invalid.*name/);
+  });
+
+  it("rejects asset names with slashes", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "slash-name.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: { iconImage: icon, backgroundImage: bg, backgroundColor: "#FF0000" },
+        brandAssets: { name: "foo/bar" },
+      }),
+    );
+    expect(() => resolveConfig({ config: configPath })).toThrow(/Invalid.*name/);
+  });
+
+  it("accepts valid asset names", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "good-name.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: { iconImage: icon, backgroundImage: bg, backgroundColor: "#FF0000" },
+        brandAssets: { name: "My Custom Icon-2" },
+      }),
+    );
+    const config = resolveConfig({ config: configPath });
+    expect(config.brandAssets.name).toBe("My Custom Icon-2");
+  });
+
+  // --- Config file size limit ---
+
+  it("rejects oversized config file", async () => {
+    const configPath = join(TMP, "big-config.json");
+    // Write a >1MB JSON file
+    const bigContent = JSON.stringify({ data: "x".repeat(1024 * 1024 + 100) });
+    writeFileSync(configPath, bigContent);
+    expect(() => resolveConfig({ config: configPath })).toThrow(/too large/);
+  });
+
+  // --- Deep merge depth limit ---
+
+  it("handles deep config nesting that matches defaults structure", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "deep-config.json");
+    // Deep nesting that matches the default structure (depth ~4)
+    // The depth guard protects against pathological cases where both
+    // source and target have matching nested objects beyond 10 levels
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: { iconImage: icon, backgroundImage: bg, backgroundColor: "#FF0000" },
+        brandAssets: {
+          appIconSmall: {
+            layers: {
+              front: { source: "icon" },
+            },
+          },
+        },
+      }),
+    );
+    const config = resolveConfig({ config: configPath });
+    expect(config.brandAssets.appIconSmall.layers.front.source).toBe("icon");
+  });
+
   // --- Prototype pollution guard (Phase 3 fix) ---
 
   it("ignores __proto__ keys in config file", async () => {
@@ -331,5 +409,33 @@ describe("validateInputImages", () => {
     const config = resolveConfig({ icon, background: bgPath, color: "#FF0000" });
     const result = await validateInputImages(config);
     expect(result.warnings.some((w) => w.includes("below recommended"))).toBe(true);
+  });
+
+  it("rejects non-PNG icon (JPEG renamed to .png)", async () => {
+    const bg = await createTestBackground(TMP);
+    // Create a JPEG buffer and write it with .png extension
+    const jpegBuffer = await sharp({
+      create: { width: 1280, height: 1280, channels: 3, background: { r: 100, g: 150, b: 200 } },
+    })
+      .jpeg()
+      .toBuffer();
+    const fakeIconPath = join(TMP, "fake-icon.png");
+    writeFileSync(fakeIconPath, jpegBuffer);
+    const config = resolveConfig({ icon: fakeIconPath, background: bg, color: "#FF0000" });
+    await expect(validateInputImages(config)).rejects.toThrow(/not a valid PNG/);
+  });
+
+  it("rejects non-PNG background (JPEG renamed to .png)", async () => {
+    const icon = await createTestIcon(TMP);
+    // Create a JPEG buffer and write it with .png extension
+    const jpegBuffer = await sharp({
+      create: { width: 4640, height: 1440, channels: 3, background: { r: 100, g: 150, b: 200 } },
+    })
+      .jpeg()
+      .toBuffer();
+    const fakeBgPath = join(TMP, "fake-bg.png");
+    writeFileSync(fakeBgPath, jpegBuffer);
+    const config = resolveConfig({ icon, background: fakeBgPath, color: "#FF0000" });
+    await expect(validateInputImages(config)).rejects.toThrow(/not a valid PNG/);
   });
 });

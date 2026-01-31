@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { writeContentsJson, ensureDir, cleanDir } from "../../src/utils/fs";
 
@@ -108,5 +108,13 @@ describe("cleanDir", () => {
     mkdirSync(join(dir, "src"), { recursive: true });
 
     expect(() => cleanDir(dir)).toThrow(/Refusing to clean/);
+  });
+
+  it("refuses to clean a symbolic link", () => {
+    const realDir = join(TMP_DIR, "real");
+    mkdirSync(realDir, { recursive: true });
+    const linkDir = join(TMP_DIR, "link-to-dir");
+    symlinkSync(realDir, linkDir);
+    expect(() => cleanDir(linkDir)).toThrow(/symbolic link/);
   });
 });

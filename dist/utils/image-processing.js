@@ -88,4 +88,13 @@ export async function renderIconOnTransparentCanvas(iconPath, width, height, opt
         wrapSharpError(err, `rendering icon on transparent canvas at ${width}x${height}`);
     }
 }
+export function scaleMultiplier(scale) {
+    return parseInt(scale.replace("x", ""), 10);
+}
+const MAX_OUTPUT_DIMENSION = 32768;
+export function validateOutputDimensions(w, h, context) {
+    if (w > MAX_OUTPUT_DIMENSION || h > MAX_OUTPUT_DIMENSION || w < 1 || h < 1) {
+        throw new Error(`Output dimensions ${w}x${h} are out of range for ${context}. Maximum is ${MAX_OUTPUT_DIMENSION}px per side.`);
+    }
+}
 //# sourceMappingURL=image-processing.js.map

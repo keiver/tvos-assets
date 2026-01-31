@@ -53,11 +53,10 @@ export async function generateBrandAssets(config: TvOSImageCreatorConfig): Promi
   const contents = brandAssetsContentsJson(assets, config.xcassetsMeta);
   writeContentsJson(join(brandDir, "Contents.json"), contents);
 
-  // Generate imagestacks (app icons)
-  await generateImageStack(brandDir, brandAssets.appIconSmall, config);
-  await generateImageStack(brandDir, brandAssets.appIconLarge, config);
-
-  // Generate top shelf imagesets
-  await generateTopShelfImageSet(brandDir, brandAssets.topShelfImage, config);
-  await generateTopShelfImageSet(brandDir, brandAssets.topShelfImageWide, config);
+  await Promise.all([
+    generateImageStack(brandDir, brandAssets.appIconSmall, config),
+    generateImageStack(brandDir, brandAssets.appIconLarge, config),
+    generateTopShelfImageSet(brandDir, brandAssets.topShelfImage, config),
+    generateTopShelfImageSet(brandDir, brandAssets.topShelfImageWide, config),
+  ]);
 }

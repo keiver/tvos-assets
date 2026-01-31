@@ -3,19 +3,19 @@ import type {
   ImageSetAssetConfig,
   SplashScreenLogoConfig,
   TvOSImageCreatorConfig,
-  ScaleFactor,
 } from "../types.js";
 import { ensureDir, writeContentsJson, safeWriteFile } from "../utils/fs.js";
-import { compositeIconOnBackground, renderIconOnTransparent } from "../utils/image-processing.js";
+import {
+  compositeIconOnBackground,
+  renderIconOnTransparent,
+  scaleMultiplier,
+  validateOutputDimensions,
+} from "../utils/image-processing.js";
 import {
   imageSetContentsJson,
   buildTopShelfImageEntries,
   buildSplashLogoImageEntries,
 } from "./contents-json.js";
-
-function scaleMultiplier(scale: ScaleFactor): number {
-  return parseInt(scale.replace("x", ""), 10);
-}
 
 /** Generate a Top Shelf imageset (background + icon composited) */
 export async function generateTopShelfImageSet(
@@ -38,6 +38,7 @@ export async function generateTopShelfImageSet(
     const multiplier = scaleMultiplier(scale);
     const w = asset.size.width * multiplier;
     const h = asset.size.height * multiplier;
+    validateOutputDimensions(w, h, `${asset.name} @${scale}`);
     const filename = `${asset.filePrefix}@${scale}.png`;
 
     const buffer = await compositeIconOnBackground(
@@ -76,6 +77,7 @@ export async function generateSplashLogoImageSet(
   for (const scale of logoConfig.universal.scales) {
     const multiplier = scaleMultiplier(scale);
     const size = logoConfig.baseSize * multiplier;
+    validateOutputDimensions(size, size, `${logoConfig.name} universal @${scale}`);
     const filename = `${logoConfig.filePrefix}@${scale}.png`;
 
     const buffer = await renderIconOnTransparent(config.inputs.iconImage, size);
@@ -86,6 +88,7 @@ export async function generateSplashLogoImageSet(
   for (const scale of logoConfig.tv.scales) {
     const multiplier = scaleMultiplier(scale);
     const size = logoConfig.baseSize * multiplier;
+    validateOutputDimensions(size, size, `${logoConfig.name} tv @${scale}`);
     const filename = `${logoConfig.filePrefix}-tv@${scale}.png`;
 
     const buffer = await renderIconOnTransparent(config.inputs.iconImage, size);
