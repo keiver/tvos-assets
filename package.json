@@ -27,6 +27,7 @@
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "test": "jest",
+    "test:coverage": "jest --coverage",
     "prepublishOnly": "npm run build"
   },
   "keywords": [

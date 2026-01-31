@@ -1,11 +1,38 @@
-node_modules
-.next
-out
-dist
-build
-*.config.js
-next-env.d.ts
+# dependencies
+node_modules/
 
+# build output
+dist/
+
+# test
+coverage/
+.test-tmp*/
+
+# macOS
+.DS_Store
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# npm
+*.tgz
+
+# claude code
 .claude/settings.json
 .claude/settings.local.json
 .claude/mcp/
