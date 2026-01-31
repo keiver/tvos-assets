@@ -7,5 +7,9 @@ interface CLIArgs {
     output?: string;
 }
 export declare function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig;
+export interface ImageValidationResult {
+    warnings: string[];
+}
+export declare function validateInputImages(config: TvOSImageCreatorConfig): Promise<ImageValidationResult>;
 export {};
 //# sourceMappingURL=config.d.ts.map

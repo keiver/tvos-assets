@@ -1,6 +1,6 @@
 import { dirname, join } from "node:path";
-import { writeFileSync } from "node:fs";
 import type { TvOSImageCreatorConfig } from "../types.js";
+import { safeWriteFile } from "../utils/fs.js";
 import { compositeIconOnBackground } from "../utils/image-processing.js";
 
 export async function generateIcon(config: TvOSImageCreatorConfig): Promise<void> {
@@ -12,5 +12,5 @@ export async function generateIcon(config: TvOSImageCreatorConfig): Promise<void
     { opaque: true },
   );
   const outputPath = join(dirname(config.output.directory), "icon.png");
-  writeFileSync(outputPath, buffer);
+  safeWriteFile(outputPath, buffer);
 }

@@ -1,7 +1,6 @@
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ImageStackAssetConfig, TvOSImageCreatorConfig } from "../types.js";
-import { ensureDir, writeContentsJson } from "../utils/fs.js";
+import { ensureDir, writeContentsJson, safeWriteFile } from "../utils/fs.js";
 import {
   resizeImageOpaque,
   renderIconOnTransparentCanvas,
@@ -45,7 +44,7 @@ async function generateLayerImages(
       buffer = await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h);
     }
 
-    writeFileSync(join(imagesetDir, filename), buffer);
+    safeWriteFile(join(imagesetDir, filename), buffer);
     return;
   }
 
@@ -65,7 +64,7 @@ async function generateLayerImages(
       buffer = await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h);
     }
 
-    writeFileSync(join(imagesetDir, filename), buffer);
+    safeWriteFile(join(imagesetDir, filename), buffer);
   }
 }
 

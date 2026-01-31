@@ -1,7 +1,10 @@
-import { readFileSync, existsSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { readFileSync, existsSync, lstatSync, statSync } from "node:fs";
+import { resolve, join, extname } from "node:path";
 import { homedir } from "node:os";
+import sharp from "sharp";
 import type { TvOSImageCreatorConfig } from "./types.js";
+
+const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 interface CLIArgs {
   icon?: string;
@@ -102,6 +105,8 @@ function getDefaultConfig(
 function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
   const result = { ...target };
   for (const key of Object.keys(source)) {
+    if (DANGEROUS_KEYS.has(key)) continue;
+
     if (
       source[key] &&
       typeof source[key] === "object" &&
@@ -121,6 +126,20 @@ function deepMerge(target: Record<string, unknown>, source: Record<string, unkno
   return result;
 }
 
+function assertNotSymlink(filePath: string, label: string): void {
+  const stat = lstatSync(filePath);
+  if (stat.isSymbolicLink()) {
+    throw new Error(`${label} must not be a symbolic link: ${filePath}`);
+  }
+}
+
+function assertPngExtension(filePath: string, label: string): void {
+  const ext = extname(filePath).toLowerCase();
+  if (ext !== ".png") {
+    throw new Error(`${label} must be a PNG file (got "${ext}"): ${filePath}`);
+  }
+}
+
 export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   let fileConfig: Partial<TvOSImageCreatorConfig> = {};
 
@@ -131,13 +150,19 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
       throw new Error(`Config file not found: ${configPath}`);
     }
     const raw = readFileSync(configPath, "utf-8");
-    fileConfig = JSON.parse(raw) as Partial<TvOSImageCreatorConfig>;
+    try {
+      fileConfig = JSON.parse(raw) as Partial<TvOSImageCreatorConfig>;
+    } catch {
+      throw new Error(
+        `Invalid JSON in config file: ${configPath}. Check for syntax errors (missing commas, trailing commas, unquoted keys).`,
+      );
+    }
   }
 
   // Determine input values: CLI args override config file
-  const iconImage = cliArgs.icon ?? fileConfig.inputs?.iconImage ?? "";
-  const backgroundImage = cliArgs.background ?? fileConfig.inputs?.backgroundImage ?? "";
-  const backgroundColor = cliArgs.color ?? fileConfig.inputs?.backgroundColor ?? "";
+  const iconImage = (cliArgs.icon ?? fileConfig.inputs?.iconImage ?? "").trim();
+  const backgroundImage = (cliArgs.background ?? fileConfig.inputs?.backgroundImage ?? "").trim();
+  const backgroundColor = (cliArgs.color ?? fileConfig.inputs?.backgroundColor ?? "").trim();
 
   if (!iconImage) {
     throw new Error("Icon image is required. Use --icon or set inputs.iconImage in config.");
@@ -149,17 +174,21 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     throw new Error("Background color is required. Use --color or set inputs.backgroundColor in config.");
   }
 
-  // Validate icon path exists
+  // Validate icon path exists, is not a symlink, and is a PNG
   const resolvedIcon = resolve(iconImage);
   if (!existsSync(resolvedIcon)) {
     throw new Error(`Icon image not found: ${resolvedIcon}`);
   }
+  assertNotSymlink(resolvedIcon, "Icon image");
+  assertPngExtension(resolvedIcon, "Icon image");
 
-  // Validate background path exists
+  // Validate background path exists, is not a symlink, and is a PNG
   const resolvedBg = resolve(backgroundImage);
   if (!existsSync(resolvedBg)) {
     throw new Error(`Background image not found: ${resolvedBg}`);
   }
+  assertNotSymlink(resolvedBg, "Background image");
+  assertPngExtension(resolvedBg, "Background image");
 
   // Validate color format
   if (!/^#[0-9a-fA-F]{6}$/.test(backgroundColor)) {
@@ -189,4 +218,91 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   merged.output.directory = resolve(merged.output.directory);
 
   return merged;
+}
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+const MAX_DIMENSION = 8192;
+const ICON_MIN = 1024;
+const ICON_RECOMMENDED = 1280;
+const BG_MIN_WIDTH = 2320;
+const BG_MIN_HEIGHT = 720;
+const BG_RECOMMENDED_WIDTH = 4640;
+const BG_RECOMMENDED_HEIGHT = 1440;
+
+export interface ImageValidationResult {
+  warnings: string[];
+}
+
+export async function validateInputImages(
+  config: TvOSImageCreatorConfig,
+): Promise<ImageValidationResult> {
+  const warnings: string[] = [];
+
+  // Check file sizes
+  const iconSize = statSync(config.inputs.iconImage).size;
+  const bgSize = statSync(config.inputs.backgroundImage).size;
+
+  if (iconSize > MAX_FILE_SIZE) {
+    warnings.push(
+      `Icon file is ${(iconSize / 1024 / 1024).toFixed(1)}MB. Files over 50MB may cause high memory usage.`,
+    );
+  }
+  if (bgSize > MAX_FILE_SIZE) {
+    warnings.push(
+      `Background file is ${(bgSize / 1024 / 1024).toFixed(1)}MB. Files over 50MB may cause high memory usage.`,
+    );
+  }
+
+  // Read image dimensions
+  const [iconMeta, bgMeta] = await Promise.all([
+    sharp(config.inputs.iconImage).metadata(),
+    sharp(config.inputs.backgroundImage).metadata(),
+  ]);
+
+  const iconW = iconMeta.width ?? 0;
+  const iconH = iconMeta.height ?? 0;
+  const bgW = bgMeta.width ?? 0;
+  const bgH = bgMeta.height ?? 0;
+
+  // Icon minimum: 1024×1024
+  if (iconW < ICON_MIN || iconH < ICON_MIN) {
+    throw new Error(
+      `Icon image is too small (${iconW}x${iconH}). Minimum size is ${ICON_MIN}x${ICON_MIN}px.`,
+    );
+  }
+
+  // Icon recommended: 1280+
+  if (iconW < ICON_RECOMMENDED || iconH < ICON_RECOMMENDED) {
+    warnings.push(
+      `Icon image (${iconW}x${iconH}) is below recommended ${ICON_RECOMMENDED}x${ICON_RECOMMENDED}px. Output may show upscaling artifacts.`,
+    );
+  }
+
+  // Background minimum: 2320×720
+  if (bgW < BG_MIN_WIDTH || bgH < BG_MIN_HEIGHT) {
+    throw new Error(
+      `Background image is too small (${bgW}x${bgH}). Minimum size is ${BG_MIN_WIDTH}x${BG_MIN_HEIGHT}px.`,
+    );
+  }
+
+  // Background recommended: 4640×1440
+  if (bgW < BG_RECOMMENDED_WIDTH || bgH < BG_RECOMMENDED_HEIGHT) {
+    warnings.push(
+      `Background image (${bgW}x${bgH}) is below recommended ${BG_RECOMMENDED_WIDTH}x${BG_RECOMMENDED_HEIGHT}px. Top Shelf @2x output may show upscaling artifacts.`,
+    );
+  }
+
+  // Warn on very large dimensions
+  if (iconW > MAX_DIMENSION || iconH > MAX_DIMENSION) {
+    warnings.push(
+      `Icon image is very large (${iconW}x${iconH}). Processing may use significant memory.`,
+    );
+  }
+  if (bgW > MAX_DIMENSION || bgH > MAX_DIMENSION) {
+    warnings.push(
+      `Background image is very large (${bgW}x${bgH}). Processing may use significant memory.`,
+    );
+  }
+
+  return { warnings };
 }

@@ -5,4 +5,7 @@ export declare function compositeIconOnBackground(bgPath: string, iconPath: stri
     opaque?: boolean;
 }): Promise<Buffer>;
 export declare function renderIconOnTransparent(iconPath: string, size: number): Promise<Buffer>;
+export declare function renderIconOnTransparentCanvas(iconPath: string, width: number, height: number, options?: {
+    iconScale?: number;
+}): Promise<Buffer>;
 //# sourceMappingURL=image-processing.d.ts.map

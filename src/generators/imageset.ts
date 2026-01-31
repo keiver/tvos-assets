@@ -1,4 +1,3 @@
-import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type {
   ImageSetAssetConfig,
@@ -6,7 +5,7 @@ import type {
   TvOSImageCreatorConfig,
   ScaleFactor,
 } from "../types.js";
-import { ensureDir, writeContentsJson } from "../utils/fs.js";
+import { ensureDir, writeContentsJson, safeWriteFile } from "../utils/fs.js";
 import { compositeIconOnBackground, renderIconOnTransparent } from "../utils/image-processing.js";
 import {
   imageSetContentsJson,
@@ -49,7 +48,7 @@ export async function generateTopShelfImageSet(
       { opaque: true },
     );
 
-    writeFileSync(join(imagesetDir, filename), buffer);
+    safeWriteFile(join(imagesetDir, filename), buffer);
   }
 }
 
@@ -80,7 +79,7 @@ export async function generateSplashLogoImageSet(
     const filename = `${logoConfig.filePrefix}@${scale}.png`;
 
     const buffer = await renderIconOnTransparent(config.inputs.iconImage, size);
-    writeFileSync(join(imagesetDir, filename), buffer);
+    safeWriteFile(join(imagesetDir, filename), buffer);
   }
 
   // Generate tv scale variants
@@ -90,6 +89,6 @@ export async function generateSplashLogoImageSet(
     const filename = `${logoConfig.filePrefix}-tv@${scale}.png`;
 
     const buffer = await renderIconOnTransparent(config.inputs.iconImage, size);
-    writeFileSync(join(imagesetDir, filename), buffer);
+    safeWriteFile(join(imagesetDir, filename), buffer);
   }
 }

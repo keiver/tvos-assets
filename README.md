@@ -85,7 +85,7 @@ npm run build && node dist/index.js --icon ./sample-content/icon.png --backgroun
 
 ## Generated Files
 
-The tool produces **41 files** (21 `Contents.json` + 20 PNGs) plus a standalone `icon.png` next to the output directory.
+The tool produces **38 files** (20 `Contents.json` + 18 PNGs) plus a standalone `icon.png` next to the output directory.
 
 ```
 icon.png                                                                         (1024x1024, icon on background)
@@ -166,6 +166,15 @@ Images.xcassets/
 - **Icon**: PNG with transparent background. Centered and scaled to 60% of the shorter output dimension.
 - **Background**: Any PNG. Resized with cover-fit and center-cropped to each required dimension.
 - **Color**: Hex format `#RRGGBB` (e.g. `#F39C12`). Used for the splash screen background colorset.
+
+### Image Size Requirements
+
+| Input | Minimum | Recommended | Notes |
+|---|---|---|---|
+| **Icon** | 1024x1024 | 1280x1280+ | Below minimum: error. Below recommended: warning (upscaling artifacts possible) |
+| **Background** | 2320x720 | 4640x1440+ | Below minimum: error. Below recommended: warning (Top Shelf @2x may look blurry) |
+
+The tool will also warn if input files exceed 50MB (high memory usage) or 8192px in any dimension.
 
 ## Brand Asset Details
 
