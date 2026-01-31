@@ -36,6 +36,7 @@ function getDefaultConfig(
       cleanBeforeGenerate: true,
     },
     brandAssets: {
+      name: "AppIcon",
       appIconSmall: {
         enabled: true,
         name: "App Icon",

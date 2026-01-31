@@ -4,7 +4,7 @@ import { brandAssetsContentsJson } from "./contents-json.js";
 import { generateImageStack } from "./imagestack.js";
 import { generateTopShelfImageSet } from "./imageset.js";
 export async function generateBrandAssets(config) {
-    const brandDir = join(config.output.directory, "Brand Assets.brandassets");
+    const brandDir = join(config.output.directory, `${config.brandAssets.name}.brandassets`);
     ensureDir(brandDir);
     // Build asset manifest entries
     const assets = [];

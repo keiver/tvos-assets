@@ -11,7 +11,14 @@
       "Bash(npm --version:*)",
       "Bash(node --version)",
       "Bash(npm pack:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm outdated:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm run test:coverage:*)",
+      "WebFetch(domain:readybytes.in)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

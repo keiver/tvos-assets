@@ -91,7 +91,7 @@ The tool produces **38 files** (20 `Contents.json` + 18 PNGs) plus a standalone 
 icon.png                                                                         (1024x1024, icon on background)
 Images.xcassets/
 ├── Contents.json
-├── Brand Assets.brandassets/
+├── AppIcon.brandassets/
 │   ├── Contents.json
 │   ├── App Icon.imagestack/
 │   │   ├── Contents.json
@@ -242,6 +242,7 @@ For full control, create a JSON config file. All sections are optional — omitt
     "cleanBeforeGenerate": true
   },
   "brandAssets": {
+    "name": "AppIcon",
     "appIconSmall": {
       "enabled": true,
       "name": "App Icon",
@@ -320,6 +321,10 @@ For full control, create a JSON config file. All sections are optional — omitt
 | `cleanBeforeGenerate` | boolean | `true` | Delete and recreate output on every run. |
 
 #### `brandAssets`
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `name` | string | `"AppIcon"` | Folder name for the `.brandassets` bundle. Must match `ASSETCATALOG_COMPILER_APPICON_NAME` in Xcode. |
 
 All four assets are required by tvOS but can be individually disabled with `"enabled": false`.
 

@@ -51,6 +51,11 @@
       "type": "object",
       "description": "tvOS Brand Assets catalog. Contains app icons (layered imagestacks) and Top Shelf images (flat imagesets). All four assets are required by tvOS but can be individually disabled.",
       "properties": {
+        "name": {
+          "type": "string",
+          "description": "Folder name for the .brandassets bundle. Must match the ASSETCATALOG_COMPILER_APPICON_NAME build setting in Xcode. Defaults to \"AppIcon\".",
+          "default": "AppIcon"
+        },
         "appIconSmall": {
           "$ref": "#/$defs/imageStackAsset",
           "description": "Small app icon shown on the tvOS home screen. Rendered as a 3-layer parallax imagestack (front, middle, back). Default: 400x240 at 1x and 2x."

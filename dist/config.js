@@ -20,6 +20,7 @@ function getDefaultConfig(iconImage, backgroundImage, backgroundColor) {
             cleanBeforeGenerate: true,
         },
         brandAssets: {
+            name: "AppIcon",
             appIconSmall: {
                 enabled: true,
                 name: "App Icon",

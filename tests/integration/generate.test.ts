@@ -70,7 +70,7 @@ describe("Full xcassets generation", () => {
 
   it("creates the Brand Assets directory structure", async () => {
     await generateAll();
-    const brandDir = join(OUTPUT, "Brand Assets.brandassets");
+    const brandDir = join(OUTPUT, "AppIcon.brandassets");
     expect(existsSync(brandDir)).toBe(true);
     expect(existsSync(join(brandDir, "Contents.json"))).toBe(true);
 
@@ -90,7 +90,7 @@ describe("Full xcassets generation", () => {
     await generateAll();
     const frontImageset = join(
       OUTPUT,
-      "Brand Assets.brandassets",
+      "AppIcon.brandassets",
       "App Icon.imagestack",
       "Front.imagestacklayer",
       "Content.imageset",
@@ -115,7 +115,7 @@ describe("Full xcassets generation", () => {
     await generateAll();
     const frontImageset = join(
       OUTPUT,
-      "Brand Assets.brandassets",
+      "AppIcon.brandassets",
       "App Icon - App Store.imagestack",
       "Front.imagestacklayer",
       "Content.imageset",
@@ -129,7 +129,7 @@ describe("Full xcassets generation", () => {
 
   it("generates Top Shelf images", async () => {
     await generateAll();
-    const topShelf = join(OUTPUT, "Brand Assets.brandassets", "Top Shelf Image.imageset");
+    const topShelf = join(OUTPUT, "AppIcon.brandassets", "Top Shelf Image.imageset");
     expect(existsSync(join(topShelf, "top@1x.png"))).toBe(true);
     expect(existsSync(join(topShelf, "top@2x.png"))).toBe(true);
 
@@ -144,7 +144,7 @@ describe("Full xcassets generation", () => {
 
   it("generates Top Shelf Wide images", async () => {
     await generateAll();
-    const wide = join(OUTPUT, "Brand Assets.brandassets", "Top Shelf Image Wide.imageset");
+    const wide = join(OUTPUT, "AppIcon.brandassets", "Top Shelf Image Wide.imageset");
     expect(existsSync(join(wide, "wide@1x.png"))).toBe(true);
     expect(existsSync(join(wide, "wide@2x.png"))).toBe(true);
 

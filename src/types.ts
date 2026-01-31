@@ -43,6 +43,7 @@ export interface ImageSetAssetConfig {
 }
 
 export interface BrandAssetsConfig {
+  name: string;
   appIconSmall: ImageStackAssetConfig;
   appIconLarge: ImageStackAssetConfig;
   topShelfImage: ImageSetAssetConfig;

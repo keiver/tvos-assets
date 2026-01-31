@@ -92,10 +92,45 @@ describe("resolveConfig", () => {
       background: bg,
       color: "#FF0000",
     });
+    expect(config.brandAssets.name).toBe("AppIcon");
     expect(config.brandAssets.appIconSmall.enabled).toBe(true);
     expect(config.brandAssets.appIconSmall.size).toEqual({ width: 400, height: 240 });
     expect(config.brandAssets.appIconLarge.name).toBe("App Icon - App Store");
     expect(config.splashScreen.logo.enabled).toBe(true);
+  });
+
+  it("allows overriding brandAssets.name via config file", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "custom-name.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: { iconImage: icon, backgroundImage: bg, backgroundColor: "#FF0000" },
+        brandAssets: { name: "CustomIcon" },
+      }),
+    );
+    const config = resolveConfig({ config: configPath });
+    expect(config.brandAssets.name).toBe("CustomIcon");
+  });
+
+  it("preserves brandAssets.name through deep merge when other fields are overridden", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "merge-name.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: { iconImage: icon, backgroundImage: bg, backgroundColor: "#FF0000" },
+        brandAssets: {
+          name: "MyAppIcon",
+          appIconSmall: { enabled: false },
+        },
+      }),
+    );
+    const config = resolveConfig({ config: configPath });
+    expect(config.brandAssets.name).toBe("MyAppIcon");
+    expect(config.brandAssets.appIconSmall.enabled).toBe(false);
+    // Other defaults should still be intact
+    expect(config.brandAssets.appIconLarge.enabled).toBe(true);
   });
 
   // --- Missing required inputs ---
