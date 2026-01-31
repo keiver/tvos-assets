@@ -5,3 +5,7 @@ dist
 build
 *.config.js
 next-env.d.ts
+
+.claude/settings.json
+.claude/settings.local.json
+.claude/mcp/
