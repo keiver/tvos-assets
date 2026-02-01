@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-02-01
+- Dark color support (#2)
+
+
 ## [1.1.0] - 2026-02-01
 - 1.0.1 release trigger and doc cleanup (#1)
 
