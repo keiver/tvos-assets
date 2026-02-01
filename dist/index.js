@@ -189,7 +189,7 @@ program
         else {
             console.error(pc.red("An unexpected error occurred."));
         }
-        process.exit(1);
+        process.exitCode = 1;
     }
     finally {
         process.removeListener("SIGINT", onSignal);

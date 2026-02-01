@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { homedir } from "node:os";
 import sharp from "sharp";
 import { resolveConfig, validateInputImages } from "../src/config";
 import {
@@ -67,7 +68,10 @@ describe("resolveConfig", () => {
       color: "#FF0000",
     });
     // Default is ~/Desktop (or ~ if Desktop doesn't exist)
-    expect(config.output.directory).toMatch(/Desktop$|\/$/);
+    const home = homedir();
+    const desktop = join(home, "Desktop");
+    const expectedDir = existsSync(desktop) ? desktop : home;
+    expect(config.output.directory).toBe(expectedDir);
   });
 
   it("loads config from JSON file", async () => {
