@@ -2,7 +2,7 @@
 import "./check-node-version.js";
 import { Command } from "commander";
 import { join, dirname } from "node:path";
-import { mkdtempSync, rmSync, renameSync, copyFileSync, existsSync, unlinkSync, writeFileSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, renameSync, copyFileSync, existsSync, unlinkSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -102,16 +102,8 @@ program
             console.log(`  Radius:     ${pc.cyan(String(config.inputs.iconBorderRadius) + "px")}`);
         }
         console.log();
-        // Validate output directory is writable before doing expensive work
-        try {
-            ensureDir(config.output.directory);
-            const probe = join(config.output.directory, `.tvos-probe-${process.pid}`);
-            writeFileSync(probe, "");
-            unlinkSync(probe);
-        }
-        catch {
-            throw new Error(`Output directory is not writable: ${config.output.directory}`);
-        }
+        // Create output directory (writability already validated in resolveConfig)
+        ensureDir(config.output.directory);
         // Validate input image dimensions and file sizes
         const { warnings, iconSourceSize } = await validateInputImages(config);
         for (const warning of warnings) {
@@ -197,5 +189,5 @@ program
         cleanupTempDir();
     }
 });
-program.parse();
+await program.parseAsync();
 //# sourceMappingURL=index.js.map
