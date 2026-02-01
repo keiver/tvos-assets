@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-02-01
+- fix: remove incorrect warn about icon 1024x1024 size (#3)
+
+
 ## [1.2.0] - 2026-02-01
 - Dark color support (#2)
 

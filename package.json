@@ -1,6 +1,6 @@
 {
   "name": "tvos-assets",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "CLI tool to generate tvOS Images.xcassets from icon and background images",
   "type": "module",
   "main": "dist/index.js",
