@@ -3,12 +3,7 @@
 CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon and a background image. Produces all required Brand Assets (app icons with parallax layers, Top Shelf images), splash screen assets, and a standalone `icon.png` — ready to drop into an Xcode or React Native tvOS project.
 
 <p align="center">
-  <img src="docs/preview-tomo.webp" alt="tvOS home screen preview — jellyfish icon from TomoTV" width="800">
-</p>
-
-<p align="center">
-  <img src="docs/preview-sea.webp" alt="tvOS home screen preview — circular icon" width="400">
-  <img src="docs/preview-forest.webp" alt="tvOS home screen preview — rounded square icon" width="400">
+  <img src="docs/preview-tomo.webp" alt="tvOS home screen preview — jellyfish icon from TomoTV" width="100%">
 </p>
 
 ## Quick Start
@@ -79,6 +74,10 @@ When `--output` is omitted the tool writes a timestamped zip file to `~/Desktop`
 Each run produces a **uniquely timestamped** zip file (e.g. `tvos-assets-20260131-141523.zip`), so multiple runs never overwrite each other. The zip contains `Images.xcassets/` and `icon.png`.
 
 ## Examples
+
+<p align="center">
+  <img src="docs/preview-sea.webp" alt="tvOS home screen preview — circular icon" width="100%">
+</p>
 
 Generate to Desktop (default):
 
@@ -307,6 +306,10 @@ For full control, create a JSON config file. All sections are optional — omitt
 
 ### Config Reference
 
+<p align="center">
+  <img src="docs/preview-forest.webp" alt="tvOS home screen preview — rounded square icon" width="100%">
+</p>
+
 #### `inputs`
 
 | Key | Type | Required | Description |
@@ -414,6 +417,10 @@ All four assets are required by tvOS but can be individually disabled with `"ena
 | `npm start` | Run compiled build |
 | `npm test` | Run tests |
 | `npm run test:coverage` | Run tests with coverage report |
+
+## Demo Assets
+
+The icons and backgrounds in the preview screenshots were generated with this [tool](https://keiver.dev/lab/poster-generator).
 
 ## License
 
