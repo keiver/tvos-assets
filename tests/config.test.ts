@@ -66,7 +66,8 @@ describe("resolveConfig", () => {
       background: bg,
       color: "#FF0000",
     });
-    expect(config.output.directory).toMatch(/Images\.xcassets$/);
+    // Default is ~/Desktop (or ~ if Desktop doesn't exist)
+    expect(config.output.directory).toMatch(/Desktop$|\/$/);
   });
 
   it("loads config from JSON file", async () => {
@@ -440,6 +441,65 @@ describe("resolveConfig", () => {
     expect(config.brandAssets.appIconSmall.layers.front.source).toBe("icon");
   });
 
+  // --- Splash screen color validation ---
+
+  it("rejects invalid splash background color in config file", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "bad-splash-color.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: { iconImage: icon, backgroundImage: bg, backgroundColor: "#FF0000" },
+        splashScreen: {
+          background: {
+            enabled: true,
+            universal: { light: "not-a-color", dark: "#FF0000" },
+            tv: { light: "#FF0000", dark: "#FF0000" },
+          },
+        },
+      }),
+    );
+    expect(() => resolveConfig({ config: configPath })).toThrow(/Invalid color in splashScreen\.background\.universal\.light/);
+  });
+
+  it("rejects invalid splash tv dark color in config file", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "bad-tv-dark.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: { iconImage: icon, backgroundImage: bg, backgroundColor: "#FF0000" },
+        splashScreen: {
+          background: {
+            enabled: true,
+            universal: { light: "#FF0000", dark: "#FF0000" },
+            tv: { light: "#FF0000", dark: "invalid" },
+          },
+        },
+      }),
+    );
+    expect(() => resolveConfig({ config: configPath })).toThrow(/Invalid color in splashScreen\.background\.tv\.dark/);
+  });
+
+  it("skips splash color validation when splash background is disabled", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "disabled-splash.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: { iconImage: icon, backgroundImage: bg, backgroundColor: "#FF0000" },
+        splashScreen: {
+          background: {
+            enabled: false,
+          },
+        },
+      }),
+    );
+    // Should not throw even though the default colors were overridden
+    const config = resolveConfig({ config: configPath });
+    expect(config.splashScreen.background.enabled).toBe(false);
+  });
+
   // --- Prototype pollution guard (Phase 3 fix) ---
 
   it("ignores __proto__ keys in config file", async () => {
@@ -512,6 +572,32 @@ describe("validateInputImages", () => {
     const config = resolveConfig({ icon, background: bgPath, color: "#FF0000" });
     const result = await validateInputImages(config);
     expect(result.warnings.some((w) => w.includes("below recommended"))).toBe(true);
+  });
+
+  it("warns when icon is not square", async () => {
+    // Create a non-square icon (1280x1400)
+    const iconPath = join(TMP, "nonsquare-icon.png");
+    await createTestPng(iconPath, 1280, 1400, { transparent: true });
+    const bg = await createTestBackground(TMP);
+    const config = resolveConfig({ icon: iconPath, background: bg, color: "#FF0000" });
+    const result = await validateInputImages(config);
+    expect(result.warnings.some((w) => w.includes("not square"))).toBe(true);
+  });
+
+  it("warns when iconBorderRadius exceeds half the icon size", async () => {
+    const icon = await createTestIcon(TMP);
+    const bg = await createTestBackground(TMP);
+    const config = resolveConfig({ icon, background: bg, color: "#FF0000", iconBorderRadius: "700" });
+    const result = await validateInputImages(config);
+    expect(result.warnings.some((w) => w.includes("iconBorderRadius"))).toBe(true);
+  });
+
+  it("does not warn when iconBorderRadius is within bounds", async () => {
+    const icon = await createTestIcon(TMP);
+    const bg = await createTestBackground(TMP);
+    const config = resolveConfig({ icon, background: bg, color: "#FF0000", iconBorderRadius: "100" });
+    const result = await validateInputImages(config);
+    expect(result.warnings.some((w) => w.includes("iconBorderRadius"))).toBe(false);
   });
 
   it("rejects non-PNG icon (JPEG renamed to .png)", async () => {

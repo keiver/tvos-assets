@@ -49,7 +49,7 @@ describe("generateBrandAssets — disabled Top Shelf assets", () => {
       },
     });
 
-    await generateBrandAssets(config);
+    await generateBrandAssets(config.output.directory, config);
 
     const brandDir = join(config.output.directory, `${config.brandAssets.name}.brandassets`);
 
@@ -79,7 +79,7 @@ describe("generateBrandAssets — disabled App Icon Small", () => {
       },
     });
 
-    await generateBrandAssets(config);
+    await generateBrandAssets(config.output.directory, config);
 
     const brandDir = join(config.output.directory, `${config.brandAssets.name}.brandassets`);
 

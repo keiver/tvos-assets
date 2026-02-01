@@ -89,7 +89,6 @@ export interface InputConfig {
 
 export interface OutputConfig {
   directory: string;
-  cleanBeforeGenerate: boolean;
 }
 
 export interface XcassetsMetaConfig {

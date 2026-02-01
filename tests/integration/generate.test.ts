@@ -2,7 +2,7 @@ jest.setTimeout(60000);
 
 import sharp from "sharp";
 import { existsSync, mkdirSync, rmSync, readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join } from "node:path";
 import { resolveConfig, validateInputImages } from "../../src/config";
 import { rootContentsJson } from "../../src/generators/contents-json";
 import { generateBrandAssets } from "../../src/generators/brand-assets";
@@ -42,7 +42,7 @@ async function generateAll() {
   const rootContents = rootContentsJson(config.xcassetsMeta);
   writeContentsJson(join(config.output.directory, "Contents.json"), rootContents);
 
-  await generateBrandAssets(config);
+  await generateBrandAssets(config.output.directory, config);
   await generateSplashLogoImageSet(
     config.output.directory,
     config.splashScreen.logo,
@@ -53,7 +53,8 @@ async function generateAll() {
     config.splashScreen.background,
     config,
   );
-  await generateIcon(config);
+  const iconOutputPath = join(TMP, "icon.png");
+  await generateIcon(config, iconOutputPath);
 
   return config;
 }
@@ -183,8 +184,8 @@ describe("Full xcassets generation", () => {
 
   it("generates standalone icon.png at 1024x1024", async () => {
     await generateAll();
-    // The generated icon.png is in the parent of the output directory.
-    const generatedIcon = join(dirname(OUTPUT), "icon.png");
+    // The generated icon.png is in the temp directory root
+    const generatedIcon = join(TMP, "icon.png");
     expect(existsSync(generatedIcon)).toBe(true);
     const meta = await sharp(generatedIcon).metadata();
     expect(meta.width).toBe(1024);

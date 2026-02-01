@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon PNG, a background PNG, and a hex color. Produces all required Brand Assets (3-layer parallax app icons), Top Shelf images, splash screen assets, and a standalone `icon.png` for Xcode/React Native tvOS projects.
+CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon PNG, a background PNG, and a hex color. Produces all required Brand Assets (3-layer parallax app icons), Top Shelf images, splash screen assets, and a standalone `icon.png` — packaged as a timestamped zip file for Xcode/React Native tvOS projects.
 
 ## Commands
 
@@ -23,7 +23,7 @@ npx tsx src/index.ts --config ./tvos-image-creator.config.json
 
 ## Architecture
 
-**Entry point**: `src/index.ts` — CLI parsing (Commander), config resolution, orchestration.
+**Entry point**: `src/index.ts` — CLI parsing (Commander), config resolution, temp-dir generation, zip creation.
 
 **Config resolution** (`src/config.ts`): Three-layer merge — built-in defaults → JSON config file → CLI args (highest priority). Validates inputs exist, color is valid hex.
 
@@ -38,6 +38,7 @@ npx tsx src/index.ts --config ./tvos-image-creator.config.json
 **Utils** (`src/utils/`):
 - `image-processing.ts` — Sharp pipelines: resize, composite icon on background (60% of shortest dimension, centered), render on transparent canvas
 - `fs.ts` — `ensureDir`, `cleanDir` (refuses to delete directories containing project markers like `package.json`, `.git`, `src`), `writeContentsJson`
+- `zip.ts` — `formatTimestamp`, `generateZipFilename`, `createZip` — archiver-based zip creation for timestamped output
 - `color.ts` — Hex→RGBA conversion, RGBA→Apple component strings (3 decimal places)
 
 **Types** (`src/types.ts`): Config types, asset definitions, Contents.json structures. Key types: `TvOSImageCreatorConfig` (master config), `ImageStackAssetConfig`, `ImageSetAssetConfig`.
@@ -47,8 +48,8 @@ npx tsx src/index.ts --config ./tvos-image-creator.config.json
 - **ESM module** with Node16 module resolution, ES2022 target, strict TypeScript
 - **Sharp** is the sole image processing library — all PNG operations go through it
 - **Contents.json format** must match Xcode exactly: `writeContentsJson()` in `src/utils/fs.ts` adds a space before every colon via regex replacement
-- **Directory safety**: `cleanDir()` checks for safety markers before deleting — never bypass this
-- **Generated output**: 39 files (20 Contents.json + 18 PNGs) plus icon.png written to parent of output directory
+- **Directory safety**: `cleanDir()` checks for safety markers before deleting — never bypass this (used in tests only; main flow uses temp dirs)
+- **Generated output**: Timestamped zip (e.g. `tvos-assets-20260131-141523.zip`) containing `Images.xcassets/` + `icon.png`. Generated in a temp dir, then moved atomically to the output directory
 - **Icon scaling**: Icons are rendered at 60% of the shortest canvas dimension, centered — this ratio is hardcoded in the image processing utils
 
 ## Testing

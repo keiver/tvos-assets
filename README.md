@@ -3,12 +3,12 @@
 CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon and a background image. Produces all required Brand Assets (app icons with parallax layers, Top Shelf images), splash screen assets, and a standalone `icon.png` — ready to drop into an Xcode or React Native tvOS project.
 
 <p align="center">
-  <img src="docs/preview-tomo.png" alt="tvOS home screen preview — jellyfish icon from TomoTV" width="800">
+  <img src="docs/preview-tomo.webp" alt="tvOS home screen preview — jellyfish icon from TomoTV" width="100%">
 </p>
 
 <p align="center">
-  <img src="docs/preview-sea.png" alt="tvOS home screen preview — circular icon" width="400">
-  <img src="docs/preview-orange.png" alt="tvOS home screen preview — rounded square icon" width="400">
+  <img src="docs/preview-sea.webp" alt="tvOS home screen preview — circular icon" width="50%">
+  <img src="docs/preview-forest.webp" alt="tvOS home screen preview — rounded square icon" width="50%">
 </p>
 
 ## Quick Start
@@ -17,7 +17,7 @@ CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon an
 npx tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12"
 ```
 
-Generates `Images.xcassets` on your Desktop with all required tvOS assets.
+Generates a timestamped zip file on your Desktop containing `Images.xcassets` and `icon.png` with all required tvOS assets. Each run produces a unique file — no overwriting.
 
 ## Install
 
@@ -64,7 +64,7 @@ tvos-image-creator --icon <path> --background <path> --color <hex> [--output <pa
 | `--icon <path>` | Yes | Path to icon PNG (transparent background) |
 | `--background <path>` | Yes | Path to background PNG |
 | `--color <hex>` | Yes | Background color hex (e.g. `"#F39C12"`) |
-| `--output <path>` | No | Output directory. Defaults to `~/Desktop/Images.xcassets` |
+| `--output <path>` | No | Output directory for the zip file. Defaults to `~/Desktop` |
 | `--icon-border-radius <px>` | No | Border radius for the icon in pixels. `0` = square (default), large value = circle. |
 | `--config <path>` | No | Path to a JSON config file for advanced customization |
 | `--version` | No | Print version |
@@ -72,9 +72,9 @@ tvos-image-creator --icon <path> --background <path> --color <hex> [--output <pa
 
 CLI arguments override config file values, which override built-in defaults.
 
-When `--output` is omitted the tool writes to `~/Desktop/Images.xcassets`. If the Desktop folder does not exist (e.g. on a Linux server) it falls back to `~/Images.xcassets`.
+When `--output` is omitted the tool writes a timestamped zip file to `~/Desktop`. If the Desktop folder does not exist (e.g. on a Linux server) it falls back to `~`.
 
-The output is **idempotent** — if `Images.xcassets` already exists at the target path it is deleted and regenerated from scratch.
+Each run produces a **uniquely timestamped** zip file (e.g. `tvos-assets-20260131-141523.zip`), so multiple runs never overwrite each other. The zip contains `Images.xcassets/` and `icon.png`.
 
 ## Examples
 
@@ -87,7 +87,7 @@ tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12"
 Generate into a specific directory:
 
 ```bash
-tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12" --output ./my-tvos-app/Images.xcassets
+tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12" --output ./my-tvos-app
 ```
 
 Use a config file:
@@ -99,73 +99,59 @@ tvos-image-creator --config ./tvos-image-creator.config.json
 Config file with CLI overrides (CLI args take precedence):
 
 ```bash
-tvos-image-creator --config ./tvos-image-creator.config.json --color "#00FF00" --output ./output/Images.xcassets
+tvos-image-creator --config ./tvos-image-creator.config.json --color "#00FF00" --output ./output
 ```
 
 ## Generated Files
 
-The tool produces **38 files** (20 `Contents.json` + 18 PNGs) plus a standalone `icon.png` next to the output directory.
+The tool produces a timestamped zip file (e.g. `tvos-assets-20260131-141523.zip`) containing **39 files**: 20 `Contents.json` + 18 PNGs + `icon.png`.
 
 ```
-icon.png                                                                         (1024x1024, icon on background)
-Images.xcassets/
-├── Contents.json
-├── AppIcon.brandassets/
-│   ├── Contents.json
-│   ├── App Icon.imagestack/
-│   │   ├── Contents.json
-│   │   ├── Front.imagestacklayer/
-│   │   │   ├── Contents.json
-│   │   │   └── Content.imageset/
-│   │   │       ├── Contents.json
-│   │   │       ├── front@1x.png                                                 (400x240, icon on transparent)
-│   │   │       └── front@2x.png                                                 (800x480, icon on transparent)
-│   │   ├── Middle.imagestacklayer/
-│   │   │   ├── Contents.json
-│   │   │   └── Content.imageset/
-│   │   │       ├── Contents.json
-│   │   │       ├── middle@1x.png                                                (400x240, icon on transparent)
-│   │   │       └── middle@2x.png                                                (800x480, icon on transparent)
-│   │   └── Back.imagestacklayer/
-│   │       ├── Contents.json
-│   │       └── Content.imageset/
-│   │           ├── Contents.json
-│   │           ├── back@1x.png                                                  (400x240, background only, opaque)
-│   │           └── back@2x.png                                                  (800x480, background only, opaque)
-│   ├── App Icon - App Store.imagestack/
-│   │   ├── Contents.json
-│   │   ├── Front.imagestacklayer/
-│   │   │   ├── Contents.json
-│   │   │   └── Content.imageset/
-│   │   │       ├── Contents.json
-│   │   │       └── front@1x.png                                                 (1280x768, icon on transparent)
-│   │   ├── Middle.imagestacklayer/
-│   │   │   ├── Contents.json
-│   │   │   └── Content.imageset/
-│   │   │       ├── Contents.json
-│   │   │       └── middle@1x.png                                                (1280x768, icon on transparent)
-│   │   └── Back.imagestacklayer/
-│   │       ├── Contents.json
-│   │       └── Content.imageset/
-│   │           ├── Contents.json
-│   │           └── back.png                                                     (1280x768, background only, opaque)
-│   ├── Top Shelf Image.imageset/
-│   │   ├── Contents.json
-│   │   ├── top@1x.png                                                          (1920x720, icon on background, opaque)
-│   │   └── top@2x.png                                                          (3840x1440, icon on background, opaque)
-│   └── Top Shelf Image Wide.imageset/
-│       ├── Contents.json
-│       ├── wide@1x.png                                                         (2320x720, icon on background, opaque)
-│       └── wide@2x.png                                                         (4640x1440, icon on background, opaque)
-├── SplashScreenLogo.imageset/
-│   ├── Contents.json
-│   ├── 200-icon@1x.png                                                         (200px, icon on transparent)
-│   ├── 200-icon@2x.png                                                         (400px, icon on transparent)
-│   ├── 200-icon@3x.png                                                         (600px, icon on transparent)
-│   ├── 200-icon-tv@1x.png                                                      (200px, icon on transparent, tv)
-│   └── 200-icon-tv@2x.png                                                      (400px, icon on transparent, tv)
-└── SplashScreenBackground.colorset/
-    └── Contents.json                                                            (light/dark color definitions)
+tvos-assets-YYYYMMDD-HHmmss.zip
+├── icon.png                                     (1024x1024, icon on background)
+└── Images.xcassets/
+    ├── Contents.json
+    ├── AppIcon.brandassets/
+    │   ├── Contents.json
+    │   ├── App Icon.imagestack/
+    │   │   ├── Contents.json
+    │   │   ├── Front.imagestacklayer/
+    │   │   │   ├── Contents.json
+    │   │   │   └── Content.imageset/
+    │   │   │       ├── Contents.json
+    │   │   │       ├── front@1x.png             (400x240)
+    │   │   │       └── front@2x.png             (800x480)
+    │   │   ├── Middle.imagestacklayer/
+    │   │   │   ├── Contents.json
+    │   │   │   └── Content.imageset/
+    │   │   │       ├── Contents.json
+    │   │   │       ├── middle@1x.png            (400x240)
+    │   │   │       └── middle@2x.png            (800x480)
+    │   │   └── Back.imagestacklayer/
+    │   │       ├── Contents.json
+    │   │       └── Content.imageset/
+    │   │           ├── Contents.json
+    │   │           ├── back@1x.png              (400x240, opaque)
+    │   │           └── back@2x.png              (800x480, opaque)
+    │   ├── App Icon - App Store.imagestack/
+    │   │   └── ... (same 3-layer structure, 1280x768 @1x)
+    │   ├── Top Shelf Image.imageset/
+    │   │   ├── Contents.json
+    │   │   ├── top@1x.png                       (1920x720, opaque)
+    │   │   └── top@2x.png                       (3840x1440, opaque)
+    │   └── Top Shelf Image Wide.imageset/
+    │       ├── Contents.json
+    │       ├── wide@1x.png                      (2320x720, opaque)
+    │       └── wide@2x.png                      (4640x1440, opaque)
+    ├── SplashScreenLogo.imageset/
+    │   ├── Contents.json
+    │   ├── 200-icon@1x.png                      (200px)
+    │   ├── 200-icon@2x.png                      (400px)
+    │   ├── 200-icon@3x.png                      (600px)
+    │   ├── 200-icon-tv@1x.png                   (200px, tv)
+    │   └── 200-icon-tv@2x.png                   (400px, tv)
+    └── SplashScreenBackground.colorset/
+        └── Contents.json                        (light/dark color definitions)
 ```
 
 ## Input Requirements
@@ -246,8 +232,7 @@ For full control, create a JSON config file. All sections are optional — omitt
     "iconBorderRadius": 80
   },
   "output": {
-    "directory": "./Images.xcassets",
-    "cleanBeforeGenerate": true
+    "directory": "./output"
   },
   "brandAssets": {
     "name": "AppIcon",
@@ -326,8 +311,7 @@ For full control, create a JSON config file. All sections are optional — omitt
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `directory` | string | `~/Desktop/Images.xcassets` | Output directory path. |
-| `cleanBeforeGenerate` | boolean | `true` | Delete and recreate output on every run. |
+| `directory` | string | `~/Desktop` | Output directory for the zip file. |
 
 #### `brandAssets`
 

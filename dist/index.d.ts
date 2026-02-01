@@ -1,3 +1,3 @@
 #!/usr/bin/env node
-export {};
+import "./check-node-version.js";
 //# sourceMappingURL=index.d.ts.map

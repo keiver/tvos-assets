@@ -42,12 +42,12 @@
       "properties": {
         "directory": {
           "type": "string",
-          "description": "Output directory path. The full Images.xcassets structure is generated here. Defaults to ~/Desktop/Images.xcassets when omitted.",
-          "default": "~/Desktop/Images.xcassets"
+          "description": "Output directory where the timestamped zip file is written. Defaults to ~/Desktop when omitted.",
+          "default": "~/Desktop"
         },
         "cleanBeforeGenerate": {
           "type": "boolean",
-          "description": "When true, the output directory is deleted and recreated on every run, ensuring a clean build with no stale files. Set to false to preserve existing files (not recommended).",
+          "description": "Deprecated — ignored. Output is always generated in a fresh temp directory before zipping.",
           "default": true
         }
       },

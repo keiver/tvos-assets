@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
+import "./check-node-version.js";
+
 import { Command } from "commander";
 
 import { join } from "node:path";
+import { mkdtempSync, rmSync, renameSync, copyFileSync, existsSync, unlinkSync } from "node:fs";
+import { tmpdir } from "node:os";
 import pc from "picocolors";
 import { resolveConfig, validateInputImages } from "./config.js";
 import { rootContentsJson } from "./generators/contents-json.js";
@@ -10,12 +14,54 @@ import { generateBrandAssets } from "./generators/brand-assets.js";
 import { generateSplashLogoImageSet } from "./generators/imageset.js";
 import { generateColorSet } from "./generators/colorset.js";
 import { generateIcon } from "./generators/icon.js";
-import { ensureDir, cleanDir, writeContentsJson } from "./utils/fs.js";
+import type { TvOSImageCreatorConfig } from "./types.js";
+import { ensureDir, writeContentsJson } from "./utils/fs.js";
+import { createZip, generateZipFilename } from "./utils/zip.js";
 
 const program = new Command();
 
 function step(current: number, total: number, message: string): void {
   console.log(`  ${pc.dim(`[${current}/${total}]`)} ${message}`);
+}
+
+function computeFileCount(config: TvOSImageCreatorConfig): { contentsJson: number; pngs: number; total: number } {
+  let contentsJson = 1; // root Contents.json
+  let pngs = 0;
+
+  // Brand Assets folder Contents.json
+  contentsJson += 1;
+
+  // Image stacks (app icons)
+  for (const stack of [config.brandAssets.appIconSmall, config.brandAssets.appIconLarge]) {
+    if (!stack.enabled) continue;
+    // imagestack Contents.json + 3 layers * (layer Contents.json + imageset Contents.json)
+    contentsJson += 1 + 3 * 2;
+    // PNGs: each layer gets one PNG per scale
+    pngs += 3 * stack.scales.length;
+  }
+
+  // Top Shelf imagesets
+  for (const imageset of [config.brandAssets.topShelfImage, config.brandAssets.topShelfImageWide]) {
+    if (!imageset.enabled) continue;
+    contentsJson += 1;
+    pngs += imageset.scales.length;
+  }
+
+  // Splash screen logo
+  if (config.splashScreen.logo.enabled) {
+    contentsJson += 1;
+    pngs += config.splashScreen.logo.universal.scales.length + config.splashScreen.logo.tv.scales.length;
+  }
+
+  // Splash screen background colorset
+  if (config.splashScreen.background.enabled) {
+    contentsJson += 1;
+  }
+
+  // Standalone icon.png
+  pngs += 1;
+
+  return { contentsJson, pngs, total: contentsJson + pngs };
 }
 
 program
@@ -26,10 +72,10 @@ program
   .option("--background <path>", "Path to background PNG")
   .option("--color <hex>", 'Background color hex (e.g. "#B43939")')
   .option("--config <path>", "Path to config JSON file")
-  .option("--output <path>", "Output directory (default: ~/Desktop/Images.xcassets)")
+  .option("--output <path>", "Output directory for the zip file (default: ~/Desktop)")
   .option("--icon-border-radius <pixels>", "Border radius for icon in pixels (0 = square, large value = circle)", "0")
   .action(async (options) => {
-    let outputDir: string | undefined;
+    let tempDir: string | undefined;
     try {
       const config = resolveConfig({
         icon: options.icon,
@@ -52,8 +98,6 @@ program
       }
       console.log();
 
-      outputDir = config.output.directory;
-
       // Validate input image dimensions and file sizes
       const { warnings, iconSourceSize } = await validateInputImages(config);
       for (const warning of warnings) {
@@ -61,35 +105,32 @@ program
       }
       if (warnings.length > 0) console.log();
 
+      // Create temp directory for generation
+      tempDir = mkdtempSync(join(tmpdir(), "tvos-image-creator-"));
+      const xcassetsDir = join(tempDir, "Images.xcassets");
+      const iconOutputPath = join(tempDir, "icon.png");
+
       const totalSteps = 9;
       let currentStep = 0;
 
-      // Clean output directory if configured
-      if (config.output.cleanBeforeGenerate) {
-        step(++currentStep, totalSteps, "Cleaning output directory...");
-        cleanDir(config.output.directory);
-      } else {
-        currentStep++;
-      }
-
       // Create root xcassets directory
       step(++currentStep, totalSteps, "Creating xcassets directory...");
-      ensureDir(config.output.directory);
+      ensureDir(xcassetsDir);
       const rootContents = rootContentsJson(config.xcassetsMeta);
-      writeContentsJson(join(config.output.directory, "Contents.json"), rootContents);
+      writeContentsJson(join(xcassetsDir, "Contents.json"), rootContents);
 
       // Generate Brand Assets
       step(++currentStep, totalSteps, `Generating ${pc.bold("App Icon")} (400x240, @1x + @2x)...`);
       step(++currentStep, totalSteps, `Generating ${pc.bold("App Icon - App Store")} (1280x768, @1x)...`);
       step(++currentStep, totalSteps, `Generating ${pc.bold("Top Shelf Image")} (1920x720, @1x + @2x)...`);
       step(++currentStep, totalSteps, `Generating ${pc.bold("Top Shelf Image Wide")} (2320x720, @1x + @2x)...`);
-      await generateBrandAssets(config, iconSourceSize);
+      await generateBrandAssets(xcassetsDir, config, iconSourceSize);
 
       // Generate Splash Screen Logo
       if (config.splashScreen.logo.enabled) {
         step(++currentStep, totalSteps, `Generating ${pc.bold("Splash Screen Logo")}...`);
         await generateSplashLogoImageSet(
-          config.output.directory,
+          xcassetsDir,
           config.splashScreen.logo,
           config,
           iconSourceSize,
@@ -102,7 +143,7 @@ program
       if (config.splashScreen.background.enabled) {
         step(++currentStep, totalSteps, `Generating ${pc.bold("Splash Screen Background")} colorset...`);
         generateColorSet(
-          config.output.directory,
+          xcassetsDir,
           config.splashScreen.background,
           config,
         );
@@ -112,22 +153,39 @@ program
 
       // Generate standalone icon.png
       step(++currentStep, totalSteps, `Generating ${pc.bold("icon.png")} (1024x1024)...`);
-      await generateIcon(config, iconSourceSize);
+      await generateIcon(config, iconOutputPath, iconSourceSize);
 
-      // Summary banner
-      console.log();
-      console.log(pc.green(pc.bold("  Done!")));
-      console.log(`  ${pc.dim("Files:")}  39 files (20 Contents.json + 18 PNGs + icon.png)`);
-      console.log(`  ${pc.dim("Output:")} ${pc.cyan(config.output.directory)}`);
-      console.log();
-    } catch (error) {
-      // Clean up partial output on failure
+      // Create zip archive
+      step(++currentStep, totalSteps, `Creating ${pc.bold("zip")} archive...`);
+      const zipFilename = generateZipFilename();
+      const tempZipPath = join(tempDir, zipFilename);
+      await createZip(
+        [
+          { sourcePath: xcassetsDir, zipName: "Images.xcassets", type: "directory" },
+          { sourcePath: iconOutputPath, zipName: "icon.png", type: "file" },
+        ],
+        tempZipPath,
+      );
+
+      // Move zip to destination atomically
+      const finalZipPath = join(config.output.directory, zipFilename);
+      ensureDir(config.output.directory);
       try {
-        if (outputDir) cleanDir(outputDir);
+        renameSync(tempZipPath, finalZipPath);
       } catch {
-        // Best-effort cleanup — ignore failures
+        // Cross-device move: fall back to copy + delete
+        copyFileSync(tempZipPath, finalZipPath);
+        unlinkSync(tempZipPath);
       }
 
+      // Summary banner
+      const { contentsJson, pngs, total } = computeFileCount(config);
+      console.log();
+      console.log(pc.green(pc.bold("  Done!")));
+      console.log(`  ${pc.dim("Files:")}  ${total} files (${contentsJson} Contents.json + ${pngs - 1} PNGs + icon.png)`);
+      console.log(`  ${pc.dim("Output:")} ${pc.cyan(finalZipPath)}`);
+      console.log();
+    } catch (error) {
       console.log();
       if (error instanceof Error) {
         console.error(pc.red(`Error: ${error.message}`));
@@ -135,6 +193,15 @@ program
         console.error(pc.red("An unexpected error occurred."));
       }
       process.exit(1);
+    } finally {
+      // Clean up temp directory
+      if (tempDir && existsSync(tempDir)) {
+        try {
+          rmSync(tempDir, { recursive: true, force: true });
+        } catch {
+          // Best-effort cleanup — ignore failures
+        }
+      }
     }
   });
 

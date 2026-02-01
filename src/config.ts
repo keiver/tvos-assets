@@ -17,8 +17,7 @@ interface CLIArgs {
 
 function defaultOutputDirectory(): string {
   const desktop = join(homedir(), "Desktop");
-  const base = existsSync(desktop) ? desktop : homedir();
-  return join(base, "Images.xcassets");
+  return existsSync(desktop) ? desktop : homedir();
 }
 
 function getDefaultConfig(
@@ -35,7 +34,6 @@ function getDefaultConfig(
     },
     output: {
       directory: defaultOutputDirectory(),
-      cleanBeforeGenerate: true,
     },
     brandAssets: {
       name: "AppIcon",
@@ -157,6 +155,8 @@ function validateImagePath(rawPath: string, label: string): string {
   return resolved;
 }
 
+const HEX_PATTERN = /^#[0-9a-fA-F]{6}$/;
+
 const SAFE_ASSET_NAME = /^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/;
 
 function validateAssetName(name: string, label: string): void {
@@ -211,7 +211,7 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   const resolvedBg = validateImagePath(backgroundImage, "Background image");
 
   // Validate color format
-  if (!/^#[0-9a-fA-F]{6}$/.test(backgroundColor)) {
+  if (!HEX_PATTERN.test(backgroundColor)) {
     throw new Error(`Invalid color format: "${backgroundColor}". Use hex format like "#B43939".`);
   }
 
@@ -241,6 +241,21 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   validateAssetName(merged.brandAssets.topShelfImageWide.name, "brandAssets.topShelfImageWide.name");
   validateAssetName(merged.splashScreen.logo.name, "splashScreen.logo.name");
   validateAssetName(merged.splashScreen.background.name, "splashScreen.background.name");
+
+  // Validate splash screen color overrides from config file
+  if (merged.splashScreen.background.enabled) {
+    const colorFields = [
+      { value: merged.splashScreen.background.universal.light, label: "splashScreen.background.universal.light" },
+      { value: merged.splashScreen.background.universal.dark, label: "splashScreen.background.universal.dark" },
+      { value: merged.splashScreen.background.tv.light, label: "splashScreen.background.tv.light" },
+      { value: merged.splashScreen.background.tv.dark, label: "splashScreen.background.tv.dark" },
+    ];
+    for (const { value, label } of colorFields) {
+      if (!HEX_PATTERN.test(value)) {
+        throw new Error(`Invalid color in ${label}: "${value}". Use hex format like "#B43939".`);
+      }
+    }
+  }
 
   // Ensure CLI args always win for inputs
   merged.inputs.iconImage = resolvedIcon;
@@ -356,7 +371,21 @@ export async function validateInputImages(
     );
   }
 
+  // Warn if icon is not square (will be letterboxed)
+  if (iconW !== iconH) {
+    warnings.push(
+      `Icon image is not square (${iconW}x${iconH}). The icon will be letterboxed to fit a square canvas.`,
+    );
+  }
+
   const iconSourceSize = Math.min(iconW, iconH);
+
+  // Warn if iconBorderRadius is larger than half the source size
+  if (config.inputs.iconBorderRadius > iconSourceSize / 2) {
+    warnings.push(
+      `iconBorderRadius (${config.inputs.iconBorderRadius}) exceeds half the icon size (${iconSourceSize / 2}). Values above iconSourceSize/2 are clamped to produce a circle.`,
+    );
+  }
 
   return { warnings, iconSourceSize };
 }

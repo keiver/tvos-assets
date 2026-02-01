@@ -5,8 +5,8 @@ import { brandAssetsContentsJson } from "./contents-json.js";
 import { generateImageStack } from "./imagestack.js";
 import { generateTopShelfImageSet } from "./imageset.js";
 
-export async function generateBrandAssets(config: TvOSImageCreatorConfig, iconSourceSize?: number): Promise<void> {
-  const brandDir = join(config.output.directory, `${config.brandAssets.name}.brandassets`);
+export async function generateBrandAssets(outputDir: string, config: TvOSImageCreatorConfig, iconSourceSize?: number): Promise<void> {
+  const brandDir = join(outputDir, `${config.brandAssets.name}.brandassets`);
   ensureDir(brandDir);
 
   // Build asset manifest entries
@@ -53,10 +53,17 @@ export async function generateBrandAssets(config: TvOSImageCreatorConfig, iconSo
   const contents = brandAssetsContentsJson(assets, config.xcassetsMeta);
   writeContentsJson(join(brandDir, "Contents.json"), contents);
 
+  function withContext(name: string, promise: Promise<void>): Promise<void> {
+    return promise.catch((err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(`Failed generating "${name}": ${message}`);
+    });
+  }
+
   await Promise.all([
-    generateImageStack(brandDir, brandAssets.appIconSmall, config, iconSourceSize),
-    generateImageStack(brandDir, brandAssets.appIconLarge, config, iconSourceSize),
-    generateTopShelfImageSet(brandDir, brandAssets.topShelfImage, config, iconSourceSize),
-    generateTopShelfImageSet(brandDir, brandAssets.topShelfImageWide, config, iconSourceSize),
+    withContext(brandAssets.appIconSmall.name, generateImageStack(brandDir, brandAssets.appIconSmall, config, iconSourceSize)),
+    withContext(brandAssets.appIconLarge.name, generateImageStack(brandDir, brandAssets.appIconLarge, config, iconSourceSize)),
+    withContext(brandAssets.topShelfImage.name, generateTopShelfImageSet(brandDir, brandAssets.topShelfImage, config, iconSourceSize)),
+    withContext(brandAssets.topShelfImageWide.name, generateTopShelfImageSet(brandDir, brandAssets.topShelfImageWide, config, iconSourceSize)),
   ]);
 }
