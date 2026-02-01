@@ -4,9 +4,13 @@ import "./check-node-version.js";
 
 import { Command } from "commander";
 
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { mkdtempSync, rmSync, renameSync, copyFileSync, existsSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+
+const require = createRequire(import.meta.url);
+const { version } = require("../package.json") as { version: string };
 import pc from "picocolors";
 import { resolveConfig, validateInputImages } from "./config.js";
 import { rootContentsJson } from "./generators/contents-json.js";
@@ -67,7 +71,7 @@ function computeFileCount(config: TvOSImageCreatorConfig): { contentsJson: numbe
 program
   .name("tvos-assets")
   .description("Generate tvOS Images.xcassets from icon and background images")
-  .version("1.0.0")
+  .version(version)
   .option("--icon <path>", "Path to icon PNG (transparent background)")
   .option("--background <path>", "Path to background PNG")
   .option("--color <hex>", 'Background color hex (e.g. "#B43939")')
@@ -139,7 +143,9 @@ program
       const xcassetsDir = join(tempDir, "Images.xcassets");
       const iconOutputPath = join(tempDir, "icon.png");
 
-      const totalSteps = 9;
+      const totalSteps = 7
+        + (config.splashScreen.logo.enabled ? 1 : 0)
+        + (config.splashScreen.background.enabled ? 1 : 0);
       let currentStep = 0;
 
       // Create root xcassets directory
@@ -164,8 +170,6 @@ program
           config,
           iconSourceSize,
         );
-      } else {
-        currentStep++;
       }
 
       // Generate Splash Screen Background colorset
@@ -176,8 +180,6 @@ program
           config.splashScreen.background,
           config,
         );
-      } else {
-        currentStep++;
       }
 
       // Generate standalone icon.png

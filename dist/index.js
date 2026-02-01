@@ -1,9 +1,12 @@
 #!/usr/bin/env node
 import "./check-node-version.js";
 import { Command } from "commander";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { mkdtempSync, rmSync, renameSync, copyFileSync, existsSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
+const require = createRequire(import.meta.url);
+const { version } = require("../package.json");
 import pc from "picocolors";
 import { resolveConfig, validateInputImages } from "./config.js";
 import { rootContentsJson } from "./generators/contents-json.js";
@@ -54,7 +57,7 @@ function computeFileCount(config) {
 program
     .name("tvos-assets")
     .description("Generate tvOS Images.xcassets from icon and background images")
-    .version("1.0.0")
+    .version(version)
     .option("--icon <path>", "Path to icon PNG (transparent background)")
     .option("--background <path>", "Path to background PNG")
     .option("--color <hex>", 'Background color hex (e.g. "#B43939")')
@@ -120,7 +123,9 @@ program
         tempDir = mkdtempSync(join(tmpdir(), "tvos-assets-"));
         const xcassetsDir = join(tempDir, "Images.xcassets");
         const iconOutputPath = join(tempDir, "icon.png");
-        const totalSteps = 9;
+        const totalSteps = 7
+            + (config.splashScreen.logo.enabled ? 1 : 0)
+            + (config.splashScreen.background.enabled ? 1 : 0);
         let currentStep = 0;
         // Create root xcassets directory
         step(++currentStep, totalSteps, "Creating xcassets directory...");
@@ -138,16 +143,10 @@ program
             step(++currentStep, totalSteps, `Generating ${pc.bold("Splash Screen Logo")}...`);
             await generateSplashLogoImageSet(xcassetsDir, config.splashScreen.logo, config, iconSourceSize);
         }
-        else {
-            currentStep++;
-        }
         // Generate Splash Screen Background colorset
         if (config.splashScreen.background.enabled) {
             step(++currentStep, totalSteps, `Generating ${pc.bold("Splash Screen Background")} colorset...`);
             generateColorSet(xcassetsDir, config.splashScreen.background, config);
-        }
-        else {
-            currentStep++;
         }
         // Generate standalone icon.png
         step(++currentStep, totalSteps, `Generating ${pc.bold("icon.png")} (1024x1024)...`);
