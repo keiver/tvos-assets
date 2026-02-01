@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/tvos-image-creator/schema.json",
-  "title": "tvos-image-creator configuration",
-  "description": "Configuration file for tvos-image-creator. Defines input images, output settings, brand asset sizes, splash screen options, and Xcode metadata.",
+  "$id": "https://github.com/tvos-assets/schema.json",
+  "title": "tvos-assets configuration",
+  "description": "Configuration file for tvos-assets. Defines input images, output settings, brand asset sizes, splash screen options, and Xcode metadata.",
   "type": "object",
   "properties": {
     "$schema": {

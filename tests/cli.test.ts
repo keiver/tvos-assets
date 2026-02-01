@@ -50,7 +50,7 @@ afterEach(() => {
 describe("CLI", () => {
   it("--help shows usage info", () => {
     const output = runCLI(["--help"]);
-    expect(output).toContain("tvos-image-creator");
+    expect(output).toContain("tvos-assets");
     expect(output).toContain("--icon");
     expect(output).toContain("--background");
     expect(output).toContain("--color");
@@ -116,5 +116,14 @@ describe("CLI", () => {
     const zipFiles = readdirSync(outputDir).filter((f) => f.endsWith(".zip"));
     expect(zipFiles).toHaveLength(1);
     expect(zipFiles[0]).toMatch(/^tvos-assets-\d{8}-\d{6}\.zip$/);
+
+    // Validate zip contents
+    const zipPath = join(outputDir, zipFiles[0]);
+    const zipListing = execFileSync("unzip", ["-l", zipPath], {
+      encoding: "utf-8",
+    }) as string;
+
+    expect(zipListing).toContain("Images.xcassets/");
+    expect(zipListing).toContain("icon.png");
   });
 });

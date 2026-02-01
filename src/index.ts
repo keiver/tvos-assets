@@ -4,9 +4,13 @@ import "./check-node-version.js";
 
 import { Command } from "commander";
 
-import { join } from "node:path";
-import { mkdtempSync, rmSync, renameSync, copyFileSync, existsSync, unlinkSync, writeFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { mkdtempSync, rmSync, renameSync, copyFileSync, existsSync, unlinkSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const { version } = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8")) as { version: string };
 import pc from "picocolors";
 import { resolveConfig, validateInputImages } from "./config.js";
 import { rootContentsJson } from "./generators/contents-json.js";
@@ -65,9 +69,9 @@ function computeFileCount(config: TvOSImageCreatorConfig): { contentsJson: numbe
 }
 
 program
-  .name("tvos-image-creator")
+  .name("tvos-assets")
   .description("Generate tvOS Images.xcassets from icon and background images")
-  .version("1.0.0")
+  .version(version)
   .option("--icon <path>", "Path to icon PNG (transparent background)")
   .option("--background <path>", "Path to background PNG")
   .option("--color <hex>", 'Background color hex (e.g. "#B43939")')
@@ -106,7 +110,7 @@ program
       });
 
       console.log();
-      console.log(pc.bold("tvOS Image Creator"));
+      console.log(pc.bold("tvOS Assets"));
       console.log(pc.dim("=================="));
       console.log(`  Icon:       ${pc.cyan(config.inputs.iconImage)}`);
       console.log(`  Background: ${pc.cyan(config.inputs.backgroundImage)}`);
@@ -117,15 +121,8 @@ program
       }
       console.log();
 
-      // Validate output directory is writable before doing expensive work
-      try {
-        ensureDir(config.output.directory);
-        const probe = join(config.output.directory, `.tvos-probe-${process.pid}`);
-        writeFileSync(probe, "");
-        unlinkSync(probe);
-      } catch {
-        throw new Error(`Output directory is not writable: ${config.output.directory}`);
-      }
+      // Create output directory (writability already validated in resolveConfig)
+      ensureDir(config.output.directory);
 
       // Validate input image dimensions and file sizes
       const { warnings, iconSourceSize } = await validateInputImages(config);
@@ -135,11 +132,13 @@ program
       if (warnings.length > 0) console.log();
 
       // Create temp directory for generation
-      tempDir = mkdtempSync(join(tmpdir(), "tvos-image-creator-"));
+      tempDir = mkdtempSync(join(tmpdir(), "tvos-assets-"));
       const xcassetsDir = join(tempDir, "Images.xcassets");
       const iconOutputPath = join(tempDir, "icon.png");
 
-      const totalSteps = 9;
+      const totalSteps = 7
+        + (config.splashScreen.logo.enabled ? 1 : 0)
+        + (config.splashScreen.background.enabled ? 1 : 0);
       let currentStep = 0;
 
       // Create root xcassets directory
@@ -164,8 +163,6 @@ program
           config,
           iconSourceSize,
         );
-      } else {
-        currentStep++;
       }
 
       // Generate Splash Screen Background colorset
@@ -176,8 +173,6 @@ program
           config.splashScreen.background,
           config,
         );
-      } else {
-        currentStep++;
       }
 
       // Generate standalone icon.png
@@ -223,7 +218,7 @@ program
       } else {
         console.error(pc.red("An unexpected error occurred."));
       }
-      process.exit(1);
+      process.exitCode = 1;
     } finally {
       process.removeListener("SIGINT", onSignal);
       process.removeListener("SIGTERM", onSignal);
@@ -231,4 +226,4 @@ program
     }
   });
 
-program.parse();
+await program.parseAsync();

@@ -33,6 +33,4 @@ yarn-error.*
 *.tgz
 
 # claude code
-.claude/settings.json
-.claude/settings.local.json
-.claude/mcp/
+.claude/

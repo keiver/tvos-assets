@@ -1,5 +1,5 @@
-import { readFileSync, existsSync, lstatSync, statSync } from "node:fs";
-import { resolve, join, extname } from "node:path";
+import { readFileSync, existsSync, lstatSync, statSync, accessSync, constants } from "node:fs";
+import { resolve, join, extname, dirname } from "node:path";
 import { homedir } from "node:os";
 import sharp from "sharp";
 import type { TvOSImageCreatorConfig } from "./types.js";
@@ -273,6 +273,23 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
 
   // Resolve output directory to absolute path
   merged.output.directory = resolve(merged.output.directory);
+
+  // Validate output directory is writable
+  const outputDir = merged.output.directory;
+  try {
+    if (existsSync(outputDir)) {
+      accessSync(outputDir, constants.W_OK);
+    } else {
+      // Walk up to the nearest existing ancestor
+      let ancestor = dirname(outputDir);
+      while (!existsSync(ancestor) && ancestor !== dirname(ancestor)) {
+        ancestor = dirname(ancestor);
+      }
+      accessSync(ancestor, constants.W_OK);
+    }
+  } catch {
+    throw new Error(`Output directory is not writable: ${outputDir}`);
+  }
 
   return merged;
 }
