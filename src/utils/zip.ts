@@ -1,4 +1,4 @@
-import { createWriteStream } from "node:fs";
+import { createWriteStream, unlinkSync } from "node:fs";
 import archiver from "archiver";
 
 export interface ZipEntry {
@@ -28,9 +28,29 @@ export async function createZip(entries: ZipEntry[], outputZipPath: string): Pro
   return new Promise((resolve, reject) => {
     const output = createWriteStream(outputZipPath);
     const archive = archiver("zip", { zlib: { level: 6 } });
+    let settled = false;
 
-    output.on("close", () => resolve());
-    archive.on("error", (err: Error) => reject(err));
+    function cleanup(err: Error): void {
+      if (settled) return;
+      settled = true;
+      archive.abort();
+      output.destroy();
+      try {
+        unlinkSync(outputZipPath);
+      } catch {
+        // Best-effort removal of partial file
+      }
+      reject(err);
+    }
+
+    output.on("close", () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    });
+    output.on("error", (err: Error) => cleanup(err));
+    archive.on("error", (err: Error) => cleanup(err));
 
     archive.pipe(output);
 

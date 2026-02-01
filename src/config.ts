@@ -184,7 +184,10 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     }
     const raw = readFileSync(configPath, "utf-8");
     try {
-      fileConfig = JSON.parse(raw) as Partial<TvOSImageCreatorConfig>;
+      fileConfig = JSON.parse(raw, (key, value) => {
+        if (DANGEROUS_KEYS.has(key)) return undefined;
+        return value;
+      }) as Partial<TvOSImageCreatorConfig>;
     } catch {
       throw new Error(
         `Invalid JSON in config file: ${configPath}. Check for syntax errors (missing commas, trailing commas, unquoted keys).`,

@@ -88,4 +88,18 @@ describe("createZip", () => {
     expect(buffer[0]).toBe(0x50);
     expect(buffer[1]).toBe(0x4b);
   });
+
+  it("rejects when output path is not writable", async () => {
+    // Parent directory doesn't exist, so the write stream will emit an error
+    const zipPath = join(TMP, "no-such-subdir", "output.zip");
+    const filePath = join(TMP, "source-file.txt");
+    writeFileSync(filePath, "content");
+
+    await expect(
+      createZip(
+        [{ sourcePath: filePath, zipName: "source.txt", type: "file" }],
+        zipPath,
+      ),
+    ).rejects.toThrow();
+  });
 });

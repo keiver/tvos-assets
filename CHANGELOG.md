@@ -13,4 +13,3 @@
 - CLI with config file, output directory, and color options
 - Configurable brandAssets.name (defaults to "AppIcon")
 - Input validation: symlink detection, PNG format verification, dimension checks
-- Safety guards against accidental project directory deletion

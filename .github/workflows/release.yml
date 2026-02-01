@@ -121,8 +121,8 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Publish to npm (dry-run)
-        run: npm publish --dry-run
+      - name: Publish to npm
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -137,5 +137,5 @@ jobs:
               issue_number: context.payload.pull_request.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `Released as [v${version}](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/tag/v${version})\n\nnpm publish ran in **dry-run** mode. Remove \`--dry-run\` from the release workflow when ready to publish.`
+              body: `Released as [v${version}](https://github.com/${context.repo.owner}/${context.repo.repo}/releases/tag/v${version}) and published to npm.`
             });

@@ -519,6 +519,29 @@ describe("resolveConfig", () => {
     expect((config as any).polluted).toBeUndefined();
     expect(({} as any).polluted).toBeUndefined();
   });
+
+  it("filters constructor keys during JSON.parse", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "constructor-config.json");
+    // Manually write JSON with "constructor" key
+    writeFileSync(
+      configPath,
+      `{"constructor":{"polluted":true},"inputs":{"iconImage":"${icon.replace(/\\/g, "\\\\")}","backgroundImage":"${bg.replace(/\\/g, "\\\\")}","backgroundColor":"#FF0000"}}`,
+    );
+    const config = resolveConfig({ config: configPath });
+    expect((config as any).constructor?.polluted).toBeUndefined();
+  });
+
+  it("filters prototype keys during JSON.parse", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "prototype-config.json");
+    writeFileSync(
+      configPath,
+      `{"prototype":{"polluted":true},"inputs":{"iconImage":"${icon.replace(/\\/g, "\\\\")}","backgroundImage":"${bg.replace(/\\/g, "\\\\")}","backgroundColor":"#FF0000"}}`,
+    );
+    const config = resolveConfig({ config: configPath });
+    expect((config as any).prototype?.polluted).toBeUndefined();
+  });
 });
 
 describe("validateInputImages", () => {

@@ -12,4 +12,16 @@ export default {
     ],
   },
   testMatch: ["<rootDir>/tests/**/*.test.ts"],
+  collectCoverageFrom: [
+    "src/**/*.ts",
+    "!src/check-node-version.ts",
+  ],
+  coverageThreshold: {
+    global: {
+      lines: 70,
+      branches: 60,
+      functions: 70,
+      statements: 70,
+    },
+  },
 };

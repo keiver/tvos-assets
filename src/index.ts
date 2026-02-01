@@ -5,7 +5,7 @@ import "./check-node-version.js";
 import { Command } from "commander";
 
 import { join } from "node:path";
-import { mkdtempSync, rmSync, renameSync, copyFileSync, existsSync, unlinkSync } from "node:fs";
+import { mkdtempSync, rmSync, renameSync, copyFileSync, existsSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import pc from "picocolors";
 import { resolveConfig, validateInputImages } from "./config.js";
@@ -76,6 +76,25 @@ program
   .option("--icon-border-radius <pixels>", "Border radius for icon in pixels (0 = square, large value = circle)", "0")
   .action(async (options) => {
     let tempDir: string | undefined;
+
+    function cleanupTempDir(): void {
+      if (tempDir && existsSync(tempDir)) {
+        try {
+          rmSync(tempDir, { recursive: true, force: true });
+        } catch {
+          // Best-effort cleanup — ignore failures
+        }
+      }
+    }
+
+    function onSignal(signal: NodeJS.Signals): void {
+      cleanupTempDir();
+      process.exit(signal === "SIGINT" ? 130 : 143);
+    }
+
+    process.on("SIGINT", onSignal);
+    process.on("SIGTERM", onSignal);
+
     try {
       const config = resolveConfig({
         icon: options.icon,
@@ -97,6 +116,16 @@ program
         console.log(`  Radius:     ${pc.cyan(String(config.inputs.iconBorderRadius) + "px")}`);
       }
       console.log();
+
+      // Validate output directory is writable before doing expensive work
+      try {
+        ensureDir(config.output.directory);
+        const probe = join(config.output.directory, `.tvos-probe-${process.pid}`);
+        writeFileSync(probe, "");
+        unlinkSync(probe);
+      } catch {
+        throw new Error(`Output directory is not writable: ${config.output.directory}`);
+      }
 
       // Validate input image dimensions and file sizes
       const { warnings, iconSourceSize } = await validateInputImages(config);
@@ -167,15 +196,17 @@ program
         tempZipPath,
       );
 
-      // Move zip to destination atomically
+      // Move zip to destination (output dir already validated)
       const finalZipPath = join(config.output.directory, zipFilename);
-      ensureDir(config.output.directory);
       try {
         renameSync(tempZipPath, finalZipPath);
-      } catch {
-        // Cross-device move: fall back to copy + delete
-        copyFileSync(tempZipPath, finalZipPath);
-        unlinkSync(tempZipPath);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === "EXDEV") {
+          copyFileSync(tempZipPath, finalZipPath);
+          unlinkSync(tempZipPath);
+        } else {
+          throw err;
+        }
       }
 
       // Summary banner
@@ -194,14 +225,9 @@ program
       }
       process.exit(1);
     } finally {
-      // Clean up temp directory
-      if (tempDir && existsSync(tempDir)) {
-        try {
-          rmSync(tempDir, { recursive: true, force: true });
-        } catch {
-          // Best-effort cleanup — ignore failures
-        }
-      }
+      process.removeListener("SIGINT", onSignal);
+      process.removeListener("SIGTERM", onSignal);
+      cleanupTempDir();
     }
   });
 
