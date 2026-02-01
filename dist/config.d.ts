@@ -3,6 +3,7 @@ interface CLIArgs {
     icon?: string;
     background?: string;
     color?: string;
+    darkColor?: string;
     config?: string;
     output?: string;
     iconBorderRadius?: string;

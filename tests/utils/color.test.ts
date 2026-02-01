@@ -1,4 +1,4 @@
-import { hexToRGBA, rgbaToAppleComponents } from "../../src/utils/color";
+import { hexToRGBA, rgbaToAppleComponents, darkenHex } from "../../src/utils/color";
 
 describe("hexToRGBA", () => {
   it("converts #000000 to all zeros", () => {
@@ -56,5 +56,46 @@ describe("rgbaToAppleComponents", () => {
       blue: "0.000",
       alpha: "1.000",
     });
+  });
+});
+
+describe("darkenHex", () => {
+  it("darkens pure white to mid gray with default factor", () => {
+    const result = darkenHex("#FFFFFF");
+    expect(result).toBe("#808080");
+  });
+
+  it("keeps pure black unchanged", () => {
+    const result = darkenHex("#000000");
+    expect(result).toBe("#000000");
+  });
+
+  it("darkens a known color correctly", () => {
+    // #F39C12 has HSL(36°, 90%, 51%) → darkened 50% → L≈25.5%
+    const result = darkenHex("#F39C12");
+    // The result should be a darker orange
+    const rgba = hexToRGBA(result);
+    const originalRgba = hexToRGBA("#F39C12");
+    // Overall luminance should be lower
+    const originalLum = originalRgba.red * 0.299 + originalRgba.green * 0.587 + originalRgba.blue * 0.114;
+    const darkenedLum = rgba.red * 0.299 + rgba.green * 0.587 + rgba.blue * 0.114;
+    expect(darkenedLum).toBeLessThan(originalLum);
+    // Hue should be preserved (still orange-ish)
+    expect(rgba.red).toBeGreaterThan(rgba.blue);
+  });
+
+  it("returns same color with factor 0", () => {
+    const result = darkenHex("#F39C12", 0);
+    expect(result).toBe("#F39C12");
+  });
+
+  it("returns black with factor 1", () => {
+    const result = darkenHex("#F39C12", 1);
+    expect(result).toBe("#000000");
+  });
+
+  it("returns valid hex format", () => {
+    const result = darkenHex("#ABCDEF");
+    expect(result).toMatch(/^#[0-9A-F]{6}$/);
   });
 });

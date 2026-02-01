@@ -3,6 +3,7 @@ import { resolve, join, extname, dirname } from "node:path";
 import { homedir } from "node:os";
 import sharp from "sharp";
 import type { TvOSImageCreatorConfig } from "./types.js";
+import { darkenHex } from "./utils/color.js";
 
 const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -10,6 +11,7 @@ interface CLIArgs {
   icon?: string;
   background?: string;
   color?: string;
+  darkColor?: string;
   config?: string;
   output?: string;
   iconBorderRadius?: string;
@@ -24,12 +26,14 @@ function getDefaultConfig(
   iconImage: string,
   backgroundImage: string,
   backgroundColor: string,
+  darkBackgroundColor: string,
 ): TvOSImageCreatorConfig {
   return {
     inputs: {
       iconImage,
       backgroundImage,
       backgroundColor,
+      darkBackgroundColor,
       iconBorderRadius: 0,
     },
     output: {
@@ -88,11 +92,11 @@ function getDefaultConfig(
         name: "SplashScreenBackground",
         universal: {
           light: backgroundColor,
-          dark: backgroundColor,
+          dark: darkBackgroundColor,
         },
         tv: {
           light: backgroundColor,
-          dark: backgroundColor,
+          dark: darkBackgroundColor,
         },
       },
     },
@@ -218,6 +222,15 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     throw new Error(`Invalid color format: "${backgroundColor}". Use hex format like "#B43939".`);
   }
 
+  // Resolve dark background color: CLI > config file > auto-darkened from backgroundColor
+  const rawDarkColor = (cliArgs.darkColor ?? fileConfig.inputs?.darkBackgroundColor ?? "").trim();
+  const darkBackgroundColor = rawDarkColor || darkenHex(backgroundColor);
+
+  // Validate dark color format
+  if (!HEX_PATTERN.test(darkBackgroundColor)) {
+    throw new Error(`Invalid dark color format: "${rawDarkColor}". Use hex format like "#B43939".`);
+  }
+
   // Parse icon border radius: CLI > config file > default (0)
   const rawBorderRadius = cliArgs.iconBorderRadius ?? fileConfig.inputs?.iconBorderRadius;
   const iconBorderRadius = rawBorderRadius !== undefined ? Number(rawBorderRadius) : 0;
@@ -228,7 +241,7 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   }
 
   // Build default config with resolved values
-  const defaults = getDefaultConfig(resolvedIcon, resolvedBg, backgroundColor);
+  const defaults = getDefaultConfig(resolvedIcon, resolvedBg, backgroundColor, darkBackgroundColor);
 
   // Merge: file config overrides defaults, then apply CLI overrides
   const merged = deepMerge(
@@ -264,6 +277,7 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   merged.inputs.iconImage = resolvedIcon;
   merged.inputs.backgroundImage = resolvedBg;
   merged.inputs.backgroundColor = backgroundColor;
+  merged.inputs.darkBackgroundColor = darkBackgroundColor;
   merged.inputs.iconBorderRadius = iconBorderRadius;
 
   // Apply CLI output override

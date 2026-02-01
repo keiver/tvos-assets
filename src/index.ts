@@ -75,6 +75,7 @@ program
   .option("--icon <path>", "Path to icon PNG (transparent background)")
   .option("--background <path>", "Path to background PNG")
   .option("--color <hex>", 'Background color hex (e.g. "#B43939")')
+  .option("--dark-color <hex>", 'Dark mode background color hex (default: auto-darkened from --color)')
   .option("--config <path>", "Path to config JSON file")
   .option("--output <path>", "Output directory for the zip file (default: ~/Desktop)")
   .option("--icon-border-radius <pixels>", "Border radius for icon in pixels (0 = square, large value = circle)", "0")
@@ -104,6 +105,7 @@ program
         icon: options.icon,
         background: options.background,
         color: options.color,
+        darkColor: options.darkColor,
         config: options.config,
         output: options.output,
         iconBorderRadius: options.iconBorderRadius,
@@ -115,6 +117,8 @@ program
       console.log(`  Icon:       ${pc.cyan(config.inputs.iconImage)}`);
       console.log(`  Background: ${pc.cyan(config.inputs.backgroundImage)}`);
       console.log(`  Color:      ${pc.cyan(config.inputs.backgroundColor)}`);
+      const darkColorAuto = !options.darkColor;
+      console.log(`  Dark Color: ${pc.cyan(config.inputs.darkBackgroundColor)}${darkColorAuto ? pc.dim(" (auto)") : ""}`);
       console.log(`  Output:     ${pc.cyan(config.output.directory)}`);
       if (config.inputs.iconBorderRadius > 0) {
         console.log(`  Radius:     ${pc.cyan(String(config.inputs.iconBorderRadius) + "px")}`);

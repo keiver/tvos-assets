@@ -24,7 +24,12 @@
         "backgroundColor": {
           "type": "string",
           "pattern": "^#[0-9a-fA-F]{6}$",
-          "description": "Hex color (#RRGGBB) used for the splash screen background colorset. Applied to both light and dark appearances unless overridden in splashScreen.background."
+          "description": "Hex color (#RRGGBB) used for the splash screen background colorset light appearances. When darkBackgroundColor is omitted, a darkened variant is auto-generated (50% HSL lightness reduction) for dark appearances."
+        },
+        "darkBackgroundColor": {
+          "type": "string",
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Hex color (#RRGGBB) for the splash screen background dark appearances. When omitted, auto-darkened from backgroundColor (50% HSL lightness reduction)."
         },
         "iconBorderRadius": {
           "type": "integer",
