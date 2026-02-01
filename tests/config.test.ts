@@ -669,16 +669,6 @@ describe("validateInputImages", () => {
     await expect(validateInputImages(config)).rejects.toThrow(/too small/);
   });
 
-  it("warns when icon is below recommended size", async () => {
-    // Create 1024x1024 icon (minimum but below 1280 recommended)
-    const iconPath = join(TMP, "ok-icon.png");
-    await createTestPng(iconPath, 1024, 1024, { transparent: true });
-    const bg = await createTestBackground(TMP);
-    const config = resolveConfig({ icon: iconPath, background: bg, color: "#FF0000" });
-    const result = await validateInputImages(config);
-    expect(result.warnings.some((w) => w.includes("below recommended"))).toBe(true);
-  });
-
   it("warns when background is below recommended size", async () => {
     const icon = await createTestIcon(TMP);
     // 2320x720 is minimum, but below 4640x1440 recommended

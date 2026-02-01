@@ -171,7 +171,7 @@ tvos-assets-YYYYMMDD-HHmmss.zip
 
 | Input | Minimum | Recommended | Notes |
 |---|---|---|---|
-| **Icon** | 1024x1024 | 1280x1280+ | Below minimum: error. Below recommended: warning (upscaling artifacts possible) |
+| **Icon** | 1024x1024 | — | Below minimum: error. 1024×1024 is sufficient for all outputs |
 | **Background** | 2320x720 | 4640x1440+ | Below minimum: error. Below recommended: warning (Top Shelf @2x may look blurry) |
 
 The tool will also warn if input files exceed 50MB (high memory usage) or 8192px in any dimension.
