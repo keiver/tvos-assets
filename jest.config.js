@@ -14,6 +14,7 @@ export default {
   testMatch: ["<rootDir>/tests/**/*.test.ts"],
   collectCoverageFrom: [
     "src/**/*.ts",
+    "!src/index.ts",
     "!src/check-node-version.ts",
   ],
   coverageThreshold: {

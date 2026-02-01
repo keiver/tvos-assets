@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import "./check-node-version.js";
 import { Command } from "commander";
-import { createRequire } from "node:module";
-import { join } from "node:path";
-import { mkdtempSync, rmSync, renameSync, copyFileSync, existsSync, unlinkSync, writeFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { mkdtempSync, rmSync, renameSync, copyFileSync, existsSync, unlinkSync, writeFileSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-const require = createRequire(import.meta.url);
-const { version } = require("../package.json");
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const { version } = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf-8"));
 import pc from "picocolors";
 import { resolveConfig, validateInputImages } from "./config.js";
 import { rootContentsJson } from "./generators/contents-json.js";

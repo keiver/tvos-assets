@@ -42,6 +42,7 @@ npm install --save-dev tvos-assets
 ## Requirements
 
 - Node.js >= 18 (this is a CLI tool — it does not run in the browser)
+- [sharp](https://sharp.pixelplumbing.com/install) native dependency (installed automatically; see platform support if install fails)
 
 ## Development Setup
 
