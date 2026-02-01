@@ -3,12 +3,12 @@
 CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon and a background image. Produces all required Brand Assets (app icons with parallax layers, Top Shelf images), splash screen assets, and a standalone `icon.png` — ready to drop into an Xcode or React Native tvOS project.
 
 <p align="center">
-  <img src="docs/preview-tomo.webp" alt="tvOS home screen preview — jellyfish icon from TomoTV" width="100%">
+  <img src="docs/preview-tomo.webp" alt="tvOS home screen preview — jellyfish icon from TomoTV" width="800">
 </p>
 
 <p align="center">
-  <img src="docs/preview-sea.webp" alt="tvOS home screen preview — circular icon" width="50%">
-  <img src="docs/preview-forest.webp" alt="tvOS home screen preview — rounded square icon" width="50%">
+  <img src="docs/preview-sea.webp" alt="tvOS home screen preview — circular icon" width="400">
+  <img src="docs/preview-forest.webp" alt="tvOS home screen preview — rounded square icon" width="400">
 </p>
 
 ## Quick Start
@@ -403,6 +403,7 @@ All four assets are required by tvOS but can be individually disabled with `"ena
 | `npm run build` | Compile to JavaScript in `dist/` |
 | `npm start` | Run compiled build |
 | `npm test` | Run tests |
+| `npm run test:coverage` | Run tests with coverage report |
 
 ## License
 
