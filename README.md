@@ -1,4 +1,4 @@
-# tvos-image-creator
+# tvos-assets
 
 CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon and a background image. Produces all required Brand Assets (app icons with parallax layers, Top Shelf images), splash screen assets, and a standalone `icon.png` — ready to drop into an Xcode or React Native tvOS project.
 
@@ -14,29 +14,29 @@ CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon an
 ## Quick Start
 
 ```bash
-npx tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12"
+npx tvos-assets --icon ./icon.png --background ./bg.png --color "#F39C12"
 ```
 
 Generates a timestamped zip file on your Desktop containing `Images.xcassets` and `icon.png` with all required tvOS assets. Each run produces a unique file — no overwriting.
 
 ## Install
 
-**Global** (adds `tvos-image-creator` to your PATH):
+**Global** (adds `tvos-assets` to your PATH):
 
 ```bash
-npm install -g tvos-image-creator
+npm install -g tvos-assets
 ```
 
 **Run without installing** (via npx):
 
 ```bash
-npx tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12"
+npx tvos-assets --icon ./icon.png --background ./bg.png --color "#F39C12"
 ```
 
 **Project dependency** (e.g. for a build script):
 
 ```bash
-npm install --save-dev tvos-image-creator
+npm install --save-dev tvos-assets
 ```
 
 ## Requirements
@@ -46,15 +46,15 @@ npm install --save-dev tvos-image-creator
 ## Development Setup
 
 ```bash
-git clone https://github.com/keiver/tvos-image-creator.git
-cd tvos-image-creator
+git clone https://github.com/keiver/tvos-assets.git
+cd tvos-assets
 npm install
 ```
 
 ## Usage
 
 ```bash
-tvos-image-creator --icon <path> --background <path> --color <hex> [--output <path>] [--icon-border-radius <px>] [--config <path>]
+tvos-assets --icon <path> --background <path> --color <hex> [--output <path>] [--icon-border-radius <px>] [--config <path>]
 ```
 
 ### CLI Options
@@ -81,25 +81,25 @@ Each run produces a **uniquely timestamped** zip file (e.g. `tvos-assets-2026013
 Generate to Desktop (default):
 
 ```bash
-tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12"
+tvos-assets --icon ./icon.png --background ./bg.png --color "#F39C12"
 ```
 
 Generate into a specific directory:
 
 ```bash
-tvos-image-creator --icon ./icon.png --background ./bg.png --color "#F39C12" --output ./my-tvos-app
+tvos-assets --icon ./icon.png --background ./bg.png --color "#F39C12" --output ./my-tvos-app
 ```
 
 Use a config file:
 
 ```bash
-tvos-image-creator --config ./tvos-image-creator.config.json
+tvos-assets --config ./tvos-assets.config.json
 ```
 
 Config file with CLI overrides (CLI args take precedence):
 
 ```bash
-tvos-image-creator --config ./tvos-image-creator.config.json --color "#00FF00" --output ./output
+tvos-assets --config ./tvos-assets.config.json --color "#00FF00" --output ./output
 ```
 
 ## Generated Files

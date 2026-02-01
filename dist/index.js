@@ -52,7 +52,7 @@ function computeFileCount(config) {
     return { contentsJson, pngs, total: contentsJson + pngs };
 }
 program
-    .name("tvos-image-creator")
+    .name("tvos-assets")
     .description("Generate tvOS Images.xcassets from icon and background images")
     .version("1.0.0")
     .option("--icon <path>", "Path to icon PNG (transparent background)")
@@ -89,7 +89,7 @@ program
             iconBorderRadius: options.iconBorderRadius,
         });
         console.log();
-        console.log(pc.bold("tvOS Image Creator"));
+        console.log(pc.bold("tvOS Assets"));
         console.log(pc.dim("=================="));
         console.log(`  Icon:       ${pc.cyan(config.inputs.iconImage)}`);
         console.log(`  Background: ${pc.cyan(config.inputs.backgroundImage)}`);
@@ -117,7 +117,7 @@ program
         if (warnings.length > 0)
             console.log();
         // Create temp directory for generation
-        tempDir = mkdtempSync(join(tmpdir(), "tvos-image-creator-"));
+        tempDir = mkdtempSync(join(tmpdir(), "tvos-assets-"));
         const xcassetsDir = join(tempDir, "Images.xcassets");
         const iconOutputPath = join(tempDir, "icon.png");
         const totalSteps = 9;

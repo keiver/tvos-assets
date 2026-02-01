@@ -50,7 +50,7 @@ afterEach(() => {
 describe("CLI", () => {
   it("--help shows usage info", () => {
     const output = runCLI(["--help"]);
-    expect(output).toContain("tvos-image-creator");
+    expect(output).toContain("tvos-assets");
     expect(output).toContain("--icon");
     expect(output).toContain("--background");
     expect(output).toContain("--color");
