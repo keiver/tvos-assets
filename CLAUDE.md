@@ -25,7 +25,7 @@ npx tsx src/index.ts --config ./tvos-assets.config.json
 
 **Entry point**: `src/index.ts` — CLI parsing (Commander), config resolution, temp-dir generation, zip creation.
 
-**Config resolution** (`src/config.ts`): Three-layer merge — built-in defaults → JSON config file → CLI args (highest priority). Validates inputs exist, color is valid hex.
+**Config resolution** (`src/config.ts`): Three-layer merge — built-in defaults → JSON config file → CLI args (highest priority). Validates inputs exist, color is valid hex. Resolves `darkBackgroundColor`: explicit CLI/config value wins, otherwise auto-darkened from `backgroundColor` via `darkenHex()`.
 
 **Generators** (`src/generators/`):
 - `brand-assets.ts` — Orchestrates Brand Assets folder: calls imagestack + imageset generators
@@ -39,7 +39,7 @@ npx tsx src/index.ts --config ./tvos-assets.config.json
 - `image-processing.ts` — Sharp pipelines: resize, composite icon on background (60% of shortest dimension, centered), render on transparent canvas
 - `fs.ts` — `ensureDir`, `cleanDir` (refuses to delete directories containing project markers like `package.json`, `.git`, `src`), `writeContentsJson`
 - `zip.ts` — `formatTimestamp`, `generateZipFilename`, `createZip` — archiver-based zip creation for timestamped output
-- `color.ts` — Hex→RGBA conversion, RGBA→Apple component strings (3 decimal places)
+- `color.ts` — Hex→RGBA conversion, RGBA→Apple component strings (3 decimal places), `darkenHex()` for HSL-based lightness reduction
 
 **Types** (`src/types.ts`): Config types, asset definitions, Contents.json structures. Key types: `TvOSImageCreatorConfig` (master config), `ImageStackAssetConfig`, `ImageSetAssetConfig`.
 

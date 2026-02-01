@@ -55,7 +55,7 @@ npm install
 ## Usage
 
 ```bash
-tvos-assets --icon <path> --background <path> --color <hex> [--output <path>] [--icon-border-radius <px>] [--config <path>]
+tvos-assets --icon <path> --background <path> --color <hex> [--dark-color <hex>] [--output <path>] [--icon-border-radius <px>] [--config <path>]
 ```
 
 ### CLI Options
@@ -65,6 +65,7 @@ tvos-assets --icon <path> --background <path> --color <hex> [--output <path>] [-
 | `--icon <path>` | Yes | Path to icon PNG (transparent background) |
 | `--background <path>` | Yes | Path to background PNG |
 | `--color <hex>` | Yes | Background color hex (e.g. `"#F39C12"`) |
+| `--dark-color <hex>` | No | Dark mode background color hex. When omitted, auto-darkened from `--color` (50% lightness reduction). |
 | `--output <path>` | No | Output directory for the zip file. Defaults to `~/Desktop` |
 | `--icon-border-radius <px>` | No | Border radius for the icon in pixels. `0` = square (default), large value = circle. |
 | `--config <path>` | No | Path to a JSON config file for advanced customization |
@@ -83,6 +84,12 @@ Generate to Desktop (default):
 
 ```bash
 tvos-assets --icon ./icon.png --background ./bg.png --color "#F39C12"
+```
+
+Generate with an explicit dark mode color:
+
+```bash
+tvos-assets --icon ./icon.png --background ./bg.png --color "#F39C12" --dark-color "#7A4E09"
 ```
 
 Generate into a specific directory:
@@ -159,7 +166,7 @@ tvos-assets-YYYYMMDD-HHmmss.zip
 
 - **Icon**: PNG with transparent background. Centered and scaled to 60% of the shorter output dimension.
 - **Background**: Any PNG. Resized with cover-fit and center-cropped to each required dimension.
-- **Color**: Hex format `#RRGGBB` (e.g. `#F39C12`). Used for the splash screen background colorset.
+- **Color**: Hex format `#RRGGBB` (e.g. `#F39C12`). Used for the splash screen background colorset. When `--dark-color` is omitted, a darkened variant is auto-generated (50% lightness reduction in HSL) for dark mode appearances.
 
 ### Image Size Requirements
 
@@ -230,6 +237,7 @@ For full control, create a JSON config file. All sections are optional — omitt
     "iconImage": "./icon.png",
     "backgroundImage": "./background.png",
     "backgroundColor": "#B43939",
+    "darkBackgroundColor": "#5A1C1C",
     "iconBorderRadius": 80
   },
   "output": {
@@ -305,7 +313,8 @@ For full control, create a JSON config file. All sections are optional — omitt
 |---|---|---|---|
 | `iconImage` | string | Yes | Path to the app icon PNG (transparent background). |
 | `backgroundImage` | string | Yes | Path to the background PNG. |
-| `backgroundColor` | string | Yes | Hex color `#RRGGBB` for the splash screen background. |
+| `backgroundColor` | string | Yes | Hex color `#RRGGBB` for the splash screen background. Also used to auto-generate the dark variant when `darkBackgroundColor` is omitted. |
+| `darkBackgroundColor` | string | No | Hex color `#RRGGBB` for the dark mode splash screen background. When omitted, auto-darkened from `backgroundColor` (50% lightness reduction). |
 | `iconBorderRadius` | number | No | Border radius in pixels. `0` = square (default), large value = circle. |
 
 #### `output`
@@ -385,9 +394,9 @@ All four assets are required by tvOS but can be individually disabled with `"ena
 | `enabled` | boolean | `true` | Set to `false` to skip. |
 | `name` | string | `"SplashScreenBackground"` | Colorset folder name. Must match LaunchScreen storyboard. |
 | `universal.light` | string | Same as `--color` | Light mode color for non-TV. |
-| `universal.dark` | string | Same as `--color` | Dark mode color for non-TV. |
+| `universal.dark` | string | Auto-darkened from `--color` | Dark mode color for non-TV. Defaults to `--dark-color` or auto-darkened. |
 | `tv.light` | string | Same as `--color` | Light mode color for Apple TV. |
-| `tv.dark` | string | Same as `--color` | Dark mode color for Apple TV. |
+| `tv.dark` | string | Auto-darkened from `--color` | Dark mode color for Apple TV. Defaults to `--dark-color` or auto-darkened. |
 
 #### `xcassetsMeta`
 

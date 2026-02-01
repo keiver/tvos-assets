@@ -105,6 +105,94 @@ describe("resolveConfig", () => {
     expect(config.splashScreen.logo.enabled).toBe(true);
   });
 
+  // --- Dark background color ---
+
+  it("auto-generates darkBackgroundColor when not provided", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const config = resolveConfig({
+      icon,
+      background: bg,
+      color: "#FF0000",
+    });
+    // Should be a valid hex, darker than the original
+    expect(config.inputs.darkBackgroundColor).toMatch(/^#[0-9a-fA-F]{6}$/);
+    expect(config.inputs.darkBackgroundColor).not.toBe("#FF0000");
+  });
+
+  it("uses darkColor from CLI when provided", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const config = resolveConfig({
+      icon,
+      background: bg,
+      color: "#FF0000",
+      darkColor: "#7A0000",
+    });
+    expect(config.inputs.darkBackgroundColor).toBe("#7A0000");
+  });
+
+  it("uses darkBackgroundColor from config file", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "dark-color-config.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: {
+          iconImage: icon,
+          backgroundImage: bg,
+          backgroundColor: "#FF0000",
+          darkBackgroundColor: "#330000",
+        },
+      }),
+    );
+    const config = resolveConfig({ config: configPath });
+    expect(config.inputs.darkBackgroundColor).toBe("#330000");
+  });
+
+  it("CLI darkColor overrides config file darkBackgroundColor", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const configPath = join(TMP, "dark-color-override.json");
+    writeFileSync(
+      configPath,
+      JSON.stringify({
+        inputs: {
+          iconImage: icon,
+          backgroundImage: bg,
+          backgroundColor: "#FF0000",
+          darkBackgroundColor: "#330000",
+        },
+      }),
+    );
+    const config = resolveConfig({ config: configPath, darkColor: "#550000" });
+    expect(config.inputs.darkBackgroundColor).toBe("#550000");
+  });
+
+  it("rejects invalid darkColor hex format", async () => {
+    const { icon, bg } = await createStandardInputs();
+    expect(() =>
+      resolveConfig({
+        icon,
+        background: bg,
+        color: "#FF0000",
+        darkColor: "not-a-color",
+      }),
+    ).toThrow(/Invalid dark color format/);
+  });
+
+  it("applies auto-darkened color to splash screen dark variants", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const config = resolveConfig({
+      icon,
+      background: bg,
+      color: "#FF0000",
+    });
+    // Dark variants should use the auto-darkened color
+    expect(config.splashScreen.background.universal.dark).toBe(config.inputs.darkBackgroundColor);
+    expect(config.splashScreen.background.tv.dark).toBe(config.inputs.darkBackgroundColor);
+    // Light variants should still use the original color
+    expect(config.splashScreen.background.universal.light).toBe("#FF0000");
+    expect(config.splashScreen.background.tv.light).toBe("#FF0000");
+  });
+
   // --- Icon border radius ---
 
   it("defaults iconBorderRadius to 0", async () => {
