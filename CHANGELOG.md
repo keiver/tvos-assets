@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-02-01
+- 1.0.1 release trigger and doc cleanup (#1)
+
+
 ## [1.0.0] - 2026-01-31
 
 - Generate complete tvOS Images.xcassets from icon and background images
