@@ -31,7 +31,7 @@ export async function createTestPng(
   writeFileSync(filePath, buffer);
 }
 
-/** Create a valid 1280x1280 icon PNG (above recommended minimum) */
+/** Create a valid 1280x1280 test icon PNG */
 export async function createTestIcon(dir: string): Promise<string> {
   const filePath = join(dir, "icon.png");
   await createTestPng(filePath, 1280, 1280, { transparent: true });

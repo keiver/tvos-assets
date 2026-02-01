@@ -255,7 +255,6 @@ export function resolveConfig(cliArgs) {
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const MAX_DIMENSION = 8192;
 const ICON_MIN = 1024;
-const ICON_RECOMMENDED = 1280;
 const BG_MIN_WIDTH = 2320;
 const BG_MIN_HEIGHT = 720;
 const BG_RECOMMENDED_WIDTH = 4640;
@@ -290,10 +289,6 @@ export async function validateInputImages(config) {
     // Icon minimum: 1024×1024
     if (iconW < ICON_MIN || iconH < ICON_MIN) {
         throw new Error(`Icon image is too small (${iconW}x${iconH}). Minimum size is ${ICON_MIN}x${ICON_MIN}px.`);
-    }
-    // Icon recommended: 1280+
-    if (iconW < ICON_RECOMMENDED || iconH < ICON_RECOMMENDED) {
-        warnings.push(`Icon image (${iconW}x${iconH}) is below recommended ${ICON_RECOMMENDED}x${ICON_RECOMMENDED}px. Output may show upscaling artifacts.`);
     }
     // Background minimum: 2320×720
     if (bgW < BG_MIN_WIDTH || bgH < BG_MIN_HEIGHT) {
