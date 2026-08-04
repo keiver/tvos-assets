@@ -33,7 +33,12 @@ const path = require("node:path");
 function loadConfigPlugins() {
   try {
     return require("@expo/config-plugins");
-  } catch {
+  } catch (err) {
+    // Only fall back when the module itself is absent from this package's
+    // resolution paths — real errors inside @expo/config-plugins must surface.
+    const isModuleMissing =
+      err && err.code === "MODULE_NOT_FOUND" && String(err.message).includes("@expo/config-plugins");
+    if (!isModuleMissing) throw err;
     return require(require.resolve("@expo/config-plugins", { paths: [process.cwd()] }));
   }
 }

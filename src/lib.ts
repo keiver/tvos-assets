@@ -67,6 +67,7 @@ export async function generateAssets(
 
   if (config.splashScreen.background.enabled) {
     step("Generating splash screen background colorset...");
+    cleanDir(join(xcassetsDir, `${config.splashScreen.background.name}.colorset`));
     generateColorSet(xcassetsDir, config.splashScreen.background, config);
   }
 

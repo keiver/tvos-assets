@@ -3,7 +3,9 @@ const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
 const MAX_SVG_DENSITY = 9600;
 /**
  * Open an input image for a target output size. SVGs are rasterized at a density
- * high enough that the vector never gets bitmap-upscaled to reach the target.
+ * scaled to the target, capped at MAX_SVG_DENSITY — so bitmap upscaling in the
+ * subsequent resize only occurs for extreme viewBox-to-target ratios (beyond
+ * ~133x at the default 72dpi base).
  */
 async function inputImage(inputPath, targetW, targetH) {
     if (!inputPath.toLowerCase().endsWith(".svg")) {
