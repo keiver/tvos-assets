@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-08-04
+- v1.3.0: iOS app icons, Expo config plugin, programmatic API, SVG input (#4)
+
+
 ## [1.2.1] - 2026-02-01
 - fix: remove incorrect warn about icon 1024x1024 size (#3)
 
