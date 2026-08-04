@@ -92,26 +92,85 @@ Regenerate all assets automatically on every `expo prebuild`, for both tvOS (`EX
 ]
 ```
 
-List the plugin **after** `expo-splash-screen` (and any TV config plugin) so the generated splash imagesets overwrite their single-icon output.
+Install as a devDependency (`npm i -D tvos-assets`) and list the plugin **after** `expo-splash-screen` (and any TV config plugin, e.g. `@react-native-tvos/config-tv`) so the generated splash imagesets overwrite their single-icon output.
 
-- With `EXPO_TV=1`: generates the parallax brandassets + Top Shelf images into `ios/<project>/Images.xcassets/` and sets the tvOS `Info.plist` icon keys (`CFBundleIcons`, `TVTopShelfImage`).
-- Without: generates `AppIcon.appiconset` with light, dark, and tinted 1024x1024 variants, replacing the Expo-generated single-size icon.
-- Splash screen logo imageset and background colorset are generated for both.
+### Plugin props
 
-Extra props: `darkColor`, `iconDark`, `iconTinted`, `config` (path to a full JSON config), `layers.front/middle/back` (per-layer parallax art, applied to both imagestacks). All paths resolve relative to the project root.
+| Prop | Type | Required | Description |
+|---|---|---|---|
+| `icon` | string | Yes | Icon PNG or SVG, transparent background. Relative to project root. |
+| `background` | string | Yes | Background PNG or SVG. |
+| `color` | string | Yes | Splash background hex `#RRGGBB` (light mode). |
+| `darkColor` | string | No | Splash background hex for dark mode. Auto-darkened from `color` when omitted. |
+| `iconBorderRadius` | number | No | Border radius in px applied to the icon (`0` = square, large = circle). |
+| `iconDark` | string | No | iOS dark-appearance icon override. Auto-derived from `icon` when omitted. |
+| `iconTinted` | string | No | iOS tinted-appearance icon override. Grayscale of `icon` when omitted. |
+| `layers` | object | No | `{ "front": path, "middle": path, "back": path }` per-layer parallax art, applied to both imagestacks. Any subset. |
+| `config` | string | No | Path to a full JSON config file (same schema as the CLI `--config`), deep-merged under the props above. |
+
+All paths resolve relative to the project root.
+
+### What runs when
+
+The plugin registers an iOS dangerous mod, so it executes inside every `expo prebuild` (there is no separate command to run, and nothing needs to be committed under `ios/`):
+
+- **`EXPO_TV=1 expo prebuild`**: writes the parallax `AppIcon.brandassets` (home + App Store imagestacks, Top Shelf standard + wide) into `ios/<project>/Images.xcassets/`, and sets the tvOS `Info.plist` keys `CFBundleIcons.CFBundlePrimaryIcon` and `TVTopShelfImage.TVTopShelfPrimaryImage(-Wide)`.
+- **`expo prebuild`** (no `EXPO_TV`): writes `AppIcon.appiconset` with light, dark, and tinted 1024x1024 variants, replacing the Expo-generated single-size icon.
+- **Both**: splash screen logo imageset and background colorset.
+
+Asset directories owned by the plugin (`AppIcon.brandassets`, `AppIcon.appiconset`, `SplashScreenLogo.imageset`, `SplashScreenBackground.colorset`) are cleaned and rewritten on each run; everything else in the catalog is left untouched. Changing your app icon becomes: replace the input files, run prebuild.
+
+`@expo/config-plugins` is an optional peer dependency: the plugin uses the copy already present in your app, so no extra install is needed. This also works when `tvos-assets` is linked locally via `file:`/`link:`.
+
+## iOS App Icon Variants (iOS 18+)
+
+The generated `AppIcon.appiconset` contains three 1024x1024 entries, matching how iOS 18 renders home screen appearances:
+
+| Variant | Composition | Source |
+|---|---|---|
+| Light | Icon composited on the background image, opaque | `icon` + `background` |
+| Dark | Icon on a transparent canvas — Apple supplies the dark gradient behind it | `iconDark`, or auto-derived from `icon` |
+| Tinted | Grayscale icon on a transparent canvas — Apple applies the user's tint color | `iconTinted`, or auto-derived (grayscale of `icon`) |
+
+The auto-derived variants are good defaults for most marks. Provide overrides when the main icon loses contrast in grayscale, or when you want a brighter rework for dark mode.
+
+## Per-Layer Parallax Art
+
+By default, the Front and Middle imagestack layers both render the whole icon and Back renders the background. For true parallax depth, supply separate art per layer (config file `layers.<layer>.imagePath`, or the plugin's `layers` prop):
+
+```json
+"layers": {
+  "front": "./assets/brand/layer-front.svg",
+  "middle": "./assets/brand/layer-middle.svg"
+}
+```
+
+Registration matters: icon-sourced layers are all placed identically (centered, scaled to 60% of the shorter output side), so export every layer from the **same square artboard** as the full icon and the layers stay perfectly aligned in the stack. A typical split: highlights/foreground detail on Front, the main shape on Middle, the background image on Back. `iconBorderRadius` is not applied to custom layer art.
 
 ## Programmatic API
 
 ```js
 import { resolveConfig, generateAssets } from "tvos-assets";
 
-const config = resolveConfig({ icon: "./icon.svg", background: "./bg.png", color: "#1C1C1E" });
+const config = resolveConfig({
+  icon: "./icon.svg",          // same inputs as the CLI flags
+  background: "./bg.png",
+  color: "#1C1C1E",
+  darkColor: "#0E0E10",        // optional, like --dark-color
+  config: "./assets.config.json", // optional config file, like --config
+  overrides: {                 // optional deep-merged config overrides
+    iosIcon: { enabled: true, name: "AppIcon" },
+  },
+});
+
 const { warnings } = await generateAssets(config, "./out/Images.xcassets", {
-  platforms: ["tvos", "ios"],          // default: both
-  standaloneIconPath: "./out/icon.png", // optional
-  onStep: (message) => console.log(message),
+  platforms: ["tvos", "ios"],           // which icon families to generate; default: both
+  standaloneIconPath: "./out/icon.png", // optional flattened 1024x1024 icon
+  onStep: (message) => console.log(message), // progress callback per phase
 });
 ```
+
+`generateAssets(config, xcassetsDir, options)` writes the catalog directly into `xcassetsDir` (created if missing, existing owned asset dirs cleaned first) and resolves to `{ warnings, xcassetsDir }`. `resolveConfig` throws on invalid inputs (missing files, bad hex colors, wrong image formats), so wrap in try/catch for user-facing tooling.
 
 ## Examples
 
@@ -284,10 +343,13 @@ For full control, create a JSON config file. All sections are optional — omitt
     "backgroundImage": "./background.png",
     "backgroundColor": "#B43939",
     "darkBackgroundColor": "#5A1C1C",
-    "iconBorderRadius": 80
+    "iconBorderRadius": 80,
+    "iconDarkImage": "./icon-dark.svg",
+    "iconTintedImage": "./icon-tinted.svg"
   },
   "output": {
-    "directory": "./output"
+    "directory": "./output",
+    "mode": "zip"
   },
   "brandAssets": {
     "name": "AppIcon",
@@ -297,8 +359,8 @@ For full control, create a JSON config file. All sections are optional — omitt
       "size": { "width": 400, "height": 240 },
       "scales": ["1x", "2x"],
       "layers": {
-        "front": { "source": "icon" },
-        "middle": { "source": "icon" },
+        "front": { "source": "icon", "imagePath": "./layer-front.svg" },
+        "middle": { "source": "icon", "imagePath": "./layer-middle.svg" },
         "back": { "source": "background" }
       }
     },
@@ -327,6 +389,10 @@ For full control, create a JSON config file. All sections are optional — omitt
       "scales": ["1x", "2x"],
       "filePrefix": "wide"
     }
+  },
+  "iosIcon": {
+    "enabled": true,
+    "name": "AppIcon"
   },
   "splashScreen": {
     "logo": {
@@ -361,17 +427,20 @@ For full control, create a JSON config file. All sections are optional — omitt
 
 | Key | Type | Required | Description |
 |---|---|---|---|
-| `iconImage` | string | Yes | Path to the app icon PNG (transparent background). |
-| `backgroundImage` | string | Yes | Path to the background PNG. |
+| `iconImage` | string | Yes | Path to the app icon PNG or SVG (transparent background). |
+| `backgroundImage` | string | Yes | Path to the background PNG or SVG. |
 | `backgroundColor` | string | Yes | Hex color `#RRGGBB` for the splash screen background. Also used to auto-generate the dark variant when `darkBackgroundColor` is omitted. |
 | `darkBackgroundColor` | string | No | Hex color `#RRGGBB` for the dark mode splash screen background. When omitted, auto-darkened from `backgroundColor` (50% lightness reduction). |
 | `iconBorderRadius` | number | No | Border radius in pixels. `0` = square (default), large value = circle. |
+| `iconDarkImage` | string | No | iOS dark-appearance icon override (PNG or SVG). Auto-derived from `iconImage` when omitted. |
+| `iconTintedImage` | string | No | iOS tinted-appearance icon override (PNG or SVG). Grayscale of `iconImage` when omitted. |
 
 #### `output`
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `directory` | string | `~/Desktop` | Output directory for the zip file. |
+| `directory` | string | `~/Desktop` | Output directory. Zip file location in `"zip"` mode; catalog destination in `"dir"` mode. |
+| `mode` | string | `"zip"` | `"zip"` writes a timestamped archive; `"dir"` writes `Images.xcassets/` and `icon.png` directly into `directory` (what the Expo plugin uses). |
 
 #### `brandAssets`
 
@@ -405,7 +474,7 @@ All four assets are required by tvOS but can be individually disabled with `"ena
 
 ```json
 "layers": {
-  "front":  { "source": "icon" },
+  "front":  { "source": "icon", "imagePath": "./layer-front.svg" },
   "middle": { "source": "icon" },
   "back":   { "source": "background" }
 }
@@ -413,6 +482,7 @@ All four assets are required by tvOS but can be individually disabled with `"ena
 
 - `"icon"` — renders the icon centered on a transparent canvas (PNG with alpha).
 - `"background"` — uses the background image only (opaque, no alpha channel).
+- `imagePath` (optional) — replaces the default source file for that layer with custom parallax art. `source` still controls rendering: icon layers sit centered on transparency, background layers cover-fill opaque. Border radius is not applied to custom layer art. See [Per-Layer Parallax Art](#per-layer-parallax-art).
 
 **`topShelfImage`** / **`topShelfImageWide`**
 
@@ -423,6 +493,15 @@ All four assets are required by tvOS but can be individually disabled with `"ena
 | `size` | `{width, height}` | `{1920, 720}` / `{2320, 720}` | Base size in points. |
 | `scales` | string[] | `["1x", "2x"]` | Scale factors. |
 | `filePrefix` | string | `"top"` / `"wide"` | Filename prefix. |
+
+#### `iosIcon`
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `enabled` | boolean | `true` | Set to `false` to skip generating the iOS `AppIcon.appiconset`. |
+| `name` | string | `"AppIcon"` | Folder name for the `.appiconset`. Must match `ASSETCATALOG_COMPILER_APPICON_NAME` for the iOS target. |
+
+Produces `icon-1024.png` (light, opaque), `icon-1024-dark.png` (transparent), and `icon-1024-tinted.png` (grayscale, transparent) with the appearance entries iOS 18 expects. See [iOS App Icon Variants](#ios-app-icon-variants-ios-18).
 
 #### `splashScreen`
 
