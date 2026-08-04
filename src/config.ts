@@ -7,14 +7,24 @@ import { darkenHex } from "./utils/color.js";
 
 const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
-interface CLIArgs {
+export type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
+};
+
+export interface CLIArgs {
   icon?: string;
   background?: string;
   color?: string;
   darkColor?: string;
   config?: string;
   output?: string;
+  /** Write Images.xcassets directly into this directory instead of a zip. */
+  outDir?: string;
   iconBorderRadius?: string;
+  iconDark?: string;
+  iconTinted?: string;
+  /** Programmatic config overrides; higher precedence than a config file, lower than explicit args. */
+  overrides?: DeepPartial<TvOSImageCreatorConfig>;
 }
 
 function defaultOutputDirectory(): string {
@@ -38,6 +48,7 @@ function getDefaultConfig(
     },
     output: {
       directory: defaultOutputDirectory(),
+      mode: "zip",
     },
     brandAssets: {
       name: "AppIcon",
@@ -77,6 +88,10 @@ function getDefaultConfig(
         scales: ["1x", "2x"],
         filePrefix: "wide",
       },
+    },
+    iosIcon: {
+      enabled: true,
+      name: "AppIcon",
     },
     splashScreen: {
       logo: {
@@ -142,11 +157,17 @@ function assertNotSymlink(filePath: string, label: string): void {
   }
 }
 
-function assertPngExtension(filePath: string, label: string): void {
+const IMAGE_EXTENSIONS = new Set([".png", ".svg"]);
+
+function assertImageExtension(filePath: string, label: string): void {
   const ext = extname(filePath).toLowerCase();
-  if (ext !== ".png") {
-    throw new Error(`${label} must be a PNG file (got "${ext}"): ${filePath}`);
+  if (!IMAGE_EXTENSIONS.has(ext)) {
+    throw new Error(`${label} must be a PNG or SVG file (got "${ext}"): ${filePath}`);
   }
+}
+
+export function isSvgPath(filePath: string): boolean {
+  return extname(filePath).toLowerCase() === ".svg";
 }
 
 function validateImagePath(rawPath: string, label: string): string {
@@ -155,7 +176,7 @@ function validateImagePath(rawPath: string, label: string): string {
     throw new Error(`${label} not found: ${resolved}`);
   }
   assertNotSymlink(resolved, label);
-  assertPngExtension(resolved, label);
+  assertImageExtension(resolved, label);
   return resolved;
 }
 
@@ -243,11 +264,17 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   // Build default config with resolved values
   const defaults = getDefaultConfig(resolvedIcon, resolvedBg, backgroundColor, darkBackgroundColor);
 
-  // Merge: file config overrides defaults, then apply CLI overrides
-  const merged = deepMerge(
+  // Merge: file config overrides defaults, programmatic overrides beat the file, then CLI args win
+  let merged = deepMerge(
     defaults as unknown as Record<string, unknown>,
     fileConfig as unknown as Record<string, unknown>,
   ) as unknown as TvOSImageCreatorConfig;
+  if (cliArgs.overrides) {
+    merged = deepMerge(
+      merged as unknown as Record<string, unknown>,
+      cliArgs.overrides as unknown as Record<string, unknown>,
+    ) as unknown as TvOSImageCreatorConfig;
+  }
 
   // Validate user-controlled asset names
   validateAssetName(merged.brandAssets.name, "brandAssets.name");
@@ -257,6 +284,7 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   validateAssetName(merged.brandAssets.topShelfImageWide.name, "brandAssets.topShelfImageWide.name");
   validateAssetName(merged.splashScreen.logo.name, "splashScreen.logo.name");
   validateAssetName(merged.splashScreen.background.name, "splashScreen.background.name");
+  validateAssetName(merged.iosIcon.name, "iosIcon.name");
 
   // Validate splash screen color overrides from config file
   if (merged.splashScreen.background.enabled) {
@@ -280,9 +308,42 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   merged.inputs.darkBackgroundColor = darkBackgroundColor;
   merged.inputs.iconBorderRadius = iconBorderRadius;
 
-  // Apply CLI output override
+  // Optional iOS appearance-variant icons: CLI > config file; validated when present
+  const rawIconDark = (cliArgs.iconDark ?? merged.inputs.iconDarkImage ?? "").trim();
+  merged.inputs.iconDarkImage = rawIconDark
+    ? validateImagePath(rawIconDark, "Dark icon image")
+    : undefined;
+  const rawIconTinted = (cliArgs.iconTinted ?? merged.inputs.iconTintedImage ?? "").trim();
+  merged.inputs.iconTintedImage = rawIconTinted
+    ? validateImagePath(rawIconTinted, "Tinted icon image")
+    : undefined;
+
+  // Optional per-layer parallax art on imagestacks
+  for (const [stackKey, stack] of [
+    ["appIconSmall", merged.brandAssets.appIconSmall],
+    ["appIconLarge", merged.brandAssets.appIconLarge],
+  ] as const) {
+    for (const layerKey of ["front", "middle", "back"] as const) {
+      const layer = stack.layers[layerKey];
+      if (layer.imagePath) {
+        layer.imagePath = validateImagePath(
+          layer.imagePath,
+          `brandAssets.${stackKey}.layers.${layerKey}.imagePath`,
+        );
+      }
+    }
+  }
+
+  // Apply CLI output overrides; --out-dir wins and switches to direct-directory mode
   if (cliArgs.output) {
     merged.output.directory = cliArgs.output;
+  }
+  if (cliArgs.outDir) {
+    merged.output.directory = cliArgs.outDir;
+    merged.output.mode = "dir";
+  }
+  if (merged.output.mode !== "zip" && merged.output.mode !== "dir") {
+    throw new Error(`Invalid output.mode: "${String(merged.output.mode)}". Use "zip" or "dir".`);
   }
 
   // Resolve output directory to absolute path
@@ -347,15 +408,17 @@ export async function validateInputImages(
     sharp(config.inputs.backgroundImage).metadata(),
   ]);
 
-  // Verify actual PNG format (not just extension)
-  if (iconMeta.format !== "png") {
+  // Verify actual format matches the extension (rename is not enough)
+  const iconIsSvg = isSvgPath(config.inputs.iconImage);
+  const bgIsSvg = isSvgPath(config.inputs.backgroundImage);
+  if (iconMeta.format !== (iconIsSvg ? "svg" : "png")) {
     throw new Error(
-      `Icon file is not a valid PNG (detected ${iconMeta.format ?? "unknown"} format). Rename is not enough — the file must be actual PNG data.`,
+      `Icon file is not valid ${iconIsSvg ? "SVG" : "PNG"} data (detected ${iconMeta.format ?? "unknown"} format).`,
     );
   }
-  if (bgMeta.format !== "png") {
+  if (bgMeta.format !== (bgIsSvg ? "svg" : "png")) {
     throw new Error(
-      `Background file is not a valid PNG (detected ${bgMeta.format ?? "unknown"} format). Rename is not enough — the file must be actual PNG data.`,
+      `Background file is not valid ${bgIsSvg ? "SVG" : "PNG"} data (detected ${bgMeta.format ?? "unknown"} format).`,
     );
   }
 
@@ -364,25 +427,46 @@ export async function validateInputImages(
   const bgW = bgMeta.width ?? 0;
   const bgH = bgMeta.height ?? 0;
 
-  // Icon minimum: 1024×1024
-  if (iconW < ICON_MIN || iconH < ICON_MIN) {
+  // Raster minimums don't apply to vector inputs — SVGs rasterize at whatever density is needed
+  if (!iconIsSvg && (iconW < ICON_MIN || iconH < ICON_MIN)) {
     throw new Error(
       `Icon image is too small (${iconW}x${iconH}). Minimum size is ${ICON_MIN}x${ICON_MIN}px.`,
     );
   }
 
-  // Background minimum: 2320×720
-  if (bgW < BG_MIN_WIDTH || bgH < BG_MIN_HEIGHT) {
+  if (!bgIsSvg && (bgW < BG_MIN_WIDTH || bgH < BG_MIN_HEIGHT)) {
     throw new Error(
       `Background image is too small (${bgW}x${bgH}). Minimum size is ${BG_MIN_WIDTH}x${BG_MIN_HEIGHT}px.`,
     );
   }
 
   // Background recommended: 4640×1440
-  if (bgW < BG_RECOMMENDED_WIDTH || bgH < BG_RECOMMENDED_HEIGHT) {
+  if (!bgIsSvg && (bgW < BG_RECOMMENDED_WIDTH || bgH < BG_RECOMMENDED_HEIGHT)) {
     warnings.push(
       `Background image (${bgW}x${bgH}) is below recommended ${BG_RECOMMENDED_WIDTH}x${BG_RECOMMENDED_HEIGHT}px. Top Shelf @2x output may show upscaling artifacts.`,
     );
+  }
+
+  // Optional inputs (variant icons, per-layer art): verify data format matches extension
+  const optionalInputs: Array<{ path: string | undefined; label: string }> = [
+    { path: config.inputs.iconDarkImage, label: "Dark icon image" },
+    { path: config.inputs.iconTintedImage, label: "Tinted icon image" },
+    { path: config.brandAssets.appIconSmall.layers.front.imagePath, label: "appIconSmall front layer" },
+    { path: config.brandAssets.appIconSmall.layers.middle.imagePath, label: "appIconSmall middle layer" },
+    { path: config.brandAssets.appIconSmall.layers.back.imagePath, label: "appIconSmall back layer" },
+    { path: config.brandAssets.appIconLarge.layers.front.imagePath, label: "appIconLarge front layer" },
+    { path: config.brandAssets.appIconLarge.layers.middle.imagePath, label: "appIconLarge middle layer" },
+    { path: config.brandAssets.appIconLarge.layers.back.imagePath, label: "appIconLarge back layer" },
+  ];
+  for (const { path, label } of optionalInputs) {
+    if (!path) continue;
+    const meta = await sharp(path).metadata();
+    const expected = isSvgPath(path) ? "svg" : "png";
+    if (meta.format !== expected) {
+      throw new Error(
+        `${label} is not valid ${expected.toUpperCase()} data (detected ${meta.format ?? "unknown"} format): ${path}`,
+      );
+    }
   }
 
   // Warn on very large dimensions

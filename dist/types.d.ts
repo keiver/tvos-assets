@@ -13,6 +13,8 @@ export interface RGBAColor {
 }
 export interface ImageStackLayerConfig {
     source: ImageSource;
+    /** Optional image file overriding the default source for this layer (true parallax art). */
+    imagePath?: string;
 }
 export interface ImageStackLayers {
     front: ImageStackLayerConfig;
@@ -72,9 +74,20 @@ export interface InputConfig {
     backgroundColor: string;
     darkBackgroundColor: string;
     iconBorderRadius: number;
+    /** Optional dark-appearance iOS icon override; auto-derived from iconImage when omitted. */
+    iconDarkImage?: string;
+    /** Optional tinted-appearance iOS icon override; auto-derived (grayscale) when omitted. */
+    iconTintedImage?: string;
 }
+export type OutputMode = "zip" | "dir";
 export interface OutputConfig {
     directory: string;
+    /** "zip" (default) writes a timestamped archive; "dir" writes Images.xcassets directly. */
+    mode: OutputMode;
+}
+export interface IosIconConfig {
+    enabled: boolean;
+    name: string;
 }
 export interface XcassetsMetaConfig {
     author: string;
@@ -84,6 +97,7 @@ export interface TvOSImageCreatorConfig {
     inputs: InputConfig;
     output: OutputConfig;
     brandAssets: BrandAssetsConfig;
+    iosIcon: IosIconConfig;
     splashScreen: SplashScreenConfig;
     xcassetsMeta: XcassetsMetaConfig;
 }
@@ -113,6 +127,16 @@ export interface ImageEntry {
     filename: string;
     idiom: string;
     scale?: string;
+}
+export interface AppIconImageEntry {
+    appearances?: AppearanceEntry[];
+    filename: string;
+    idiom: string;
+    platform: string;
+    size: string;
+}
+export interface AppIconSetContentsJson extends ContentsJson {
+    images: AppIconImageEntry[];
 }
 export interface ImageSetContentsJson extends ContentsJson {
     images: ImageEntry[];

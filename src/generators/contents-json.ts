@@ -5,6 +5,7 @@ import type {
   ImageStackContentsJson,
   ImageSetContentsJson,
   ImageEntry,
+  AppIconSetContentsJson,
   ColorSetContentsJson,
   ColorSetEntry,
   ScaleFactor,
@@ -117,6 +118,38 @@ export function buildSplashLogoImageEntries(
   }
 
   return entries;
+}
+
+/** iOS AppIcon.appiconset Contents.json: 1024x1024 light + dark + tinted appearance variants */
+export function appIconSetContentsJson(
+  filenames: { light: string; dark: string; tinted: string },
+  meta: XcassetsMetaConfig,
+): AppIconSetContentsJson {
+  return {
+    images: [
+      {
+        filename: filenames.light,
+        idiom: "universal",
+        platform: "ios",
+        size: "1024x1024",
+      },
+      {
+        appearances: [{ appearance: "luminosity", value: "dark" }],
+        filename: filenames.dark,
+        idiom: "universal",
+        platform: "ios",
+        size: "1024x1024",
+      },
+      {
+        appearances: [{ appearance: "luminosity", value: "tinted" }],
+        filename: filenames.tinted,
+        idiom: "universal",
+        platform: "ios",
+        size: "1024x1024",
+      },
+    ],
+    info: makeInfo(meta),
+  };
 }
 
 /** Build colorset Contents.json for splash screen background */

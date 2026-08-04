@@ -1,9 +1,9 @@
 # tvos-assets
 
-CLI tool that generates a complete tvOS `Images.xcassets` bundle from an icon and a background image. Produces all required Brand Assets (app icons with parallax layers, Top Shelf images), splash screen assets, and a standalone `icon.png` — ready to drop into an Xcode or React Native tvOS project.
+Generates a complete tvOS and iOS `Images.xcassets` bundle from an icon and a background image. Produces all required tvOS Brand Assets (app icons with parallax layers, Top Shelf images), an iOS `AppIcon.appiconset` with light/dark/tinted (iOS 18+) variants, splash screen assets, and a standalone `icon.png` — ready to drop into an Xcode or React Native project. Usable as a CLI, a programmatic API, or an Expo config plugin that regenerates everything at prebuild time.
 
 <p align="center">
-  <img src="docs/preview-tomo.webp" alt="tvOS home screen preview — jellyfish icon from TomoTV" width="100%">
+  <img src="docs/preview-berry.webp" alt="tvOS home screen preview — berry icon" width="100%">
 </p>
 
 ## Quick Start
@@ -57,21 +57,61 @@ tvos-assets --icon <path> --background <path> --color <hex> [--dark-color <hex>]
 
 | Option | Required | Description |
 |---|---|---|
-| `--icon <path>` | Yes | Path to icon PNG (transparent background) |
-| `--background <path>` | Yes | Path to background PNG |
+| `--icon <path>` | Yes | Path to icon PNG or SVG (transparent background) |
+| `--background <path>` | Yes | Path to background PNG or SVG |
 | `--color <hex>` | Yes | Background color hex (e.g. `"#F39C12"`) |
 | `--dark-color <hex>` | No | Dark mode background color hex. When omitted, auto-darkened from `--color` (50% lightness reduction). |
+| `--icon-dark <path>` | No | iOS dark-appearance icon override. When omitted, derived from `--icon` on transparency. |
+| `--icon-tinted <path>` | No | iOS tinted-appearance icon override. When omitted, a grayscale of `--icon`. |
 | `--output <path>` | No | Output directory for the zip file. Defaults to `~/Desktop` |
+| `--out-dir <path>` | No | Write `Images.xcassets/` and `icon.png` directly into this directory instead of a zip |
 | `--icon-border-radius <px>` | No | Border radius for the icon in pixels. `0` = square (default), large value = circle. |
 | `--config <path>` | No | Path to a JSON config file for advanced customization |
 | `--version` | No | Print version |
 | `--help` | No | Show help |
 
-CLI arguments override config file values, which override built-in defaults.
+CLI arguments override config file values, which override built-in defaults. SVG inputs are rasterized at the density each output size requires, so a small viewBox still produces crisp 4K Top Shelf images.
 
 When `--output` is omitted the tool writes a timestamped zip file to `~/Desktop`. If the Desktop folder does not exist (e.g. on a Linux server) it falls back to `~`.
 
-Each run produces a **uniquely timestamped** zip file (e.g. `tvos-assets-20260131-141523.zip`), so multiple runs never overwrite each other. The zip contains `Images.xcassets/` and `icon.png`.
+Each run produces a **uniquely timestamped** zip file (e.g. `tvos-assets-20260131-141523.zip`), so multiple runs never overwrite each other. The zip contains `Images.xcassets/` and `icon.png`. With `--out-dir`, the same content is written straight into the target directory — existing asset folders owned by the tool are cleaned and rewritten, other catalog entries are left untouched.
+
+## Expo Config Plugin
+
+Regenerate all assets automatically on every `expo prebuild`, for both tvOS (`EXPO_TV=1`) and iOS builds:
+
+```json
+"plugins": [
+  ["tvos-assets/plugin", {
+    "icon": "./assets/brand/icon.svg",
+    "background": "./assets/brand/background.png",
+    "color": "#1C1C1E",
+    "iconBorderRadius": 0,
+    "layers": { "front": "./assets/brand/layer-front.svg", "middle": "./assets/brand/layer-middle.svg" }
+  }]
+]
+```
+
+List the plugin **after** `expo-splash-screen` (and any TV config plugin) so the generated splash imagesets overwrite their single-icon output.
+
+- With `EXPO_TV=1`: generates the parallax brandassets + Top Shelf images into `ios/<project>/Images.xcassets/` and sets the tvOS `Info.plist` icon keys (`CFBundleIcons`, `TVTopShelfImage`).
+- Without: generates `AppIcon.appiconset` with light, dark, and tinted 1024x1024 variants, replacing the Expo-generated single-size icon.
+- Splash screen logo imageset and background colorset are generated for both.
+
+Extra props: `darkColor`, `iconDark`, `iconTinted`, `config` (path to a full JSON config), `layers.front/middle/back` (per-layer parallax art, applied to both imagestacks). All paths resolve relative to the project root.
+
+## Programmatic API
+
+```js
+import { resolveConfig, generateAssets } from "tvos-assets";
+
+const config = resolveConfig({ icon: "./icon.svg", background: "./bg.png", color: "#1C1C1E" });
+const { warnings } = await generateAssets(config, "./out/Images.xcassets", {
+  platforms: ["tvos", "ios"],          // default: both
+  standaloneIconPath: "./out/icon.png", // optional
+  onStep: (message) => console.log(message),
+});
+```
 
 ## Examples
 
@@ -150,6 +190,11 @@ tvos-assets-YYYYMMDD-HHmmss.zip
     │       ├── Contents.json
     │       ├── wide@1x.png                      (2320x720, opaque)
     │       └── wide@2x.png                      (4640x1440, opaque)
+    ├── AppIcon.appiconset/
+    │   ├── Contents.json
+    │   ├── icon-1024.png                        (1024x1024, opaque, light)
+    │   ├── icon-1024-dark.png                   (1024x1024, transparent, dark)
+    │   └── icon-1024-tinted.png                 (1024x1024, grayscale, tinted)
     ├── SplashScreenLogo.imageset/
     │   ├── Contents.json
     │   ├── 200-icon@1x.png                      (200px)
@@ -163,8 +208,8 @@ tvos-assets-YYYYMMDD-HHmmss.zip
 
 ## Input Requirements
 
-- **Icon**: PNG with transparent background. Centered and scaled to 60% of the shorter output dimension.
-- **Background**: Any PNG. Resized with cover-fit and center-cropped to each required dimension.
+- **Icon**: PNG or SVG with transparent background. Centered and scaled to 60% of the shorter output dimension.
+- **Background**: Any PNG or SVG. Resized with cover-fit and center-cropped to each required dimension.
 - **Color**: Hex format `#RRGGBB` (e.g. `#F39C12`). Used for the splash screen background colorset. When `--dark-color` is omitted, a darkened variant is auto-generated (50% lightness reduction in HSL) for dark mode appearances.
 
 ### Image Size Requirements
@@ -173,6 +218,8 @@ tvos-assets-YYYYMMDD-HHmmss.zip
 |---|---|---|---|
 | **Icon** | 1024x1024 | — | Below minimum: error. 1024×1024 is sufficient for all outputs |
 | **Background** | 2320x720 | 4640x1440+ | Below minimum: error. Below recommended: warning (Top Shelf @2x may look blurry) |
+
+Minimums apply to raster (PNG) inputs only — SVGs are vector and exempt.
 
 The tool will also warn if input files exceed 50MB (high memory usage) or 8192px in any dimension.
 
@@ -307,7 +354,7 @@ For full control, create a JSON config file. All sections are optional — omitt
 ### Config Reference
 
 <p align="center">
-  <img src="docs/preview-forest.webp" alt="tvOS home screen preview — rounded square icon" width="100%">
+  <img src="docs/preview-tomo.webp" alt="tvOS home screen preview — Tomo TV icon" width="100%">
 </p>
 
 #### `inputs`
@@ -421,6 +468,10 @@ All four assets are required by tvOS but can be individually disabled with `"ena
 ## Demo Assets
 
 The icons and backgrounds in the preview screenshots were generated with this [tool](https://keiver.dev/lab/poster-generator).
+
+<p align="center">
+  <img src="docs/preview-forest.webp" alt="tvOS home screen preview — rounded square icon" width="100%">
+</p>
 
 ## License
 

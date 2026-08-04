@@ -1,4 +1,4 @@
-import type { ContentsJson, BrandAssetsContentsJson, BrandAssetEntry, ImageStackContentsJson, ImageSetContentsJson, ImageEntry, ColorSetContentsJson, ScaleFactor, XcassetsMetaConfig } from "../types.js";
+import type { ContentsJson, BrandAssetsContentsJson, BrandAssetEntry, ImageStackContentsJson, ImageSetContentsJson, ImageEntry, AppIconSetContentsJson, ColorSetContentsJson, ScaleFactor, XcassetsMetaConfig } from "../types.js";
 /** Root xcassets Contents.json */
 export declare function rootContentsJson(meta: XcassetsMetaConfig): ContentsJson;
 /** Brand Assets .brandassets/Contents.json */
@@ -15,6 +15,12 @@ export declare function buildImageStackImageEntries(layerName: string, scales: S
 export declare function buildTopShelfImageEntries(filePrefix: string, scales: ScaleFactor[]): ImageEntry[];
 /** Build image entries for splash screen logo imageset */
 export declare function buildSplashLogoImageEntries(filePrefix: string, universalScales: ScaleFactor[], tvScales: ScaleFactor[]): ImageEntry[];
+/** iOS AppIcon.appiconset Contents.json: 1024x1024 light + dark + tinted appearance variants */
+export declare function appIconSetContentsJson(filenames: {
+    light: string;
+    dark: string;
+    tinted: string;
+}, meta: XcassetsMetaConfig): AppIconSetContentsJson;
 /** Build colorset Contents.json for splash screen background */
 export declare function colorSetContentsJson(universalLight: string, universalDark: string, tvLight: string, tvDark: string, meta: XcassetsMetaConfig): ColorSetContentsJson;
 //# sourceMappingURL=contents-json.d.ts.map

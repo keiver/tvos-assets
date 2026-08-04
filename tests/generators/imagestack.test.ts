@@ -155,6 +155,40 @@ describe("generateImageStack — border radius", () => {
   });
 });
 
+describe("generateImageStack — per-layer imagePath", () => {
+  it("uses custom layer art for the layer that declares imagePath", async () => {
+    const { config, iconSourceSize } = await makeConfig();
+
+    // Solid green opaque art, distinct from the red icon fixture
+    const layerArt = join(TMP, "layer-front.png");
+    const buffer = await sharp({
+      create: { width: 1024, height: 1024, channels: 3, background: { r: 0, g: 255, b: 0 } },
+    })
+      .png()
+      .toBuffer();
+    const { writeFileSync } = await import("node:fs");
+    writeFileSync(layerArt, buffer);
+    config.brandAssets.appIconSmall.layers.front.imagePath = layerArt;
+
+    const parentDir = join(TMP, "stacks-layer-art");
+    mkdirSync(parentDir, { recursive: true });
+    await generateImageStack(parentDir, config.brandAssets.appIconSmall, config, iconSourceSize);
+
+    // Front layer center pixel comes from the green art
+    const frontPng = join(parentDir, "App Icon.imagestack", "Front.imagestacklayer", "Content.imageset", "front@1x.png");
+    const { data, info } = await sharp(frontPng).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const center = (Math.floor(info.height / 2) * info.width + Math.floor(info.width / 2)) * 4;
+    expect(data[center + 1]).toBeGreaterThan(200); // green
+    expect(data[center]).toBeLessThan(50); // not the red icon
+
+    // Middle layer still uses the shared icon (red)
+    const middlePng = join(parentDir, "App Icon.imagestack", "Middle.imagestacklayer", "Content.imageset", "middle@1x.png");
+    const middle = await sharp(middlePng).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const mCenter = (Math.floor(middle.info.height / 2) * middle.info.width + Math.floor(middle.info.width / 2)) * 4;
+    expect(middle.data[mCenter]).toBeGreaterThan(200); // red
+  });
+});
+
 describe("generateImageStack — disabled", () => {
   it("does nothing when asset is disabled", async () => {
     const { config, iconSourceSize } = await makeConfig({

@@ -1,21 +1,24 @@
 {
   "name": "tvos-assets",
-  "version": "1.2.1",
-  "description": "CLI tool to generate tvOS Images.xcassets from icon and background images",
+  "version": "1.3.0",
+  "description": "Generate tvOS and iOS Images.xcassets from icon and background images — CLI, programmatic API, and Expo config plugin",
   "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "dist/lib.js",
+  "types": "dist/lib.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+      "types": "./dist/lib.d.ts",
+      "import": "./dist/lib.js"
+    },
+    "./plugin": "./plugin/index.cjs",
+    "./package.json": "./package.json"
   },
   "bin": {
     "tvos-assets": "dist/index.js"
   },
   "files": [
     "dist",
+    "plugin",
     "schema.json",
     "LICENSE",
     "README.md"
@@ -63,6 +66,14 @@
     "commander": "^12.1.0",
     "picocolors": "^1.1.1",
     "sharp": "^0.33.5"
+  },
+  "peerDependencies": {
+    "@expo/config-plugins": ">=7.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@expo/config-plugins": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/archiver": "^6.0.4",
