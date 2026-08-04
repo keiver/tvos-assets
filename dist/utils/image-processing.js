@@ -1,5 +1,26 @@
 import sharp from "sharp";
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 };
+const MAX_SVG_DENSITY = 9600;
+/**
+ * Open an input image for a target output size. SVGs are rasterized at a density
+ * scaled to the target, capped at MAX_SVG_DENSITY — so bitmap upscaling in the
+ * subsequent resize only occurs for extreme viewBox-to-target ratios (beyond
+ * ~133x at the default 72dpi base).
+ */
+async function inputImage(inputPath, targetW, targetH) {
+    if (!inputPath.toLowerCase().endsWith(".svg")) {
+        return sharp(inputPath);
+    }
+    const meta = await sharp(inputPath).metadata();
+    const w = meta.width ?? 0;
+    const h = meta.height ?? 0;
+    if (!w || !h) {
+        return sharp(inputPath);
+    }
+    const scale = Math.max(targetW / w, targetH / h, 1);
+    const density = Math.min((meta.density ?? 72) * scale, MAX_SVG_DENSITY);
+    return sharp(inputPath, { density });
+}
 function wrapSharpError(err, context) {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(`Image processing failed (${context}): ${message}`);
@@ -19,7 +40,7 @@ export async function applyBorderRadius(buffer, size, radius) {
 }
 export async function resizeImage(inputPath, width, height) {
     try {
-        return await sharp(inputPath)
+        return await (await inputImage(inputPath, width, height))
             .resize(width, height, { fit: "cover", position: "center" })
             .png()
             .toBuffer();
@@ -30,7 +51,7 @@ export async function resizeImage(inputPath, width, height) {
 }
 export async function resizeImageOpaque(inputPath, width, height) {
     try {
-        return await sharp(inputPath)
+        return await (await inputImage(inputPath, width, height))
             .resize(width, height, { fit: "cover", position: "center" })
             .flatten({ background: { r: 0, g: 0, b: 0 } })
             .removeAlpha()
@@ -51,7 +72,7 @@ export async function compositeIconOnBackground(bgPath, iconPath, width, height,
         const shortSide = Math.min(width, height);
         const iconSize = Math.round(shortSide * iconScale);
         // Resize icon preserving transparency
-        let iconBuffer = await sharp(iconPath)
+        let iconBuffer = await (await inputImage(iconPath, iconSize, iconSize))
             .resize(iconSize, iconSize, { fit: "contain", background: TRANSPARENT })
             .png()
             .toBuffer();
@@ -60,7 +81,7 @@ export async function compositeIconOnBackground(bgPath, iconPath, width, height,
             iconBuffer = await applyBorderRadius(iconBuffer, iconSize, scaledRadius);
         }
         // Resize background and composite icon centered
-        let pipeline = sharp(bgPath)
+        let pipeline = (await inputImage(bgPath, width, height))
             .resize(width, height, { fit: "cover", position: "center" })
             .composite([
             {
@@ -81,7 +102,7 @@ export async function renderIconOnTransparent(iconPath, size, options) {
     const borderRadius = options?.borderRadius ?? 0;
     const sourceIconSize = options?.sourceIconSize ?? 0;
     try {
-        let buffer = await sharp(iconPath)
+        let buffer = await (await inputImage(iconPath, size, size))
             .resize(size, size, { fit: "contain", background: TRANSPARENT })
             .png()
             .toBuffer();
@@ -102,7 +123,7 @@ export async function renderIconOnTransparentCanvas(iconPath, width, height, opt
     const shortSide = Math.min(width, height);
     const iconSize = Math.round(shortSide * iconScale);
     try {
-        let iconBuffer = await sharp(iconPath)
+        let iconBuffer = await (await inputImage(iconPath, iconSize, iconSize))
             .resize(iconSize, iconSize, { fit: "contain", background: TRANSPARENT })
             .png()
             .toBuffer();
@@ -119,6 +140,15 @@ export async function renderIconOnTransparentCanvas(iconPath, width, height, opt
     }
     catch (err) {
         wrapSharpError(err, `rendering icon on transparent canvas at ${width}x${height}`);
+    }
+}
+/** Convert an image buffer to grayscale, preserving alpha (iOS tinted icon variant). */
+export async function toGrayscale(buffer) {
+    try {
+        return await sharp(buffer).grayscale().png().toBuffer();
+    }
+    catch (err) {
+        wrapSharpError(err, "converting to grayscale");
     }
 }
 export function scaleMultiplier(scale) {

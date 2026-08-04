@@ -73,6 +73,34 @@ export function buildSplashLogoImageEntries(filePrefix, universalScales, tvScale
     }
     return entries;
 }
+/** iOS AppIcon.appiconset Contents.json: 1024x1024 light + dark + tinted appearance variants */
+export function appIconSetContentsJson(filenames, meta) {
+    return {
+        images: [
+            {
+                filename: filenames.light,
+                idiom: "universal",
+                platform: "ios",
+                size: "1024x1024",
+            },
+            {
+                appearances: [{ appearance: "luminosity", value: "dark" }],
+                filename: filenames.dark,
+                idiom: "universal",
+                platform: "ios",
+                size: "1024x1024",
+            },
+            {
+                appearances: [{ appearance: "luminosity", value: "tinted" }],
+                filename: filenames.tinted,
+                idiom: "universal",
+                platform: "ios",
+                size: "1024x1024",
+            },
+        ],
+        info: makeInfo(meta),
+    };
+}
 /** Build colorset Contents.json for splash screen background */
 export function colorSetContentsJson(universalLight, universalDark, tvLight, tvDark, meta) {
     function makeColorValue(hex) {

@@ -28,9 +28,15 @@ async function generateLayerImages(
   const layerKey = layerName.toLowerCase() as "front" | "middle" | "back";
   const layerConfig = asset.layers[layerKey];
   const borderRadius = config.inputs.iconBorderRadius;
-  const borderOpts = layerConfig.source !== "background" && borderRadius > 0 && iconSourceSize
+  // Border radius applies only to the shared icon input — per-layer art is used as-is
+  const borderOpts = layerConfig.source !== "background" && !layerConfig.imagePath && borderRadius > 0 && iconSourceSize
     ? { borderRadius, sourceIconSize: iconSourceSize }
     : undefined;
+
+  // imagePath overrides which file feeds the layer; `source` still decides rendering:
+  // background layers cover-fill opaque, icon layers sit centered on transparency.
+  const backgroundFile = layerConfig.imagePath ?? config.inputs.backgroundImage;
+  const iconFile = layerConfig.imagePath ?? config.inputs.iconImage;
 
   if (isAppStore) {
     const w = asset.size.width;
@@ -40,8 +46,8 @@ async function generateLayerImages(
     const filename = layerConfig.source === "background" ? `${prefix}.png` : `${prefix}@1x.png`;
 
     const buffer = layerConfig.source === "background"
-      ? await resizeImageOpaque(config.inputs.backgroundImage, w, h)
-      : await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h, borderOpts);
+      ? await resizeImageOpaque(backgroundFile, w, h)
+      : await renderIconOnTransparentCanvas(iconFile, w, h, borderOpts);
 
     safeWriteFile(join(imagesetDir, filename), buffer);
     return;
@@ -55,8 +61,8 @@ async function generateLayerImages(
     const filename = `${layerName.toLowerCase()}@${scale}.png`;
 
     const buffer = layerConfig.source === "background"
-      ? await resizeImageOpaque(config.inputs.backgroundImage, w, h)
-      : await renderIconOnTransparentCanvas(config.inputs.iconImage, w, h, borderOpts);
+      ? await resizeImageOpaque(backgroundFile, w, h)
+      : await renderIconOnTransparentCanvas(iconFile, w, h, borderOpts);
 
     safeWriteFile(join(imagesetDir, filename), buffer);
   }

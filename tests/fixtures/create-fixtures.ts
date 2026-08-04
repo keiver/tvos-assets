@@ -59,6 +59,17 @@ export async function createSmallBackground(dir: string): Promise<string> {
   return filePath;
 }
 
+/** Create a small vector SVG icon (green circle on transparent) */
+export function createTestSvgIcon(dir: string, name = "icon.svg"): string {
+  const filePath = join(dir, name);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    filePath,
+    '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="#00CC66"/></svg>',
+  );
+  return filePath;
+}
+
 /** Create a symlink to a PNG */
 export function createSymlink(target: string, linkPath: string): void {
   symlinkSync(target, linkPath);

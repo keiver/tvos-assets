@@ -15,11 +15,11 @@
       "properties": {
         "iconImage": {
           "type": "string",
-          "description": "Path to the app icon PNG. Must have a transparent background. The icon is composited onto the background image for app icons and Top Shelf images, and rendered standalone for the splash screen logo."
+          "description": "Path to the app icon PNG or SVG. Must have a transparent background. The icon is composited onto the background image for app icons and Top Shelf images, and rendered standalone for the splash screen logo. SVGs are rasterized at the density each output size requires."
         },
         "backgroundImage": {
           "type": "string",
-          "description": "Path to the background PNG. Used as the base layer for app icons and Top Shelf images. Resized with cover-fit and center-cropped to each required dimension."
+          "description": "Path to the background PNG or SVG. Used as the base layer for app icons and Top Shelf images. Resized with cover-fit and center-cropped to each required dimension."
         },
         "backgroundColor": {
           "type": "string",
@@ -36,6 +36,14 @@
           "minimum": 0,
           "default": 0,
           "description": "Border radius in pixels applied to the icon. 0 = square corners. Use a value >= half the icon's width for a circular icon."
+        },
+        "iconDarkImage": {
+          "type": "string",
+          "description": "Optional PNG or SVG for the iOS dark-appearance icon. When omitted, the dark variant is the main icon rendered on transparency."
+        },
+        "iconTintedImage": {
+          "type": "string",
+          "description": "Optional PNG or SVG for the iOS tinted-appearance icon. When omitted, a grayscale version of the main icon is generated."
         }
       },
       "required": ["iconImage", "backgroundImage", "backgroundColor"],
@@ -47,8 +55,14 @@
       "properties": {
         "directory": {
           "type": "string",
-          "description": "Output directory where the timestamped zip file is written. Defaults to ~/Desktop when omitted.",
+          "description": "Output directory. In \"zip\" mode the timestamped zip file is written here (defaults to ~/Desktop). In \"dir\" mode Images.xcassets and icon.png are written directly into it.",
           "default": "~/Desktop"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["zip", "dir"],
+          "default": "zip",
+          "description": "\"zip\" writes a timestamped archive. \"dir\" writes Images.xcassets directly into the output directory (what the Expo config plugin uses)."
         },
         "cleanBeforeGenerate": {
           "type": "boolean",
@@ -82,6 +96,23 @@
         "topShelfImageWide": {
           "$ref": "#/$defs/imageSetAsset",
           "description": "Wide variant of the Top Shelf banner. Same compositing as topShelfImage. Default: 2320x720 at 1x and 2x."
+        }
+      },
+      "additionalProperties": false
+    },
+    "iosIcon": {
+      "type": "object",
+      "description": "iOS AppIcon.appiconset with 1024x1024 light, dark, and tinted (iOS 18+) appearance variants.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Set to false to skip generating the iOS app icon set.",
+          "default": true
+        },
+        "name": {
+          "type": "string",
+          "description": "Folder name for the .appiconset bundle. Must match the ASSETCATALOG_COMPILER_APPICON_NAME build setting for the iOS target.",
+          "default": "AppIcon"
         }
       },
       "additionalProperties": false
@@ -232,6 +263,10 @@
         "source": {
           "$ref": "#/$defs/imageSource",
           "description": "Image source for this layer. \"icon\" renders the icon composited on the background. \"background\" renders the background only (opaque)."
+        },
+        "imagePath": {
+          "type": "string",
+          "description": "Optional PNG or SVG that replaces the default source file for this layer, enabling true per-layer parallax art. The source field still controls rendering: icon layers sit centered on transparency, background layers cover-fill opaque."
         }
       },
       "required": ["source"],

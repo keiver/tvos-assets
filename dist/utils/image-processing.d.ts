@@ -16,6 +16,8 @@ export declare function renderIconOnTransparentCanvas(iconPath: string, width: n
     borderRadius?: number;
     sourceIconSize?: number;
 }): Promise<Buffer>;
+/** Convert an image buffer to grayscale, preserving alpha (iOS tinted icon variant). */
+export declare function toGrayscale(buffer: Buffer): Promise<Buffer>;
 export declare function scaleMultiplier(scale: string): number;
 export declare function validateOutputDimensions(w: number, h: number, context: string): void;
 //# sourceMappingURL=image-processing.d.ts.map

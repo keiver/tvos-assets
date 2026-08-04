@@ -445,7 +445,7 @@ describe("resolveConfig", () => {
     const txtFile = createTextFile(TMP);
     expect(() =>
       resolveConfig({ icon: txtFile, background: bg, color: "#FF0000" }),
-    ).toThrow(/must be a PNG file/);
+    ).toThrow(/must be a PNG or SVG file/);
   });
 
   it("rejects non-PNG background file", async () => {
@@ -453,7 +453,7 @@ describe("resolveConfig", () => {
     const txtFile = createTextFile(TMP);
     expect(() =>
       resolveConfig({ icon, background: txtFile, color: "#FF0000" }),
-    ).toThrow(/must be a PNG file/);
+    ).toThrow(/must be a PNG or SVG file/);
   });
 
   // --- Asset name validation ---
@@ -716,7 +716,7 @@ describe("validateInputImages", () => {
     const fakeIconPath = join(TMP, "fake-icon.png");
     writeFileSync(fakeIconPath, jpegBuffer);
     const config = resolveConfig({ icon: fakeIconPath, background: bg, color: "#FF0000" });
-    await expect(validateInputImages(config)).rejects.toThrow(/not a valid PNG/);
+    await expect(validateInputImages(config)).rejects.toThrow(/not valid PNG data/);
   });
 
   it("rejects non-PNG background (JPEG renamed to .png)", async () => {
@@ -730,6 +730,6 @@ describe("validateInputImages", () => {
     const fakeBgPath = join(TMP, "fake-bg.png");
     writeFileSync(fakeBgPath, jpegBuffer);
     const config = resolveConfig({ icon, background: fakeBgPath, color: "#FF0000" });
-    await expect(validateInputImages(config)).rejects.toThrow(/not a valid PNG/);
+    await expect(validateInputImages(config)).rejects.toThrow(/not valid PNG data/);
   });
 });

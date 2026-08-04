@@ -76,7 +76,18 @@ jobs:
           TODAY=$(date +%Y-%m-%d)
           HEADING=$(printf '%s%s' '#' '#')
           printf "\n%s [%s] - %s\n- %s (#%s)\n\n" "$HEADING" "$NEW_VERSION" "$TODAY" "$PR_TITLE" "$PR_NUMBER" > /tmp/changelog_entry.txt
-          awk '/^## \[Unreleased\]/ {print; system("cat /tmp/changelog_entry.txt"); next}1' CHANGELOG.md > /tmp/changelog_new.md
+          if grep -q "^$HEADING \[Unreleased\]" CHANGELOG.md; then
+            awk '/^## \[Unreleased\]/ {print; system("cat /tmp/changelog_entry.txt"); next}1' CHANGELOG.md > /tmp/changelog_new.md
+          else
+            # Marker missing — restore it and place the new entry at the top,
+            # keeping a "# Changelog" title line first when one exists
+            { printf "%s [Unreleased]\n" "$HEADING"; cat /tmp/changelog_entry.txt; } > /tmp/changelog_top.txt
+            if head -1 CHANGELOG.md | grep -q '^# '; then
+              { head -1 CHANGELOG.md; printf "\n"; cat /tmp/changelog_top.txt; tail -n +2 CHANGELOG.md; } > /tmp/changelog_new.md
+            else
+              cat /tmp/changelog_top.txt CHANGELOG.md > /tmp/changelog_new.md
+            fi
+          fi
           mv /tmp/changelog_new.md CHANGELOG.md
 
       - name: Build package
