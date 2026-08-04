@@ -106,6 +106,7 @@ Install as a devDependency (`npm i -D tvos-assets`) and list the plugin **after*
 | `iconDark` | string | No | iOS dark-appearance icon override. Auto-derived from `icon` when omitted. |
 | `iconTinted` | string | No | iOS tinted-appearance icon override. Grayscale of `icon` when omitted. |
 | `layers` | object | No | `{ "front": path, "middle": path, "back": path }` per-layer parallax art, applied to both imagestacks. Any subset. |
+| `infoPlistIconKeys` | boolean | No | Also write `CFBundleIcons`/`TVTopShelfImage` into the tvOS Info.plist. **Leave off if the app ships a Top Shelf extension** — the static-shelf declaration can suppress the extension's dynamic content. Default `false`. |
 | `config` | string | No | Path to a full JSON config file (same schema as the CLI `--config`), deep-merged under the props above. |
 
 All paths resolve relative to the project root.
@@ -114,7 +115,7 @@ All paths resolve relative to the project root.
 
 The plugin registers an iOS dangerous mod, so it executes inside every `expo prebuild` (there is no separate command to run, and nothing needs to be committed under `ios/`):
 
-- **`EXPO_TV=1 expo prebuild`**: writes the parallax `AppIcon.brandassets` (home + App Store imagestacks, Top Shelf standard + wide) into `ios/<project>/Images.xcassets/`, and sets the tvOS `Info.plist` keys `CFBundleIcons.CFBundlePrimaryIcon` and `TVTopShelfImage.TVTopShelfPrimaryImage(-Wide)`.
+- **`EXPO_TV=1 expo prebuild`**: writes the parallax `AppIcon.brandassets` (home + App Store imagestacks, Top Shelf standard + wide) into `ios/<project>/Images.xcassets/`. With `infoPlistIconKeys: true` it also sets the tvOS `Info.plist` keys `CFBundleIcons.CFBundlePrimaryIcon` and `TVTopShelfImage.TVTopShelfPrimaryImage(-Wide)` — skip that when the app has a Top Shelf extension.
 - **`expo prebuild`** (no `EXPO_TV`): writes `AppIcon.appiconset` with light, dark, and tinted 1024x1024 variants, replacing the Expo-generated single-size icon.
 - **Both**: splash screen logo imageset and background colorset.
 

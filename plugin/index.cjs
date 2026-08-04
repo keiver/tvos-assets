@@ -16,10 +16,14 @@
  *     "config": "./tvos-assets.config.json"
  *   }]
  *
- * With EXPO_TV=1 it generates the parallax brandassets + Top Shelf images and
- * sets the tvOS Info.plist icon keys; otherwise it generates the iOS
- * AppIcon.appiconset (light + dark + tinted). Splash screen logo/colorset are
- * generated for both.
+ * With EXPO_TV=1 it generates the parallax brandassets + Top Shelf images;
+ * otherwise it generates the iOS AppIcon.appiconset (light + dark + tinted).
+ * Splash screen logo/colorset are generated for both.
+ *
+ * Optional prop "infoPlistIconKeys": true additionally writes CFBundleIcons and
+ * TVTopShelfImage into the tvOS Info.plist. Leave it off (the default) when the
+ * app ships a Top Shelf extension — the static-shelf declaration can suppress
+ * the extension's dynamic content.
  *
  * This file is CommonJS because Expo loads plugins with require(); the ESM
  * library is pulled in with dynamic import inside the async mods.
@@ -112,22 +116,28 @@ function withTvosAssets(config, props = {}) {
     },
   ]);
 
-  config = withInfoPlist(config, async (cfg) => {
-    if (!isTvBuild()) return cfg;
+  // Opt-in only: declaring TVTopShelfImage is the legacy static-shelf opt-in and
+  // can suppress a Top Shelf app-extension's dynamic content — apps with an
+  // extension must NOT set these keys. Asset-catalog resolution alone is enough
+  // for the icons (shipped and App Store-validated without them).
+  if (props.infoPlistIconKeys) {
+    config = withInfoPlist(config, async (cfg) => {
+      if (!isTvBuild()) return cfg;
 
-    const projectRoot = cfg.modRequest.projectRoot;
-    const lib = await loadLib();
-    const resolved = lib.resolveConfig(buildResolveArgs(projectRoot, props));
+      const projectRoot = cfg.modRequest.projectRoot;
+      const lib = await loadLib();
+      const resolved = lib.resolveConfig(buildResolveArgs(projectRoot, props));
 
-    cfg.modResults.CFBundleIcons = {
-      CFBundlePrimaryIcon: resolved.brandAssets.appIconSmall.name,
-    };
-    cfg.modResults.TVTopShelfImage = {
-      TVTopShelfPrimaryImage: resolved.brandAssets.topShelfImage.name,
-      TVTopShelfPrimaryImageWide: resolved.brandAssets.topShelfImageWide.name,
-    };
-    return cfg;
-  });
+      cfg.modResults.CFBundleIcons = {
+        CFBundlePrimaryIcon: resolved.brandAssets.appIconSmall.name,
+      };
+      cfg.modResults.TVTopShelfImage = {
+        TVTopShelfPrimaryImage: resolved.brandAssets.topShelfImage.name,
+        TVTopShelfPrimaryImageWide: resolved.brandAssets.topShelfImageWide.name,
+      };
+      return cfg;
+    });
+  }
 
   return config;
 }
