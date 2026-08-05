@@ -28,6 +28,10 @@ export interface GenerateOptions {
   previewPath?: string;
   /** Tool version stamped into the preview page header. */
   toolVersion?: string;
+  /** Command line that produced this run, shown verbatim on the preview page. */
+  command?: string;
+  /** Config file this run read, if any, noted on the preview page. */
+  configPath?: string;
   /** Called before each generation phase with a human-readable message. */
   onStep?: (message: string) => void;
 }
@@ -185,6 +189,8 @@ export async function generateAssets(
       platforms,
       standaloneIconPath: options.standaloneIconPath,
       toolVersion: options.toolVersion,
+      command: options.command,
+      configPath: options.configPath,
     });
   }
 

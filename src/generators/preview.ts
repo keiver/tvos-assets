@@ -296,6 +296,55 @@ function countFiles(dir: string): number {
   return total;
 }
 
+export interface PreviewInput {
+  /** What this file is used for, e.g. "icon" or "layer front". */
+  role: string;
+  filename: string;
+  width: number;
+  height: number;
+  imageKey: string;
+  hasAlpha: boolean;
+  /** True for SVG sources, which rasterize per output size rather than upscaling. */
+  vector: boolean;
+}
+
+/**
+ * Every source file the run reads, in the order they matter. Layer art is
+ * deduplicated: the same file applied to both imagestacks is one input.
+ */
+async function collectInputs(config: TvOSImageCreatorConfig, table: ImageTable): Promise<PreviewInput[]> {
+  const candidates: { role: string; path?: string }[] = [
+    { role: "icon", path: config.inputs.iconImage },
+    { role: "background", path: config.inputs.backgroundImage },
+    { role: "icon dark", path: config.inputs.iconDarkImage },
+    { role: "icon tinted", path: config.inputs.iconTintedImage },
+  ];
+
+  for (const stack of [config.brandAssets.appIconSmall, config.brandAssets.appIconLarge]) {
+    for (const layer of ["front", "middle", "back"] as const) {
+      candidates.push({ role: `layer ${layer}`, path: stack.layers[layer].imagePath });
+    }
+  }
+
+  const inputs: PreviewInput[] = [];
+  const seen = new Set<string>();
+  for (const { role, path } of candidates) {
+    if (!path || seen.has(path) || !existsSync(path)) continue;
+    seen.add(path);
+    const { key, width, height, hasAlpha } = await table.add(path);
+    inputs.push({
+      role,
+      filename: basename(path),
+      width,
+      height,
+      imageKey: key,
+      hasAlpha,
+      vector: extname(path).toLowerCase() === ".svg",
+    });
+  }
+  return inputs;
+}
+
 export interface GeneratePreviewOptions {
   xcassetsDir: string;
   outputPath: string;
@@ -303,6 +352,10 @@ export interface GeneratePreviewOptions {
   platforms: string[];
   standaloneIconPath?: string;
   toolVersion?: string;
+  /** The command line that produced this run, shown verbatim on the page. */
+  command?: string;
+  /** Config file the run read, if any. */
+  configPath?: string;
   /** Injected in tests to keep output deterministic. */
   generatedAt?: string;
 }
@@ -314,6 +367,8 @@ export interface GeneratePreviewOptions {
  */
 export async function generatePreview(options: GeneratePreviewOptions): Promise<void> {
   const table = new ImageTable();
+  // Inputs first, so a source that is also an output is embedded once and shared.
+  const inputs = await collectInputs(options.config, table);
   const groups = await collectCatalog(options.xcassetsDir, table);
 
   if (options.standaloneIconPath && existsSync(options.standaloneIconPath)) {
@@ -338,10 +393,13 @@ export async function generatePreview(options: GeneratePreviewOptions): Promise<
 
   const html = renderPreviewHtml({
     groups,
+    inputs,
     images: table.entries,
     config: options.config,
     platforms: options.platforms,
     toolVersion: options.toolVersion,
+    command: options.command,
+    configPath: options.configPath,
     generatedAt: options.generatedAt ?? new Date().toISOString().replace("T", " ").slice(0, 19),
     totals: {
       files: catalogFiles + extras,

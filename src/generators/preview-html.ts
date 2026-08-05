@@ -1,12 +1,15 @@
 import type { TvOSImageCreatorConfig } from "../types.js";
-import type { PreviewGroup } from "./preview.js";
+import type { PreviewGroup, PreviewInput } from "./preview.js";
 
 export interface RenderPreviewOptions {
   groups: PreviewGroup[];
+  inputs: PreviewInput[];
   images: Map<string, string>;
   config: TvOSImageCreatorConfig;
   platforms: string[];
   toolVersion?: string;
+  command?: string;
+  configPath?: string;
   generatedAt: string;
   totals: { files: number; images: number };
 }
@@ -38,6 +41,7 @@ const STYLES = `
   --ink-dim: #6d6d78;
   --rule: rgba(20, 20, 26, 0.16);
   --checker: rgba(20, 20, 26, 0.07);
+  --sunken: rgba(20, 20, 26, 0.045);
 }
 :root[data-theme="dark"] {
   --paper: #0b0b0d;
@@ -45,6 +49,7 @@ const STYLES = `
   --ink-dim: #85858f;
   --rule: rgba(236, 234, 228, 0.18);
   --checker: rgba(236, 234, 228, 0.09);
+  --sunken: rgba(236, 234, 228, 0.055);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -53,6 +58,7 @@ const STYLES = `
     --ink-dim: #85858f;
     --rule: rgba(236, 234, 228, 0.18);
     --checker: rgba(236, 234, 228, 0.09);
+    --sunken: rgba(236, 234, 228, 0.055);
   }
 }
 body {
@@ -94,6 +100,35 @@ body {
 .chip {
   display: inline-block; width: 10px; height: 10px;
   vertical-align: -1px; margin-right: 6px; border: 1px solid var(--rule);
+}
+
+/* ---- how this was made ---- */
+.provenance { padding: 34px 0 4px; }
+.provenance h2 {
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-dim); margin: 0 0 12px; font-weight: 400;
+}
+.provenance + .provenance { padding-top: 26px; }
+.inputs {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 22px 20px;
+}
+.inputs .frame { height: 116px; }
+.inputs .role { display: block; color: var(--accent); }
+pre.cmd {
+  margin: 0; padding: 14px 16px; overflow-x: auto;
+  background: var(--sunken); border-left: 2px solid var(--accent);
+  font: inherit; font-size: 12px; line-height: 1.6;
+}
+details.config { margin-top: 18px; }
+details.config > summary {
+  cursor: pointer; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-dim); padding: 6px 0;
+}
+details.config > summary:hover { color: var(--ink); }
+details.config pre {
+  margin: 10px 0 0; padding: 14px 16px; max-height: 420px; overflow: auto;
+  background: var(--sunken); font: inherit; font-size: 11px; line-height: 1.55;
 }
 
 /* ---- sections ---- */
@@ -243,6 +278,59 @@ function aspectRatio(width: number, height: number): string {
   return width > 0 && height > 0 ? `${width} / ${height}` : "1 / 1";
 }
 
+/**
+ * The inputs, the command, and the resolved config: enough for someone holding
+ * only this file to see what went in and reproduce the run.
+ */
+function renderProvenance(options: RenderPreviewOptions): string {
+  const parts: string[] = [];
+
+  if (options.inputs.length > 0) {
+    const figures = options.inputs
+      .map(
+        (input) => `<figure>
+      <div class="frame${input.hasAlpha ? " alpha" : ""}" role="img" aria-label="${esc(input.filename)}"
+           style="background-image:${
+             input.hasAlpha ? `var(--${input.imageKey}),var(--checkers)` : `var(--${input.imageKey})`
+           }"></div>
+      <figcaption><span class="role">${esc(input.role)}</span>
+        <span class="name">${esc(input.filename)}</span>
+        <span class="dims">${input.vector ? "vector" : `${input.width} x ${input.height}`}</span>
+      </figcaption>
+    </figure>`,
+      )
+      .join("\n    ");
+    parts.push(`  <div class="provenance">
+    <h2>Inputs</h2>
+    <div class="inputs">
+    ${figures}
+    </div>
+  </div>`);
+  }
+
+  if (options.command) {
+    parts.push(`  <div class="provenance">
+    <h2>Command</h2>
+    <pre class="cmd">${esc(options.command)}</pre>
+  </div>`);
+  }
+
+  const configJson = JSON.stringify(options.config, null, 2);
+  const source = options.configPath
+    ? `Resolved from ${esc(options.configPath)} plus any flags.`
+    : "Resolved from flags and built-in defaults.";
+  parts.push(`  <div class="provenance">
+    <h2>Config</h2>
+    <p class="hint">${source} This is the fully merged config the run used, the same output as <b>--print-config</b>.</p>
+    <details class="config">
+      <summary>Show resolved config</summary>
+      <pre>${esc(configJson)}</pre>
+    </details>
+  </div>`);
+
+  return parts.join("\n");
+}
+
 function renderGroup(group: PreviewGroup, index: number): string {
   const parts: string[] = [];
 
@@ -335,6 +423,7 @@ export function renderPreviewHtml(options: RenderPreviewOptions): string {
 
   const sections = options.groups.map((group, index) => renderGroup(group, index)).join("\n");
   const version = options.toolVersion ? `v${esc(options.toolVersion)}` : "tvos-assets";
+  const provenance = renderProvenance(options);
 
   return `<!doctype html>
 <html lang="en">
@@ -366,6 +455,7 @@ ${STYLES}
 ${metaRows}
   </dl>
 
+${provenance}
 ${sections}
 
   <footer>

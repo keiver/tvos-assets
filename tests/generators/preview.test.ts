@@ -35,6 +35,7 @@ beforeAll(async () => {
     platforms: ["tvos", "ios"],
     standaloneIconPath: iconPath,
     toolVersion: "9.9.9",
+    command: 'tvos-assets --color "#F39C12"',
     generatedAt: "2026-01-01 00:00:00",
   });
 
@@ -75,8 +76,10 @@ describe("preview.html", () => {
   it("declares each embedded image exactly once", () => {
     const declarations = [...html.matchAll(/^\s*--(i\d+):/gm)].map((match) => match[1]);
     expect(new Set(declarations).size).toBe(declarations.length);
-    // 21 catalog PNGs + the standalone icon.png.
-    expect(declarations).toHaveLength(22);
+    // 21 catalog PNGs + the standalone icon.png + the 2 source inputs shown
+    // under Inputs (the fixture icon and background are distinct files from
+    // anything the run writes).
+    expect(declarations).toHaveLength(24);
   });
 
   it("reuses a thumbnail's embedded image for the parallax instead of embedding it twice", () => {
@@ -153,6 +156,32 @@ describe("preview.html", () => {
     expect(mobile).not.toMatch(/text-align: center/);
     expect(mobile).not.toMatch(/justify-content: center/);
     expect(mobile).not.toMatch(/justify-items: center/);
+  });
+
+  it("previews the input files with their roles", () => {
+    const roles = [...html.matchAll(/class="role">([^<]+)</g)].map((match) => match[1]);
+    expect(roles).toEqual(["icon", "background"]);
+    expect(html).toContain(">icon.png<");
+    expect(html).toContain(">background.png<");
+  });
+
+  it("records the command that produced the page", () => {
+    expect(html).toContain('<pre class="cmd">');
+    expect(html).toContain("tvos-assets --color &quot;#F39C12&quot;");
+  });
+
+  it("embeds the resolved config as valid JSON", () => {
+    expect(html).toContain('<details class="config">');
+    const raw = html.match(/<summary>Show resolved config<\/summary>\s*<pre>([\s\S]*?)<\/pre>/)?.[1];
+    expect(raw).toBeDefined();
+    const decoded = raw!
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&");
+    const parsed = JSON.parse(decoded);
+    expect(parsed.inputs.backgroundColor).toBe("#F39C12");
+    expect(parsed.brandAssets.name).toBe("AppIcon");
   });
 
   it("carries the run metadata in the header", () => {

@@ -19,6 +19,7 @@ import type { TargetPlatform } from "./lib.js";
 import type { TvOSImageCreatorConfig } from "./types.js";
 import { buildOverridesFromSet, collectSet, setDeep } from "./cli/set-option.js";
 import { initConfigFile } from "./cli/init.js";
+import { formatCommand } from "./cli/format-command.js";
 import { darkenHex } from "./utils/color.js";
 import { ensureDir } from "./utils/fs.js";
 import { createZip, generateZipFilename } from "./utils/zip.js";
@@ -323,6 +324,8 @@ Examples:
         standaloneIconPath: iconOutputPath,
         previewPath: wantsPreview ? previewOutputPath : undefined,
         toolVersion: version,
+        command: formatCommand(process.argv.slice(2)),
+        configPath,
         onStep: step,
       });
 
