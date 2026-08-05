@@ -1,4 +1,4 @@
-import { tildify, displayPath } from "../../src/utils/paths";
+import { tildify, displayPath, isUpward } from "../../src/utils/paths";
 
 const HOME = "/Users/someone";
 
@@ -69,5 +69,37 @@ describe("displayPath", () => {
       const rendered = displayPath("/Users/someone/elsewhere/icon.png", from, allowUpward, HOME);
       expect(rendered).not.toContain("/Users/someone");
     }
+  });
+
+  it("prefers the tilde form when an upward path would spell out the home directory", () => {
+    // Directory output written outside the home (a temp scratch dir): relative()
+    // climbs to the root and back down through /Users/<name>/..., leaking the
+    // username even though every segment is technically relative.
+    const tempFrom = "/private/tmp/scratch/out";
+    expect(displayPath("/Users/someone/app/brand/icon.svg", tempFrom, true, HOME)).toBe(
+      "~/app/brand/icon.svg",
+    );
+    // With both ends outside the home there is nothing to leak, upward stays upward.
+    expect(displayPath("/opt/art/icon.svg", "/opt/out", true, HOME)).toBe("../art/icon.svg");
+  });
+
+  it("keeps a directory named like a dotdot segment inside", () => {
+    // relative() gives "..old/icon.svg" here: a leading ".." that is part of a
+    // real directory name, not an escape. The path is inside, so it must stay
+    // relative in both modes rather than fall back to the absolute form.
+    const source = "/Users/someone/app/out/..old/icon.svg";
+    expect(displayPath(source, "/Users/someone/app/out", true, HOME)).toBe("./..old/icon.svg");
+    expect(displayPath(source, "/Users/someone/app/out", false, HOME)).toBe("./..old/icon.svg");
+  });
+});
+
+describe("isUpward", () => {
+  it("counts only a whole dotdot segment as an escape", () => {
+    expect(isUpward("..")).toBe(true);
+    expect(isUpward("../art/icon.svg")).toBe(true);
+    expect(isUpward("..\\art\\icon.svg")).toBe(true);
+    expect(isUpward("..old/icon.svg")).toBe(false);
+    expect(isUpward("...hidden/icon.svg")).toBe(false);
+    expect(isUpward("art/icon.svg")).toBe(false);
   });
 });
