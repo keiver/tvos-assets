@@ -122,6 +122,26 @@ function getDefaultConfig(
   };
 }
 
+/**
+ * A fully-populated config instance with placeholder inputs. Used to validate
+ * `--set` paths and to coerce their values to the type each path expects.
+ */
+export function configShapeTemplate(): TvOSImageCreatorConfig {
+  return getDefaultConfig("", "", "#000000", "#000000");
+}
+
+export const CONFIG_FILENAME = "tvos-assets.config.json";
+
+/**
+ * Locate a config file next to the process working directory. Only the current
+ * directory is searched: walking up would make relative paths inside the config
+ * ambiguous about which directory they resolve against.
+ */
+export function discoverConfigPath(cwd: string = process.cwd()): string | undefined {
+  const candidate = join(cwd, CONFIG_FILENAME);
+  return existsSync(candidate) && statSync(candidate).isFile() ? candidate : undefined;
+}
+
 function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>, depth = 0): Record<string, unknown> {
   if (depth > 10) {
     throw new Error("Config nesting too deep (max 10 levels). Check for circular or excessively nested objects.");
@@ -220,10 +240,21 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     }
   }
 
-  // Determine input values: CLI args override config file
-  const iconImage = (cliArgs.icon ?? fileConfig.inputs?.iconImage ?? "").trim();
-  const backgroundImage = (cliArgs.background ?? fileConfig.inputs?.backgroundImage ?? "").trim();
-  const backgroundColor = (cliArgs.color ?? fileConfig.inputs?.backgroundColor ?? "").trim();
+  // Determine input values: explicit args beat programmatic overrides (--set), which beat the config file
+  const overrideInputs = cliArgs.overrides?.inputs;
+  const iconImage = (cliArgs.icon ?? overrideInputs?.iconImage ?? fileConfig.inputs?.iconImage ?? "").trim();
+  const backgroundImage = (
+    cliArgs.background ??
+    overrideInputs?.backgroundImage ??
+    fileConfig.inputs?.backgroundImage ??
+    ""
+  ).trim();
+  const backgroundColor = (
+    cliArgs.color ??
+    overrideInputs?.backgroundColor ??
+    fileConfig.inputs?.backgroundColor ??
+    ""
+  ).trim();
 
   if (!iconImage) {
     throw new Error("Icon image is required. Use --icon or set inputs.iconImage in config.");
@@ -243,8 +274,13 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     throw new Error(`Invalid color format: "${backgroundColor}". Use hex format like "#B43939".`);
   }
 
-  // Resolve dark background color: CLI > config file > auto-darkened from backgroundColor
-  const rawDarkColor = (cliArgs.darkColor ?? fileConfig.inputs?.darkBackgroundColor ?? "").trim();
+  // Resolve dark background color: CLI > --set > config file > auto-darkened from backgroundColor
+  const rawDarkColor = (
+    cliArgs.darkColor ??
+    overrideInputs?.darkBackgroundColor ??
+    fileConfig.inputs?.darkBackgroundColor ??
+    ""
+  ).trim();
   const darkBackgroundColor = rawDarkColor || darkenHex(backgroundColor);
 
   // Validate dark color format
@@ -252,8 +288,9 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     throw new Error(`Invalid dark color format: "${rawDarkColor}". Use hex format like "#B43939".`);
   }
 
-  // Parse icon border radius: CLI > config file > default (0)
-  const rawBorderRadius = cliArgs.iconBorderRadius ?? fileConfig.inputs?.iconBorderRadius;
+  // Parse icon border radius: CLI > --set > config file > default (0)
+  const rawBorderRadius =
+    cliArgs.iconBorderRadius ?? overrideInputs?.iconBorderRadius ?? fileConfig.inputs?.iconBorderRadius;
   const iconBorderRadius = rawBorderRadius !== undefined ? Number(rawBorderRadius) : 0;
   if (!Number.isInteger(iconBorderRadius) || iconBorderRadius < 0) {
     throw new Error(

@@ -34,3 +34,6 @@ yarn-error.*
 
 # claude code
 .claude/
+
+# generated sample output (see examples/tomotv/output for the committed one)
+/output/
