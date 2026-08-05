@@ -70,4 +70,16 @@ describe("displayPath", () => {
       expect(rendered).not.toContain("/Users/someone");
     }
   });
+
+  it("prefers the tilde form when an upward path would spell out the home directory", () => {
+    // Directory output written outside the home (a temp scratch dir): relative()
+    // climbs to the root and back down through /Users/<name>/..., leaking the
+    // username even though every segment is technically relative.
+    const tempFrom = "/private/tmp/scratch/out";
+    expect(displayPath("/Users/someone/app/brand/icon.svg", tempFrom, true, HOME)).toBe(
+      "~/app/brand/icon.svg",
+    );
+    // With both ends outside the home there is nothing to leak, upward stays upward.
+    expect(displayPath("/opt/art/icon.svg", "/opt/out", true, HOME)).toBe("../art/icon.svg");
+  });
 });

@@ -43,6 +43,13 @@ export function displayPath(
   const rel = relative(from, path);
   if (rel === "") return "."; // the reference directory itself
   if (!rel.startsWith("..")) return `./${toPosix(rel)}`;
-  if (allowUpward) return toPosix(rel);
+  // An upward path is only acceptable while it cannot spell out the home
+  // directory. From outside the home into it, `relative()` climbs to the root
+  // and back down through /Users/<name>/... — the exact leak tildify exists to
+  // stop — so the tilde form wins there. (tildify(x) !== x is the same
+  // separator-safe "is under home" test tildify itself applies.)
+  const targetInHome = tildify(path, home) !== path;
+  const fromInHome = tildify(from, home) !== from;
+  if (allowUpward && !(targetInHome && !fromInHome)) return toPosix(rel);
   return tildify(path, home);
 }

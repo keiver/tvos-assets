@@ -2,6 +2,7 @@ jest.setTimeout(60000);
 
 import { existsSync, mkdirSync, rmSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { homedir } from "node:os";
 import { resolveConfig } from "../../src/config";
 import { generateAssets } from "../../src/lib";
 import { generatePreview } from "../../src/generators/preview";
@@ -186,8 +187,9 @@ describe("preview.html", () => {
 
   it("links every thumbnail to the real file on disk", () => {
     const hrefs = [...html.matchAll(/class="open" href="([^"]+)"/g)].map((match) => match[1]);
-    // 21 catalog PNGs + icon.png + 2 inputs. Swatches have no file, so no link.
-    expect(hrefs).toHaveLength(24);
+    // 21 catalog PNGs + icon.png. The 2 inputs live under the home directory,
+    // and an absolute link there would leak the username — they render unlinked.
+    expect(hrefs).toHaveLength(22);
     expect(html).toContain('target="_blank"');
     expect(html).toContain('rel="noopener"');
 
@@ -279,11 +281,14 @@ describe("preview.html", () => {
     const inputHref = (page: string): string =>
       page.match(/class="open" href="([^"]*icon\.png)"/)?.[1] ?? "";
 
-    // Default suits zip output: the page is built in a temp dir and the sources
-    // are not shipped with it, so only an absolute path can resolve.
+    // Default suits zip output: only an absolute path can resolve — but these
+    // sources sit under the home directory, where an absolute link would bake
+    // the username into a shareable page. They render unlinked instead.
     const absPath = join(dir, "abs.html");
     await generatePreview({ xcassetsDir, outputPath: absPath, config, platforms: ["ios"] });
-    expect(inputHref(readFileSync(absPath, "utf-8")).startsWith("/")).toBe(true);
+    const absHtml = readFileSync(absPath, "utf-8");
+    expect(inputHref(absHtml)).toBe("");
+    expect(absHtml).not.toContain(homedir());
 
     // Directory output keeps the page beside its sources, so relative stays
     // valid for anyone who clones the project and leaks no local path.
@@ -298,6 +303,7 @@ describe("preview.html", () => {
     const relHtml = readFileSync(relPath, "utf-8");
     expect(inputHref(relHtml).startsWith("/")).toBe(false);
     expect(inputHref(relHtml)).toContain("..");
+    expect(relHtml).not.toContain(homedir());
   });
 
   it("honors renamed asset bundles", async () => {

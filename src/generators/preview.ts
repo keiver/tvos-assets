@@ -3,7 +3,7 @@ import { join, basename, extname, relative, dirname, sep } from "node:path";
 import sharp from "sharp";
 import type { TvOSImageCreatorConfig } from "../types.js";
 import { safeWriteFile } from "../utils/fs.js";
-import { displayPath } from "../utils/paths.js";
+import { displayPath, tildify } from "../utils/paths.js";
 import { renderPreviewHtml } from "./preview-html.js";
 
 /** Long edge of the embedded thumbnails, in CSS pixels before device scaling. */
@@ -134,12 +134,23 @@ function displayConfig(
  * clones the project and never leaks a local path. Packed into a zip, the page
  * is generated in a temp directory and the sources are not shipped with it, so
  * only an absolute path resolves, and only on the machine that generated it.
+ *
+ * Either way, a link that would spell out the home directory (an absolute path
+ * under it, or a relative path that climbs out of a foreign output directory
+ * and back down through it) is a username leak in a shareable artifact — those
+ * render as plain text instead of a link (empty href; `linked()` degrades).
  */
 function fileHref(target: string, previewDir: string, outside: OutsideLinkStyle): string {
   const rel = relative(previewDir, target);
   const inside = Boolean(rel) && !rel.startsWith("..");
-  const usable = inside || outside === "relative";
-  const raw = usable && rel ? rel : target;
+  if (inside) return encodeHref(rel.split(sep).join("/"));
+
+  const targetInHome = tildify(target) !== target;
+  const previewInHome = tildify(previewDir) !== previewDir;
+  const leaksHome = outside === "relative" ? targetInHome && !previewInHome : targetInHome;
+  if (leaksHome) return "";
+
+  const raw = outside === "relative" && rel ? rel : target;
   return encodeHref(raw.split(sep).join("/"));
 }
 
