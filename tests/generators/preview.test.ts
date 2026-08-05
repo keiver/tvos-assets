@@ -192,7 +192,7 @@ describe("preview.html", () => {
     expect(html).toContain('rel="noopener"');
 
     for (const href of hrefs) {
-      const target = decodeURI(href);
+      const target = href.split("/").map(decodeURIComponent).join("/");
       const absolute = target.startsWith("/") ? target : join(OUT, target);
       expect(existsSync(absolute)).toBe(true);
     }
@@ -201,6 +201,42 @@ describe("preview.html", () => {
   it("encodes spaces in catalog paths so the links are valid URLs", () => {
     expect(html).toContain("App%20Icon.imagestack");
     expect(html).not.toMatch(/href="[^"]*App Icon/);
+  });
+
+  it("encodes characters that would truncate a URL, not just spaces", async () => {
+    // "#" and "?" are legal in filenames but encodeURI leaves both alone, so an
+    // unencoded one would cut the link short at a fragment or query. Asset names
+    // are validated, but filePrefix is not, which is how one reaches an href.
+    const dir = join(TMP, "hash");
+    mkdirSync(dir, { recursive: true });
+    const config = resolveConfig({
+      icon,
+      background,
+      color: "#101010",
+      outDir: dir,
+      overrides: {
+        brandAssets: { topShelfImage: { filePrefix: "top#1?x" } },
+        iosIcon: { enabled: false },
+      },
+    });
+    const xcassetsDir = join(dir, "Images.xcassets");
+    await generateAssets(config, xcassetsDir, { platforms: ["tvos"] });
+
+    const previewPath = join(dir, "preview.html");
+    await generatePreview({ xcassetsDir, outputPath: previewPath, config, platforms: ["tvos"] });
+    const page = readFileSync(previewPath, "utf-8");
+
+    const hrefs = [...page.matchAll(/class="open" href="([^"]+)"/g)].map((match) => match[1]);
+    const topShelf = hrefs.filter((href) => href.includes("Top%20Shelf%20Image."));
+    expect(topShelf.length).toBeGreaterThan(0);
+
+    for (const href of topShelf) {
+      expect(href).not.toContain("#");
+      expect(href).not.toContain("?");
+      // and it still points at a file that exists
+      const target = href.split("/").map(decodeURIComponent).join("/");
+      expect(existsSync(join(dir, target))).toBe(true);
+    }
   });
 
   it("links catalog files relatively so they survive the zip being extracted anywhere", () => {

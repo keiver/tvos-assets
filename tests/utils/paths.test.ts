@@ -24,6 +24,22 @@ describe("tildify", () => {
   it("leaves relative paths alone", () => {
     expect(tildify("./brand/icon.svg", HOME)).toBe("./brand/icon.svg");
   });
+
+  it("accepts a backslash boundary and normalises it, so Windows paths still yield ~/", () => {
+    // shellQuote only leaves a tilde unquoted when it sees "~/", so emitting
+    // "~\..." would end up a literal tilde in the recorded command.
+    expect(tildify("C:\\Users\\someone\\app\\icon.png", "C:\\Users\\someone")).toBe("~/app/icon.png");
+  });
+
+  it("tildifies when the path and the home directory disagree on separator", () => {
+    expect(tildify("/Users/someone\\app\\icon.png", HOME)).toBe("~/app/icon.png");
+  });
+
+  it("still refuses a prefix match that is not a path boundary, on either separator", () => {
+    expect(tildify("C:\\Users\\someone-else\\icon.png", "C:\\Users\\someone")).toBe(
+      "C:\\Users\\someone-else\\icon.png",
+    );
+  });
 });
 
 describe("displayPath", () => {

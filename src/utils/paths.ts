@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { relative, sep } from "node:path";
+import { relative } from "node:path";
 
 /**
  * Replace a leading home directory with `~`.
@@ -12,12 +12,17 @@ export function tildify(path: string, home: string = homedir()): string {
   if (!home || !path.startsWith(home)) return path;
   const rest = path.slice(home.length);
   if (rest === "") return "~";
-  return rest.startsWith(sep) ? `~${rest}` : path;
+  // Accept either separator rather than the running platform's. A path and the
+  // home directory can disagree on separator, and testing only `sep` would both
+  // miss those and emit `~\...` on Windows, which shellQuote's `~/` handling
+  // would then fail to recognise and quote into a literal tilde.
+  if (rest[0] !== "/" && rest[0] !== "\\") return path;
+  return `~${toPosix(rest)}`;
 }
 
 /** Render with posix separators, so paths read the same on every platform. */
 function toPosix(path: string): string {
-  return path.split(sep).join("/");
+  return path.split(/[\\/]/).join("/");
 }
 
 /**

@@ -139,7 +139,21 @@ function fileHref(target: string, previewDir: string, outside: OutsideLinkStyle)
   const rel = relative(previewDir, target);
   const inside = Boolean(rel) && !rel.startsWith("..");
   const usable = inside || outside === "relative";
-  return encodeURI(usable && rel ? rel.split(sep).join("/") : target);
+  const raw = usable && rel ? rel : target;
+  return encodeHref(raw.split(sep).join("/"));
+}
+
+/**
+ * Encode each path segment separately.
+ *
+ * encodeURI leaves `#` and `?` alone, and both are legal in a filename: `#`
+ * would start a fragment and `?` a query, truncating the link at that point.
+ * Segment-wise encoding closes that, and keeps the separators intact. Asset
+ * names are validated, but `filePrefix` is not, and input paths are whatever
+ * directory the user keeps their art in.
+ */
+function encodeHref(posixPath: string): string {
+  return posixPath.split("/").map((segment) => encodeURIComponent(segment)).join("/");
 }
 
 function componentsToHex(components: Record<string, string>): string {
