@@ -30,6 +30,7 @@ Note: the CLI auto-discovers `tvos-assets.config.json` in the working directory.
 **CLI helpers** (`src/cli/`):
 - `set-option.ts` — `--set key.path=value` parsing. Validates each path by walking a real config instance from `configShapeTemplate()` and coerces the value to that leaf's type. Optional keys absent from defaults (variant icons, per-layer `imagePath`) come from an explicit allowlist
 - `init.ts` — `--init` starter config template and writer; refuses to overwrite
+- `schema-ref.ts` — resolves what `$schema` should point at. `schema.json` ships in the package (`files`), so the reference is always a local path, never a URL: a remote schema is not guaranteed reachable and would describe the default branch rather than the installed version. Prefers a `node_modules/tvos-assets/schema.json` found by walking up from the config directory (handles hoisted monorepos); for global and npx installs there is no such copy and the real path is machine-specific or temporary, so it copies the schema next to the config instead
 
 **Config resolution** (`src/config.ts`): Four-layer merge — built-in defaults → JSON config file → `overrides` (`--set` and named flags, also the plugin's channel) → explicit CLI input args (highest priority). Validates inputs exist, color is valid hex. Resolves `darkBackgroundColor`: explicit CLI/overrides/config value wins, otherwise auto-darkened from `backgroundColor` via `darkenHex()`. Also exports `discoverConfigPath()` and `configShapeTemplate()`.
 

@@ -138,7 +138,7 @@ SVG inputs are rasterized at whatever density each output size needs, so a small
 | `--set <path=value>` | Override any config key by dotted path. Repeatable. See below. |
 | `--dry-run` | Report the asset directories and file counts that would be written, then exit without touching disk. |
 | `--print-config` | Print the fully merged config as JSON and exit. The tool for debugging precedence. |
-| `--init [path]` | Write a starter `tvos-assets.config.json` and exit. Refuses to overwrite an existing file. |
+| `--init [path]` | Write a starter `tvos-assets.config.json` with `$schema` wired up, and exit. Refuses to overwrite an existing file. See [About `$schema`](#about-schema). |
 | `--quiet` | Print only errors and the final output path. For CI and npm scripts. |
 | `--version` | Print the version. |
 | `--help` | Show help, including a `--set` cheatsheet and examples. |
@@ -516,13 +516,22 @@ Composited images (icon centered on background), written as opaque RGB PNGs as t
 
 ## Configuration file
 
-For full control, create a JSON config file. Every section is optional, omitted values use built-in defaults. Add `$schema` for editor autocompletion and inline validation:
+For full control, create a JSON config file. Every section is optional, omitted values use built-in defaults. Name it `tvos-assets.config.json` in your project root and the CLI finds it with no flags. A complete annotated example lives in [`examples/tvos-assets.config.json`](examples/tvos-assets.config.json).
 
-```json
-{ "$schema": "./node_modules/tvos-assets/schema.json" }
-```
+The quickest start is `tvos-assets --init`, which writes a starter file with `$schema` already wired up for editor autocompletion and inline validation.
 
-Name it `tvos-assets.config.json` in your project root and the CLI finds it with no flags. `tvos-assets --init` writes a starter file for you. A complete annotated example lives in [`examples/tvos-assets.config.json`](examples/tvos-assets.config.json).
+### About `$schema`
+
+`schema.json` ships inside the package, so the reference is always a local path. It never points at a URL: a remote schema is not guaranteed to be reachable, and it would describe whatever sits on the default branch rather than the version you actually installed.
+
+`--init` picks the right local path for how the tool is installed:
+
+| Installed as | `$schema` written | Why |
+|---|---|---|
+| Project dependency (`npm i -D tvos-assets`) | `./node_modules/tvos-assets/schema.json` | Stays valid for teammates who clone the repo, and tracks the package across upgrades. Hoisted monorepo layouts are found by walking up, giving something like `../../node_modules/...`. |
+| Global (`npm i -g`) or `npx` | `./tvos-assets.schema.json` | There is no local copy to point at, and the real path is either machine-specific or a temporary npx cache. `--init` copies the schema next to your config instead and tells you it did. |
+
+The copied schema is a plain file you can commit or delete. Delete it and drop the `$schema` line if you do not want editor validation. Nothing in the tool reads `$schema`; it exists purely for your editor.
 
 ### Minimal config
 

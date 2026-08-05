@@ -315,11 +315,18 @@ describe("CLI --init", () => {
     const configPath = join(projectDir, "tvos-assets.config.json");
     const written = JSON.parse(readFileSync(configPath, "utf-8"));
     expect(written.inputs.backgroundColor).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    // $schema must point at the copy shipped in the package, never a URL: a
-    // remote schema is not guaranteed to be reachable and would describe the
-    // default branch rather than the installed version.
-    expect(written.$schema).toBe("./node_modules/tvos-assets/schema.json");
+    // $schema is always a local relative path, never a URL: a remote schema is
+    // not guaranteed to be reachable and would describe the default branch
+    // rather than the version installed. See tests/cli/schema-ref.test.ts for
+    // the installed-vs-copied branches.
     expect(written.$schema).not.toMatch(/^https?:/);
+    expect(written.$schema.startsWith("./") || written.$schema.startsWith("../")).toBe(true);
+
+    // No tvos-assets in node_modules here, so this exercises the global/npx
+    // path: the schema is copied next to the config.
+    expect(output).toContain("tvos-assets.schema.json");
+    const copied = JSON.parse(readFileSync(join(projectDir, "tvos-assets.schema.json"), "utf-8"));
+    expect(copied.title).toBe("tvos-assets configuration");
 
     const second = runCLIExpectErrorIn(projectDir, ["--init"]);
     expect(second).toContain("Refusing to overwrite");

@@ -1,20 +1,13 @@
-import { existsSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, writeFileSync, mkdirSync } from "node:fs";
+import { resolve, dirname } from "node:path";
 import { CONFIG_FILENAME } from "../config.js";
-
-/**
- * schema.json ships inside the package, so point at the installed copy rather
- * than a URL. It needs no network, and it always describes the version that is
- * actually installed instead of whatever happens to be on the default branch.
- */
-const SCHEMA_PATH = "./node_modules/tvos-assets/schema.json";
+import { resolveSchemaRef, type SchemaRefSource } from "./schema-ref.js";
 
 /**
  * A starter config carrying only the keys most projects touch. Every other key
  * is optional and documented in schema.json, which editors pick up via $schema.
  */
 const TEMPLATE = {
-  $schema: SCHEMA_PATH,
   inputs: {
     iconImage: "./assets/icon.png",
     backgroundImage: "./assets/background.png",
@@ -40,19 +33,36 @@ const TEMPLATE = {
 
 export interface InitResult {
   path: string;
+  /** How `$schema` was satisfied: from an installed copy, a local copy, or not at all. */
+  schemaSource: SchemaRefSource;
+  /** Absolute path of the schema copy written next to the config, when one was. */
+  schemaCopiedTo?: string;
 }
 
 /**
  * Write a starter config. Refuses to touch an existing file: overwriting
  * someone's configuration is never the helpful reading of `--init`.
+ *
+ * `$schema` is resolved against however this package happens to be installed,
+ * so editor validation works for local, global, and npx runs alike.
  */
-export function initConfigFile(target?: string, cwd: string = process.cwd()): InitResult {
+export function initConfigFile(
+  target: string | undefined,
+  packagedSchema: string,
+  cwd: string = process.cwd(),
+): InitResult {
   const path = resolve(cwd, target ?? CONFIG_FILENAME);
 
   if (existsSync(path)) {
     throw new Error(`Refusing to overwrite an existing file: ${path}. Delete or rename it first.`);
   }
 
-  writeFileSync(path, `${JSON.stringify(TEMPLATE, null, 2)}\n`, "utf-8");
-  return { path };
+  const directory = dirname(path);
+  mkdirSync(directory, { recursive: true });
+
+  const schema = resolveSchemaRef(directory, packagedSchema);
+  const config = schema.ref ? { $schema: schema.ref, ...TEMPLATE } : TEMPLATE;
+
+  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, "utf-8");
+  return { path, schemaSource: schema.source, schemaCopiedTo: schema.copiedTo };
 }

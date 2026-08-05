@@ -202,9 +202,18 @@ Examples:
 
     try {
       if (options.init) {
-        const { path } = initConfigFile(typeof options.init === "string" ? options.init : undefined);
+        const result = initConfigFile(
+          typeof options.init === "string" ? options.init : undefined,
+          join(__dirname, "..", "schema.json"),
+        );
         log();
-        log(`  ${pc.green("Created")} ${pc.cyan(path)}`);
+        log(`  ${pc.green("Created")} ${pc.cyan(result.path)}`);
+        if (result.schemaCopiedTo) {
+          log(`  ${pc.green("Created")} ${pc.cyan(result.schemaCopiedTo)} ${pc.dim("(editor validation)")}`);
+        }
+        if (result.schemaSource === "unavailable") {
+          log(`  ${pc.yellow("Note:")} schema.json could not be located, so no $schema was written.`);
+        }
         log(`  ${pc.dim("Edit the input paths, then run:")} tvos-assets`);
         log();
         return;
