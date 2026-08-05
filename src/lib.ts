@@ -46,7 +46,18 @@ export interface PlanOptions {
 }
 
 export interface AssetPlan {
-  /** Asset directories written inside Images.xcassets, in generation order. */
+  /**
+   * Top-level asset bundles written directly under Images.xcassets, in
+   * generation order: the ones cleaned and rewritten by a run, such as
+   * `AppIcon.brandassets` and `SplashScreenLogo.imageset`.
+   *
+   * Not a complete directory listing. Bundles nest further (a `.brandassets`
+   * contains `.imagestack` and `.imageset` directories, each imagestack
+   * contains three `.imagestacklayer` directories, and so on) and those are
+   * deliberately not enumerated here, since their names come from the
+   * generators. Use this for cleanup targets and summaries, not for walking
+   * the output; read the written catalog for that.
+   */
   directories: string[];
   contentsJson: number;
   /** PNGs written inside the catalog; excludes the standalone icon.png. */

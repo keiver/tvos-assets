@@ -149,6 +149,57 @@ describe("CLI", () => {
   });
 });
 
+/**
+ * --preview and --no-preview are both declared, which is what gives Commander a
+ * three-state value: undefined when neither is passed, so the per-mode default
+ * applies. Declaring only --no-preview would default it to true and make the
+ * default unreachable, so these lock the behavior in.
+ */
+describe("CLI preview defaults", () => {
+  let icon: string;
+  let bg: string;
+
+  beforeEach(async () => {
+    icon = await createTestIcon(TMP);
+    bg = await createTestBackground(TMP);
+  });
+
+  function run(extra: string[], dir: string): string[] {
+    mkdirSync(dir, { recursive: true });
+    runCLI(["--icon", icon, "--background", bg, "--color", "#F39C12", ...extra]);
+    return readdirSync(dir);
+  }
+
+  it("writes preview.html by default for directory output: no", () => {
+    const outDir = join(TMP, "pv-dir-default");
+    expect(run(["--out-dir", outDir], outDir)).not.toContain("preview.html");
+  });
+
+  it("writes preview.html in dir mode when --preview is explicit", () => {
+    const outDir = join(TMP, "pv-dir-explicit");
+    expect(run(["--out-dir", outDir, "--preview"], outDir)).toContain("preview.html");
+  });
+
+  it("still skips preview.html in dir mode with --no-preview", () => {
+    const outDir = join(TMP, "pv-dir-no");
+    expect(run(["--out-dir", outDir, "--no-preview"], outDir)).not.toContain("preview.html");
+  });
+
+  it("counts preview.html in the dry-run manifest only when it would be written", () => {
+    const zipRun = runCLI(["--icon", icon, "--background", bg, "--color", "#F39C12", "--dry-run"]);
+    expect(zipRun).toContain("preview.html");
+
+    const dirRun = runCLI([
+      "--icon", icon,
+      "--background", bg,
+      "--color", "#F39C12",
+      "--out-dir", join(TMP, "pv-dry"),
+      "--dry-run",
+    ]);
+    expect(dirRun).not.toContain("preview.html");
+  });
+});
+
 describe("CLI config file", () => {
   /**
    * Regression: --icon-border-radius used to carry a Commander default of "0",
