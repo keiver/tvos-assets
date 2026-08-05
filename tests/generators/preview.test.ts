@@ -130,6 +130,13 @@ describe("preview.html", () => {
     expect((html.match(/class="swatch-chip"/g) ?? []).length).toBe(4);
   });
 
+  it("top-aligns contact sheet rows so scale variants share an edge", () => {
+    // Baseline alignment made 1x/2x/3x variants hang at different top edges,
+    // which hid their relative sizes. They must align at the top.
+    expect(html).toMatch(/\.row \{[^}]*align-items: flex-start/);
+    expect(html).not.toMatch(/\.row \{[^}]*align-items: flex-end/);
+  });
+
   it("carries the run metadata in the header", () => {
     expect(html).toContain("2026-01-01 00:00:00");
     expect(html).toContain("v9.9.9");

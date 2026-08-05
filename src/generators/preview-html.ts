@@ -107,7 +107,9 @@ section { padding-top: 44px; }
 .section-path { color: var(--ink-dim); font-size: 11px; margin-left: auto; overflow-wrap: anywhere; }
 
 /* ---- contact sheet rows ---- */
-.row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 28px; padding: 26px 0 4px; }
+/* Top-aligned, not baseline: scale variants sit at different heights, and a
+   shared top edge is what makes their relative sizes readable at a glance. */
+.row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; padding: 26px 0 4px; }
 figure { margin: 0; max-width: 100%; }
 .frame {
   background-color: var(--paper);
@@ -127,7 +129,7 @@ figcaption .dims { display: block; color: var(--ink-dim); }
 figcaption .note { color: var(--accent); }
 
 /* ---- parallax ---- */
-.parallax-block { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 28px; padding: 26px 0 0; }
+.parallax-block { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; padding: 26px 0 0; }
 .parallax {
   position: relative; overflow: hidden; outline: 1px solid var(--rule);
   perspective: 900px; touch-action: none; max-width: 100%;
