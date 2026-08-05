@@ -106,16 +106,24 @@ section { padding-top: 44px; }
 .section-title { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
 .section-path { color: var(--ink-dim); font-size: 11px; margin-left: auto; overflow-wrap: anywhere; }
 
-/* ---- contact sheet rows ---- */
-/* Top-aligned, not baseline: scale variants sit at different heights, and a
-   shared top edge is what makes their relative sizes readable at a glance. */
-.row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; padding: 26px 0 4px; }
-figure { margin: 0; max-width: 100%; }
+/* ---- contact sheet ----
+   A uniform grid rather than intrinsically sized figures. Letting each asset
+   size itself gave ragged rows, orphaned tiles, and captions at a dozen
+   different heights. Equal cells keep captions on a shared line and reflow
+   cleanly at any width; the true dimensions live in the caption, and the
+   aspect ratio stays visible because the image is contained in its cell. */
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+  gap: 26px 22px;
+  padding: 26px 0 4px;
+}
+figure { margin: 0; min-width: 0; }
 .frame {
+  width: 100%; height: 148px;
   background-color: var(--paper);
   background-repeat: no-repeat; background-position: center; background-size: contain;
-  outline: 1px solid var(--rule); outline-offset: 0;
-  max-width: 100%;
+  outline: 1px solid var(--rule);
 }
 /* Image layer is declared first so it paints above the checkerboard revealing its alpha. */
 .frame.alpha {
@@ -129,10 +137,13 @@ figcaption .dims { display: block; color: var(--ink-dim); }
 figcaption .note { color: var(--accent); }
 
 /* ---- parallax ---- */
-.parallax-block { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; padding: 26px 0 0; }
+.parallax-block {
+  display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  align-items: start; gap: 26px; padding: 26px 0 0;
+}
 .parallax {
   position: relative; overflow: hidden; outline: 1px solid var(--rule);
-  perspective: 900px; touch-action: none; max-width: 100%;
+  perspective: 900px; touch-action: none; width: 100%;
 }
 .parallax .layer {
   position: absolute; inset: 0;
@@ -141,12 +152,15 @@ figcaption .note { color: var(--accent); }
   will-change: transform;
 }
 .parallax[data-active="1"] .layer { transition: transform 90ms linear; }
-.hint { font-size: 11px; color: var(--ink-dim); max-width: 210px; }
+.hint { margin: 0; font-size: 11px; color: var(--ink-dim); max-width: 34ch; }
 .hint b { color: var(--ink); font-weight: 400; }
 
 /* ---- colorset ---- */
-.swatches { display: flex; flex-wrap: wrap; gap: 28px; padding: 26px 0 4px; }
-.swatch-chip { width: 132px; height: 84px; outline: 1px solid var(--rule); }
+.swatches {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 26px 22px; padding: 26px 0 4px;
+}
+.swatch-chip { width: 100%; height: 84px; outline: 1px solid var(--rule); }
 
 footer {
   margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
@@ -157,6 +171,25 @@ footer a { color: var(--ink); }
 
 @media (prefers-reduced-motion: reduce) {
   .parallax .layer { transition: none; }
+}
+
+/* ---- narrow screens ----
+   One column, everything centred on the page axis. Section headers stack so the
+   catalog path sits under the title instead of being squeezed against it, and
+   the parallax caption moves below its stack rather than into a sliver. */
+@media (max-width: 640px) {
+  body { padding: 0 18px 64px; }
+  .masthead { flex-direction: column; align-items: center; text-align: center; gap: 14px; padding-top: 36px; }
+  .meta { grid-template-columns: 1fr; justify-items: center; gap: 0; }
+  .meta div { flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+  .meta dt { flex: none; }
+  .section-head { flex-wrap: wrap; justify-content: center; text-align: center; }
+  .section-path { margin-left: 0; width: 100%; text-align: center; }
+  .row, .swatches { grid-template-columns: minmax(0, 260px); justify-content: center; }
+  figcaption { text-align: center; }
+  .parallax-block { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  .hint { text-align: center; }
+  footer { justify-content: center; text-align: center; }
 }
 `;
 
@@ -206,11 +239,9 @@ const SCRIPT = `
 })();
 `;
 
-/** Fit a real asset size into the sheet's display box, never enlarging. */
-function displayBox(width: number, height: number, maxWidth = 340, maxHeight = 260): { w: number; h: number } {
-  if (width <= 0 || height <= 0) return { w: maxWidth, h: maxHeight };
-  const scale = Math.min(maxWidth / width, maxHeight / height, 1);
-  return { w: Math.round(width * scale), h: Math.round(height * scale) };
+/** CSS aspect-ratio for an asset, so it scales with its column instead of being pinned to pixels. */
+function aspectRatio(width: number, height: number): string {
+  return width > 0 && height > 0 ? `${width} / ${height}` : "1 / 1";
 }
 
 function renderGroup(group: PreviewGroup, index: number): string {
@@ -224,13 +255,12 @@ function renderGroup(group: PreviewGroup, index: number): string {
   </div>`);
 
   if (group.parallax) {
-    const box = displayBox(group.parallax.width, group.parallax.height, 420, 300);
     const layers = group.parallax.layers
       .map((layer) => `<div class="layer" style="background-image:var(--${layer.imageKey})"></div>`)
       .join("");
     parts.push(`  <div class="parallax-block">
-    <div class="parallax" style="width:${box.w}px;height:${box.h}px" role="img"
-         aria-label="${esc(group.title)} parallax preview">${layers}</div>
+    <div class="parallax" style="aspect-ratio:${aspectRatio(group.parallax.width, group.parallax.height)}"
+         role="img" aria-label="${esc(group.title)} parallax preview">${layers}</div>
     <p class="hint">Point at the stack to move the layers.<br><b>${esc(group.parallax.label)}</b>, the same three
       layers tvOS separates on focus.</p>
   </div>`);
@@ -253,11 +283,10 @@ function renderGroup(group: PreviewGroup, index: number): string {
   if (group.assets.length > 0) {
     const figures = group.assets
       .map((asset) => {
-        const box = displayBox(asset.width, asset.height);
         const note = asset.note ? ` <span class="note">${esc(asset.note)}</span>` : "";
         return `<figure>
       <div class="frame${asset.hasAlpha ? " alpha" : ""}" role="img" aria-label="${esc(asset.filename)}"
-           style="width:${box.w}px;height:${box.h}px;background-image:${
+           style="background-image:${
              asset.hasAlpha ? `var(--${asset.imageKey}),var(--checkers)` : `var(--${asset.imageKey})`
            }"></div>
       <figcaption><span class="name">${esc(asset.filename)}</span>

@@ -109,16 +109,24 @@ section { padding-top: 44px; }
 .section-title { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; }
 .section-path { color: var(--ink-dim); font-size: 11px; margin-left: auto; overflow-wrap: anywhere; }
 
-/* ---- contact sheet rows ---- */
-/* Top-aligned, not baseline: scale variants sit at different heights, and a
-   shared top edge is what makes their relative sizes readable at a glance. */
-.row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; padding: 26px 0 4px; }
-figure { margin: 0; max-width: 100%; }
+/* ---- contact sheet ----
+   A uniform grid rather than intrinsically sized figures. Letting each asset
+   size itself gave ragged rows, orphaned tiles, and captions at a dozen
+   different heights. Equal cells keep captions on a shared line and reflow
+   cleanly at any width; the true dimensions live in the caption, and the
+   aspect ratio stays visible because the image is contained in its cell. */
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(184px, 1fr));
+  gap: 26px 22px;
+  padding: 26px 0 4px;
+}
+figure { margin: 0; min-width: 0; }
 .frame {
+  width: 100%; height: 148px;
   background-color: var(--paper);
   background-repeat: no-repeat; background-position: center; background-size: contain;
-  outline: 1px solid var(--rule); outline-offset: 0;
-  max-width: 100%;
+  outline: 1px solid var(--rule);
 }
 /* Image layer is declared first so it paints above the checkerboard revealing its alpha. */
 .frame.alpha {
@@ -132,10 +140,13 @@ figcaption .dims { display: block; color: var(--ink-dim); }
 figcaption .note { color: var(--accent); }
 
 /* ---- parallax ---- */
-.parallax-block { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 28px; padding: 26px 0 0; }
+.parallax-block {
+  display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  align-items: start; gap: 26px; padding: 26px 0 0;
+}
 .parallax {
   position: relative; overflow: hidden; outline: 1px solid var(--rule);
-  perspective: 900px; touch-action: none; max-width: 100%;
+  perspective: 900px; touch-action: none; width: 100%;
 }
 .parallax .layer {
   position: absolute; inset: 0;
@@ -144,12 +155,15 @@ figcaption .note { color: var(--accent); }
   will-change: transform;
 }
 .parallax[data-active="1"] .layer { transition: transform 90ms linear; }
-.hint { font-size: 11px; color: var(--ink-dim); max-width: 210px; }
+.hint { margin: 0; font-size: 11px; color: var(--ink-dim); max-width: 34ch; }
 .hint b { color: var(--ink); font-weight: 400; }
 
 /* ---- colorset ---- */
-.swatches { display: flex; flex-wrap: wrap; gap: 28px; padding: 26px 0 4px; }
-.swatch-chip { width: 132px; height: 84px; outline: 1px solid var(--rule); }
+.swatches {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 26px 22px; padding: 26px 0 4px;
+}
+.swatch-chip { width: 100%; height: 84px; outline: 1px solid var(--rule); }
 
 footer {
   margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
@@ -160,6 +174,25 @@ footer a { color: var(--ink); }
 
 @media (prefers-reduced-motion: reduce) {
   .parallax .layer { transition: none; }
+}
+
+/* ---- narrow screens ----
+   One column, everything centred on the page axis. Section headers stack so the
+   catalog path sits under the title instead of being squeezed against it, and
+   the parallax caption moves below its stack rather than into a sliver. */
+@media (max-width: 640px) {
+  body { padding: 0 18px 64px; }
+  .masthead { flex-direction: column; align-items: center; text-align: center; gap: 14px; padding-top: 36px; }
+  .meta { grid-template-columns: 1fr; justify-items: center; gap: 0; }
+  .meta div { flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+  .meta dt { flex: none; }
+  .section-head { flex-wrap: wrap; justify-content: center; text-align: center; }
+  .section-path { margin-left: 0; width: 100%; text-align: center; }
+  .row, .swatches { grid-template-columns: minmax(0, 260px); justify-content: center; }
+  figcaption { text-align: center; }
+  .parallax-block { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  .hint { text-align: center; }
+  footer { justify-content: center; text-align: center; }
 }
 
 </style>
@@ -182,7 +215,7 @@ footer a { color: var(--ink); }
     <div><dt>Radius</dt><dd>0px</dd></div>
     <div><dt>Platforms</dt><dd>tvos, ios</dd></div>
     <div><dt>Files</dt><dd>44</dd></div>
-    <div><dt>Generated</dt><dd>2026-08-05 17:51:53</dd></div>
+    <div><dt>Generated</dt><dd>2026-08-05 17:57:41</dd></div>
   </dl>
 
 <section>
@@ -192,50 +225,50 @@ footer a { color: var(--ink); }
     <span class="section-path">Images.xcassets/AppIcon.brandassets</span>
   </div>
   <div class="parallax-block">
-    <div class="parallax" style="width:420px;height:252px" role="img"
-         aria-label="App Icon.imagestack parallax preview"><div class="layer" style="background-image:var(--i8)"></div><div class="layer" style="background-image:var(--i6)"></div><div class="layer" style="background-image:var(--i4)"></div></div>
+    <div class="parallax" style="aspect-ratio:800 / 480"
+         role="img" aria-label="App Icon.imagestack parallax preview"><div class="layer" style="background-image:var(--i8)"></div><div class="layer" style="background-image:var(--i6)"></div><div class="layer" style="background-image:var(--i4)"></div></div>
     <p class="hint">Point at the stack to move the layers.<br><b>800 x 480</b>, the same three
       layers tvOS separates on focus.</p>
   </div>
   <div class="row">
     <figure>
       <div class="frame alpha" role="img" aria-label="front@1x.png"
-           style="width:340px;height:204px;background-image:var(--i3),var(--checkers)"></div>
+           style="background-image:var(--i3),var(--checkers)"></div>
       <figcaption><span class="name">front@1x.png</span>
         <span class="dims">400 x 240 <span class="note">Front tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame alpha" role="img" aria-label="front@2x.png"
-           style="width:340px;height:204px;background-image:var(--i4),var(--checkers)"></div>
+           style="background-image:var(--i4),var(--checkers)"></div>
       <figcaption><span class="name">front@2x.png</span>
         <span class="dims">800 x 480 <span class="note">Front tv 2x</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame alpha" role="img" aria-label="middle@1x.png"
-           style="width:340px;height:204px;background-image:var(--i5),var(--checkers)"></div>
+           style="background-image:var(--i5),var(--checkers)"></div>
       <figcaption><span class="name">middle@1x.png</span>
         <span class="dims">400 x 240 <span class="note">Middle tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame alpha" role="img" aria-label="middle@2x.png"
-           style="width:340px;height:204px;background-image:var(--i6),var(--checkers)"></div>
+           style="background-image:var(--i6),var(--checkers)"></div>
       <figcaption><span class="name">middle@2x.png</span>
         <span class="dims">800 x 480 <span class="note">Middle tv 2x</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame" role="img" aria-label="back@1x.png"
-           style="width:340px;height:204px;background-image:var(--i7)"></div>
+           style="background-image:var(--i7)"></div>
       <figcaption><span class="name">back@1x.png</span>
         <span class="dims">400 x 240 <span class="note">Back tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame" role="img" aria-label="back@2x.png"
-           style="width:340px;height:204px;background-image:var(--i8)"></div>
+           style="background-image:var(--i8)"></div>
       <figcaption><span class="name">back@2x.png</span>
         <span class="dims">800 x 480 <span class="note">Back tv 2x</span></span>
       </figcaption>
@@ -249,29 +282,29 @@ footer a { color: var(--ink); }
     <span class="section-path">Images.xcassets/AppIcon.brandassets</span>
   </div>
   <div class="parallax-block">
-    <div class="parallax" style="width:420px;height:252px" role="img"
-         aria-label="App Icon - App Store.imagestack parallax preview"><div class="layer" style="background-image:var(--i11)"></div><div class="layer" style="background-image:var(--i10)"></div><div class="layer" style="background-image:var(--i9)"></div></div>
+    <div class="parallax" style="aspect-ratio:1280 / 768"
+         role="img" aria-label="App Icon - App Store.imagestack parallax preview"><div class="layer" style="background-image:var(--i11)"></div><div class="layer" style="background-image:var(--i10)"></div><div class="layer" style="background-image:var(--i9)"></div></div>
     <p class="hint">Point at the stack to move the layers.<br><b>1280 x 768</b>, the same three
       layers tvOS separates on focus.</p>
   </div>
   <div class="row">
     <figure>
       <div class="frame alpha" role="img" aria-label="front@1x.png"
-           style="width:340px;height:204px;background-image:var(--i9),var(--checkers)"></div>
+           style="background-image:var(--i9),var(--checkers)"></div>
       <figcaption><span class="name">front@1x.png</span>
         <span class="dims">1280 x 768 <span class="note">Front tv</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame alpha" role="img" aria-label="middle@1x.png"
-           style="width:340px;height:204px;background-image:var(--i10),var(--checkers)"></div>
+           style="background-image:var(--i10),var(--checkers)"></div>
       <figcaption><span class="name">middle@1x.png</span>
         <span class="dims">1280 x 768 <span class="note">Middle tv</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame" role="img" aria-label="back.png"
-           style="width:340px;height:204px;background-image:var(--i11)"></div>
+           style="background-image:var(--i11)"></div>
       <figcaption><span class="name">back.png</span>
         <span class="dims">1280 x 768 <span class="note">Back tv</span></span>
       </figcaption>
@@ -287,14 +320,14 @@ footer a { color: var(--ink); }
   <div class="row">
     <figure>
       <div class="frame" role="img" aria-label="top@1x.png"
-           style="width:340px;height:128px;background-image:var(--i12)"></div>
+           style="background-image:var(--i12)"></div>
       <figcaption><span class="name">top@1x.png</span>
         <span class="dims">1920 x 720 <span class="note">tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame" role="img" aria-label="top@2x.png"
-           style="width:340px;height:128px;background-image:var(--i13)"></div>
+           style="background-image:var(--i13)"></div>
       <figcaption><span class="name">top@2x.png</span>
         <span class="dims">3840 x 1440 <span class="note">tv 2x</span></span>
       </figcaption>
@@ -310,14 +343,14 @@ footer a { color: var(--ink); }
   <div class="row">
     <figure>
       <div class="frame" role="img" aria-label="wide@1x.png"
-           style="width:340px;height:106px;background-image:var(--i14)"></div>
+           style="background-image:var(--i14)"></div>
       <figcaption><span class="name">wide@1x.png</span>
         <span class="dims">2320 x 720 <span class="note">tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame" role="img" aria-label="wide@2x.png"
-           style="width:340px;height:106px;background-image:var(--i15)"></div>
+           style="background-image:var(--i15)"></div>
       <figcaption><span class="name">wide@2x.png</span>
         <span class="dims">4640 x 1440 <span class="note">tv 2x</span></span>
       </figcaption>
@@ -333,21 +366,21 @@ footer a { color: var(--ink); }
   <div class="row">
     <figure>
       <div class="frame" role="img" aria-label="icon-1024.png"
-           style="width:260px;height:260px;background-image:var(--i0)"></div>
+           style="background-image:var(--i0)"></div>
       <figcaption><span class="name">icon-1024.png</span>
         <span class="dims">1024 x 1024</span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame alpha" role="img" aria-label="icon-1024-dark.png"
-           style="width:260px;height:260px;background-image:var(--i1),var(--checkers)"></div>
+           style="background-image:var(--i1),var(--checkers)"></div>
       <figcaption><span class="name">icon-1024-dark.png</span>
         <span class="dims">1024 x 1024 <span class="note">dark</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame alpha" role="img" aria-label="icon-1024-tinted.png"
-           style="width:260px;height:260px;background-image:var(--i2),var(--checkers)"></div>
+           style="background-image:var(--i2),var(--checkers)"></div>
       <figcaption><span class="name">icon-1024-tinted.png</span>
         <span class="dims">1024 x 1024 <span class="note">tinted</span></span>
       </figcaption>
@@ -363,35 +396,35 @@ footer a { color: var(--ink); }
   <div class="row">
     <figure>
       <div class="frame alpha" role="img" aria-label="200-icon@1x.png"
-           style="width:200px;height:200px;background-image:var(--i16),var(--checkers)"></div>
+           style="background-image:var(--i16),var(--checkers)"></div>
       <figcaption><span class="name">200-icon@1x.png</span>
         <span class="dims">200 x 200 <span class="note">1x</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame alpha" role="img" aria-label="200-icon@2x.png"
-           style="width:260px;height:260px;background-image:var(--i17),var(--checkers)"></div>
+           style="background-image:var(--i17),var(--checkers)"></div>
       <figcaption><span class="name">200-icon@2x.png</span>
         <span class="dims">400 x 400 <span class="note">2x</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame alpha" role="img" aria-label="200-icon@3x.png"
-           style="width:260px;height:260px;background-image:var(--i18),var(--checkers)"></div>
+           style="background-image:var(--i18),var(--checkers)"></div>
       <figcaption><span class="name">200-icon@3x.png</span>
         <span class="dims">600 x 600 <span class="note">3x</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame alpha" role="img" aria-label="200-icon-tv@1x.png"
-           style="width:200px;height:200px;background-image:var(--i19),var(--checkers)"></div>
+           style="background-image:var(--i19),var(--checkers)"></div>
       <figcaption><span class="name">200-icon-tv@1x.png</span>
         <span class="dims">200 x 200 <span class="note">tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
       <div class="frame alpha" role="img" aria-label="200-icon-tv@2x.png"
-           style="width:260px;height:260px;background-image:var(--i20),var(--checkers)"></div>
+           style="background-image:var(--i20),var(--checkers)"></div>
       <figcaption><span class="name">200-icon-tv@2x.png</span>
         <span class="dims">400 x 400 <span class="note">tv 2x</span></span>
       </figcaption>
@@ -440,7 +473,7 @@ footer a { color: var(--ink); }
   <div class="row">
     <figure>
       <div class="frame" role="img" aria-label="icon.png"
-           style="width:260px;height:260px;background-image:var(--i21)"></div>
+           style="background-image:var(--i21)"></div>
       <figcaption><span class="name">icon.png</span>
         <span class="dims">1024 x 1024</span>
       </figcaption>

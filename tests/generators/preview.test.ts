@@ -130,11 +130,26 @@ describe("preview.html", () => {
     expect((html.match(/class="swatch-chip"/g) ?? []).length).toBe(4);
   });
 
-  it("top-aligns contact sheet rows so scale variants share an edge", () => {
-    // Baseline alignment made 1x/2x/3x variants hang at different top edges,
-    // which hid their relative sizes. They must align at the top.
-    expect(html).toMatch(/\.row \{[^}]*align-items: flex-start/);
-    expect(html).not.toMatch(/\.row \{[^}]*align-items: flex-end/);
+  it("lays the contact sheet out as a uniform grid, not intrinsically sized figures", () => {
+    // Intrinsic sizing gave ragged rows, orphaned tiles, and captions at a dozen
+    // different heights. Equal cells keep captions on a shared line.
+    expect(html).toMatch(/\.row \{[^}]*display: grid/);
+    expect(html).toMatch(/\.row \{[^}]*grid-template-columns: repeat\(auto-fill/);
+    expect(html).toMatch(/\.swatches \{[^}]*display: grid/);
+  });
+
+  it("sizes tiles with CSS rather than baking pixel dimensions into each figure", () => {
+    // Inline width/height on every frame is what broke narrow viewports.
+    expect(html).not.toMatch(/class="frame[^"]*"[^>]*style="[^"]*width:\d+px/);
+    expect(html).toMatch(/class="parallax" style="aspect-ratio:\d+ \/ \d+"/);
+  });
+
+  it("centers content and collapses to one column on narrow screens", () => {
+    expect(html).toMatch(/@media \(max-width: 640px\)/);
+    const mobile = html.slice(html.indexOf("@media (max-width: 640px)"));
+    expect(mobile).toMatch(/\.row, \.swatches \{[^}]*justify-content: center/);
+    expect(mobile).toMatch(/\.masthead \{[^}]*align-items: center/);
+    expect(mobile).toMatch(/figcaption \{ text-align: center/);
   });
 
   it("carries the run metadata in the header", () => {
