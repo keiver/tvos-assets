@@ -49,6 +49,10 @@
     "topshelf",
     "parallax",
     "react-native",
+    "expo",
+    "expo-config-plugin",
+    "ios",
+    "app-icon-dark",
     "cli"
   ],
   "author": "Keiver Hernandez",
