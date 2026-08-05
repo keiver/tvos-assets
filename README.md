@@ -115,7 +115,7 @@ SVG inputs are rasterized at whatever density each output size needs, so a small
 | `--out-dir <path>` | Write `Images.xcassets/` and `icon.png` directly into this directory instead of a zip. Implies `--mode dir`. |
 | `--mode <zip\|dir>` | Output mode. `--out-dir` sets this for you. |
 | `--platforms <list>` | Which icon families to generate: `tvos`, `ios`, or both (the default). `tvos` produces the brandassets, `ios` produces the appiconset. Splash assets are generated either way. |
-| `--preview` | Write `preview.html`. On by default for zip output, off for `--out-dir`. |
+| `--preview` | Write `preview.html` alongside the output. This is the default. |
 | `--no-preview` | Skip `preview.html`. |
 
 ### Asset naming and selection
@@ -227,7 +227,7 @@ It shows:
 
 The page follows your system light/dark setting and has a toggle, and it picks up your `--color` as its accent.
 
-Use `--no-preview` to skip it. With `--out-dir` it is off by default (that directory is your Xcode project); pass `--preview` to write it there anyway.
+It is written on every run, including `--out-dir`, where it lands beside `Images.xcassets` rather than inside it, so Xcode never compiles it into the catalog. Use `--no-preview` to skip it in CI or when a script consumes the output positionally.
 
 ## Expo config plugin
 

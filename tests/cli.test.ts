@@ -150,10 +150,10 @@ describe("CLI", () => {
 });
 
 /**
- * --preview and --no-preview are both declared, which is what gives Commander a
- * three-state value: undefined when neither is passed, so the per-mode default
- * applies. Declaring only --no-preview would default it to true and make the
- * default unreachable, so these lock the behavior in.
+ * preview.html is written on every run unless explicitly refused, in directory
+ * output too: it is a sibling of Images.xcassets, never inside it, so Xcode does
+ * not compile it. Both --preview and --no-preview are declared, which keeps
+ * Commander's value three-state (undefined when neither is passed).
  */
 describe("CLI preview defaults", () => {
   let icon: string;
@@ -170,22 +170,30 @@ describe("CLI preview defaults", () => {
     return readdirSync(dir);
   }
 
-  it("writes preview.html by default for directory output: no", () => {
+  it("writes preview.html by default in directory output", () => {
     const outDir = join(TMP, "pv-dir-default");
-    expect(run(["--out-dir", outDir], outDir)).not.toContain("preview.html");
+    expect(run(["--out-dir", outDir], outDir)).toContain("preview.html");
   });
 
-  it("writes preview.html in dir mode when --preview is explicit", () => {
+  it("writes preview.html when --preview is explicit", () => {
     const outDir = join(TMP, "pv-dir-explicit");
     expect(run(["--out-dir", outDir, "--preview"], outDir)).toContain("preview.html");
   });
 
-  it("still skips preview.html in dir mode with --no-preview", () => {
+  it("skips preview.html in dir mode with --no-preview", () => {
     const outDir = join(TMP, "pv-dir-no");
     expect(run(["--out-dir", outDir, "--no-preview"], outDir)).not.toContain("preview.html");
   });
 
-  it("counts preview.html in the dry-run manifest only when it would be written", () => {
+  it("puts preview.html beside Images.xcassets, never inside the catalog", () => {
+    const outDir = join(TMP, "pv-sibling");
+    const entries = run(["--out-dir", outDir], outDir);
+    expect(entries).toContain("preview.html");
+    expect(entries).toContain("Images.xcassets");
+    expect(readdirSync(join(outDir, "Images.xcassets"))).not.toContain("preview.html");
+  });
+
+  it("counts preview.html in the dry-run manifest for both modes", () => {
     const zipRun = runCLI(["--icon", icon, "--background", bg, "--color", "#F39C12", "--dry-run"]);
     expect(zipRun).toContain("preview.html");
 
@@ -196,7 +204,7 @@ describe("CLI preview defaults", () => {
       "--out-dir", join(TMP, "pv-dry"),
       "--dry-run",
     ]);
-    expect(dirRun).not.toContain("preview.html");
+    expect(dirRun).toContain("preview.html");
   });
 });
 

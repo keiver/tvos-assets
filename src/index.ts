@@ -133,7 +133,7 @@ program
   .option("--out-dir <path>", "Write Images.xcassets directly into this directory instead of a zip")
   .option("--mode <zip|dir>", "Output mode; --out-dir implies dir")
   .option("--platforms <list>", `Icon families to generate: ${PLATFORMS.join(", ")} (default: both)`)
-  .option("--preview", "Write preview.html (default: on for zip output, off for --out-dir)")
+  .option("--preview", "Write preview.html alongside the output (default)")
   .option("--no-preview", "Skip preview.html")
   // Asset naming and selection
   .option("--brand-name <name>", "Name of the .brandassets bundle (default: AppIcon)")
@@ -246,7 +246,9 @@ Examples:
       }
 
       const isDirMode = config.output.mode === "dir";
-      const wantsPreview = (options.preview as boolean | undefined) ?? !isDirMode;
+      // Always on unless explicitly refused. preview.html is a sibling of
+      // Images.xcassets, never inside it, so it is not compiled into the catalog.
+      const wantsPreview = (options.preview as boolean | undefined) !== false;
       const plan = planAssets(config, { platforms, standaloneIcon: true, preview: wantsPreview });
 
       log();
