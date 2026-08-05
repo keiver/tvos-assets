@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-08-05
+- chore: 1.3.1 - republish with expanded 1.3.0 docs (#6)
+
+
 ## [1.3.0] - 2026-08-04
 - v1.3.0: iOS app icons, Expo config plugin, programmatic API, SVG input (#4)
 
