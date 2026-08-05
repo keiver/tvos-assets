@@ -1,13 +1,17 @@
 {
-  "$schema": "./schema.json",
+  "$schema": "https://raw.githubusercontent.com/keiver/tvos-assets/main/schema.json",
   "inputs": {
     "iconImage": "./icon.png",
     "backgroundImage": "./background.png",
-    "backgroundColor": "#B43939"
+    "backgroundColor": "#B43939",
+    "darkBackgroundColor": "#5A1C1C",
+    "iconBorderRadius": 0,
+    "iconDarkImage": "./icon-dark.svg",
+    "iconTintedImage": "./icon-tinted.svg"
   },
   "output": {
-    "directory": "./Images.xcassets",
-    "cleanBeforeGenerate": true
+    "directory": "./output",
+    "mode": "zip"
   },
   "brandAssets": {
     "name": "AppIcon",
@@ -17,8 +21,8 @@
       "size": { "width": 400, "height": 240 },
       "scales": ["1x", "2x"],
       "layers": {
-        "front": { "source": "icon" },
-        "middle": { "source": "icon" },
+        "front": { "source": "icon", "imagePath": "./layer-front.svg" },
+        "middle": { "source": "icon", "imagePath": "./layer-middle.svg" },
         "back": { "source": "background" }
       }
     },
@@ -48,6 +52,10 @@
       "filePrefix": "wide"
     }
   },
+  "iosIcon": {
+    "enabled": true,
+    "name": "AppIcon"
+  },
   "splashScreen": {
     "logo": {
       "enabled": true,
@@ -62,11 +70,11 @@
       "name": "SplashScreenBackground",
       "universal": {
         "light": "#B43939",
-        "dark": "#B43939"
+        "dark": "#5A1C1C"
       },
       "tv": {
         "light": "#B43939",
-        "dark": "#B43939"
+        "dark": "#5A1C1C"
       }
     }
   },
