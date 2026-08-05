@@ -174,22 +174,21 @@ footer a { color: var(--ink); }
 }
 
 /* ---- narrow screens ----
-   One column, everything centred on the page axis. Section headers stack so the
-   catalog path sits under the title instead of being squeezed against it, and
-   the parallax caption moves below its stack rather than into a sliver. */
+   One full-width column, still left aligned. Centring was tried and read badly:
+   ragged right edges in monospace are hard to scan, and it broke the flush left
+   margin the rest of the sheet is built on. Section headers wrap so the catalog
+   path sits under its title instead of being squeezed against it, and the
+   parallax caption moves below its stack rather than into a sliver. */
 @media (max-width: 640px) {
   body { padding: 0 18px 64px; }
-  .masthead { flex-direction: column; align-items: center; text-align: center; gap: 14px; padding-top: 36px; }
-  .meta { grid-template-columns: 1fr; justify-items: center; gap: 0; }
-  .meta div { flex-direction: column; align-items: center; gap: 2px; text-align: center; }
-  .meta dt { flex: none; }
-  .section-head { flex-wrap: wrap; justify-content: center; text-align: center; }
-  .section-path { margin-left: 0; width: 100%; text-align: center; }
-  .row, .swatches { grid-template-columns: minmax(0, 260px); justify-content: center; }
-  figcaption { text-align: center; }
-  .parallax-block { grid-template-columns: minmax(0, 1fr); justify-items: center; }
-  .hint { text-align: center; }
-  footer { justify-content: center; text-align: center; }
+  .masthead { padding-top: 36px; }
+  .meta { grid-template-columns: 1fr; gap: 0; }
+  .section-head { flex-wrap: wrap; }
+  .section-path { margin-left: 0; width: 100%; }
+  .row, .swatches, .parallax-block { grid-template-columns: minmax(0, 1fr); }
+  /* A full-width tile needs more height or the image floats in a letterbox. */
+  .frame { height: 200px; }
+  .hint { max-width: none; }
 }
 `;
 

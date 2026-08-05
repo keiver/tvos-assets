@@ -144,12 +144,15 @@ describe("preview.html", () => {
     expect(html).toMatch(/class="parallax" style="aspect-ratio:\d+ \/ \d+"/);
   });
 
-  it("centers content and collapses to one column on narrow screens", () => {
+  it("collapses to one full-width column on narrow screens, still left aligned", () => {
     expect(html).toMatch(/@media \(max-width: 640px\)/);
     const mobile = html.slice(html.indexOf("@media (max-width: 640px)"));
-    expect(mobile).toMatch(/\.row, \.swatches \{[^}]*justify-content: center/);
-    expect(mobile).toMatch(/\.masthead \{[^}]*align-items: center/);
-    expect(mobile).toMatch(/figcaption \{ text-align: center/);
+    expect(mobile).toMatch(/\.row, \.swatches, \.parallax-block \{[^}]*grid-template-columns: minmax\(0, 1fr\)/);
+    // Centring was tried and rejected: ragged right edges in monospace scan
+    // badly and break the sheet's flush left margin.
+    expect(mobile).not.toMatch(/text-align: center/);
+    expect(mobile).not.toMatch(/justify-content: center/);
+    expect(mobile).not.toMatch(/justify-items: center/);
   });
 
   it("carries the run metadata in the header", () => {
