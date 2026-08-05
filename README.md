@@ -12,7 +12,15 @@ Generates a complete tvOS and iOS `Images.xcassets` bundle from an icon and a ba
 npx tvos-assets --icon ./icon.png --background ./bg.png --color "#F39C12"
 ```
 
-Generates a timestamped zip on your Desktop containing `Images.xcassets`, `icon.png`, and a `preview.html` contact sheet of every generated image. Each run produces a unique file, so nothing is overwritten.
+That writes a timestamped zip to your Desktop with three things in it:
+
+| | |
+|---|---|
+| `Images.xcassets/` | 42 files: tvOS brand assets, the iOS appiconset, splash logo and colorset |
+| `icon.png` | flattened 1024x1024 |
+| **`preview.html`** | **a contact sheet of everything generated, written on every run.** Open it first, see [preview.html](#previewhtml) |
+
+Each run produces a uniquely named zip, so nothing is ever overwritten.
 
 ## Contents
 
@@ -215,19 +223,52 @@ Every capability, and how to reach it from each surface. "via `config`" means th
 
 ## preview.html
 
-Every zip ships with a `preview.html` contact sheet. Open it in any browser to check the output before touching Xcode. It is a single self-contained file with every image embedded, so it works offline and can be shared as-is.
+> **Every run writes a `preview.html` next to your assets.** You never ask for it. Open it and you can check the whole catalog in a browser before touching Xcode.
 
-It shows:
+<p align="center">
+  <img src="docs/preview-page-light.webp" alt="preview.html showing the run inputs, the command, and the generated asset catalog" width="100%">
+</p>
 
-- Each generated asset directory as its own section, with the real filename and true pixel dimensions under every image (not the thumbnail size).
-- The Front/Middle/Back layers of both imagestacks as an **interactive parallax stack**: point at it and the layers separate the way tvOS moves them on focus. This is the one thing a flat thumbnail cannot show you.
-- Transparent assets on a checkerboard, so you can see exactly where the alpha is.
-- The splash colorset as light and dark swatches with their hex values.
-- A run header with your inputs, colors, radius, platforms, file count, and version.
+It is one self-contained file. Every image is embedded, so it works offline, opens straight from the zip, and can be handed to a designer as-is.
 
-The page follows your system light/dark setting and has a toggle, and it picks up your `--color` as its accent.
+### What it shows
 
-It is written on every run, including `--out-dir`, where it lands beside `Images.xcassets` rather than inside it, so Xcode never compiles it into the catalog. Use `--no-preview` to skip it in CI or when a script consumes the output positionally.
+**Provenance, so the file explains itself.** A thumbnail of every source file with its role, the exact command that produced the run, and the fully merged config (the same content as `--print-config`). Paths are written relative or as `~/...`, never with your home directory baked in.
+
+**Every generated asset**, grouped by the directory it was written to, with the real filename and true pixel dimensions under each one. Transparent assets sit on a checkerboard so you can see exactly where the alpha is, and the splash colorset renders as light and dark swatches with their hex values.
+
+**The parallax, moving.** Both imagestacks are live: point at one and the Front, Middle and Back layers separate the way tvOS moves them when the icon takes focus. This is the one property a flat thumbnail cannot show you, and the fastest way to tell whether your per-layer art actually reads as depth.
+
+<p align="center">
+  <img src="docs/parallax.gif" alt="The three imagestack layers separating to show parallax depth" width="420">
+</p>
+
+**Click any image to open the real file** on disk in a new tab. The thumbnails are downscaled, so this is how you inspect a 4640x1440 Top Shelf at full size.
+
+The page follows your system light/dark setting, has a toggle, and takes your `--color` as its accent:
+
+<p align="center">
+  <img src="docs/preview-page-dark.webp" alt="The same page in dark mode" width="100%">
+</p>
+
+### Seeing it for real
+
+GitHub cannot render HTML inside a README, so the images above are stills. To use the real thing:
+
+```bash
+git clone https://github.com/keiver/tvos-assets.git
+open tvos-assets/examples/tomotv/output/preview.html
+```
+
+That committed example is a full run from real brand art, documented in [`examples/tomotv`](examples/tomotv).
+
+<p align="center">
+  <img src="docs/preview-scroll.gif" alt="Scrolling through a generated preview page" width="100%">
+</p>
+
+### Turning it off
+
+It is written on every run, including `--out-dir`, where it lands **beside** `Images.xcassets` rather than inside it, so Xcode never compiles it into the catalog. Pass `--no-preview` to skip it in CI or when a script consumes the output positionally.
 
 ## Expo config plugin
 

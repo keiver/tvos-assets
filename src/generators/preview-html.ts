@@ -89,14 +89,16 @@ body {
 .theme-toggle:hover { border-color: var(--ink); }
 
 /* ---- run metadata ---- */
+/* Wide enough that a path fits beside its label. Narrower columns forced
+   overflow-wrap to break filenames mid-word ("background.pn / g"). */
 .meta {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 2px 32px; padding: 20px 0 40px; border-bottom: 1px solid var(--rule);
   font-size: 12px;
 }
 .meta div { display: flex; gap: 10px; padding: 3px 0; min-width: 0; }
 .meta dt { color: var(--ink-dim); flex: 0 0 88px; }
-.meta dd { margin: 0; overflow-wrap: anywhere; }
+.meta dd { margin: 0; min-width: 0; overflow-wrap: break-word; }
 .chip {
   display: inline-block; width: 10px; height: 10px;
   vertical-align: -1px; margin-right: 6px; border: 1px solid var(--rule);
