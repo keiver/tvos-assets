@@ -18,7 +18,7 @@ npx tvos-assets --icon ./icon.png --background ./bg.png --color "#F39C12"
 
 That writes a timestamped zip to your Desktop with three things in it:
 
-| | |
+| Artifact| Description |
 |---|---|
 | `Images.xcassets/` | 42 files: tvOS brand assets, the iOS appiconset, splash logo and colorset |
 | `icon.png` | flattened 1024x1024 |
@@ -367,10 +367,6 @@ const { warnings } = await generateAssets(config, "./out/Images.xcassets", {
 Also exported: `discoverConfigPath(cwd)`, `configShapeTemplate()`, `CONFIG_FILENAME`, and `validateInputImages(config)`.
 
 ## Examples
-
-<p align="center">
-  <img src="docs/preview-sea.webp" alt="tvOS home screen preview, circular icon" width="100%">
-</p>
 
 Generate to Desktop (default):
 
