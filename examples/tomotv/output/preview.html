@@ -170,6 +170,20 @@ figure { margin: 0; min-width: 0; }
   background-size: contain, 16px 16px;
   background-position: center, 0 0;
 }
+/* Thumbnails are downscaled WebP; the link opens the real file on disk. */
+a.open { display: block; text-decoration: none; color: inherit; position: relative; }
+a.open:hover .frame, a.open:focus-visible .frame { outline-color: var(--accent); outline-width: 2px; }
+a.open:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+a.open::after {
+  content: "open";
+  position: absolute; right: 6px; bottom: 6px;
+  padding: 2px 6px; font-size: 10px; letter-spacing: 0.06em;
+  background: var(--accent); color: #16161a;
+  opacity: 0; transition: opacity 120ms;
+}
+a.open:hover::after, a.open:focus-visible::after { opacity: 1; }
+@media (hover: none) { a.open::after { opacity: 1; } }
+
 figcaption { padding-top: 9px; font-size: 11px; }
 figcaption .name { display: block; overflow-wrap: anywhere; }
 figcaption .dims { display: block; color: var(--ink-dim); }
@@ -191,7 +205,7 @@ figcaption .note { color: var(--accent); }
   will-change: transform;
 }
 .parallax[data-active="1"] .layer { transition: transform 90ms linear; }
-.hint { margin: 0; font-size: 11px; color: var(--ink-dim); max-width: 34ch; }
+.hint { margin: 0; font-size: 11px; color: var(--ink-dim); }
 .hint b { color: var(--ink); font-weight: 400; }
 
 /* ---- colorset ---- */
@@ -227,7 +241,6 @@ footer a { color: var(--ink); }
   .row, .swatches, .parallax-block { grid-template-columns: minmax(0, 1fr); }
   /* A full-width tile needs more height or the image floats in a letterbox. */
   .frame { height: 200px; }
-  .hint { max-width: none; }
 }
 
 </style>
@@ -250,39 +263,43 @@ footer a { color: var(--ink); }
     <div><dt>Radius</dt><dd>0px</dd></div>
     <div><dt>Platforms</dt><dd>tvos, ios</dd></div>
     <div><dt>Files</dt><dd>44</dd></div>
-    <div><dt>Generated</dt><dd>2026-08-05 18:47:42</dd></div>
+    <div><dt>Generated</dt><dd>2026-08-05 19:00:20</dd></div>
   </dl>
 
   <div class="provenance">
     <h2>Inputs</h2>
     <div class="inputs">
     <figure>
-      <div class="frame alpha" role="img" aria-label="icon.svg"
-           style="background-image:var(--i0),var(--checkers)"></div>
+      <a class="open" href="../brand/icon.svg" target="_blank" rel="noopener"
+        title="Open icon.svg"><div class="frame alpha" role="img" aria-label="icon.svg"
+           style="background-image:var(--i0),var(--checkers)"></div></a>
       <figcaption><span class="role">icon</span>
         <span class="name">icon.svg</span>
         <span class="dims">vector</span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame" role="img" aria-label="background.png"
-           style="background-image:var(--i1)"></div>
+      <a class="open" href="../brand/background.png" target="_blank" rel="noopener"
+        title="Open background.png"><div class="frame" role="img" aria-label="background.png"
+           style="background-image:var(--i1)"></div></a>
       <figcaption><span class="role">background</span>
         <span class="name">background.png</span>
         <span class="dims">4640 x 1440</span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="layer-front.svg"
-           style="background-image:var(--i2),var(--checkers)"></div>
+      <a class="open" href="../brand/layer-front.svg" target="_blank" rel="noopener"
+        title="Open layer-front.svg"><div class="frame alpha" role="img" aria-label="layer-front.svg"
+           style="background-image:var(--i2),var(--checkers)"></div></a>
       <figcaption><span class="role">layer front</span>
         <span class="name">layer-front.svg</span>
         <span class="dims">vector</span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="layer-middle.svg"
-           style="background-image:var(--i3),var(--checkers)"></div>
+      <a class="open" href="../brand/layer-middle.svg" target="_blank" rel="noopener"
+        title="Open layer-middle.svg"><div class="frame alpha" role="img" aria-label="layer-middle.svg"
+           style="background-image:var(--i3),var(--checkers)"></div></a>
       <figcaption><span class="role">layer middle</span>
         <span class="name">layer-middle.svg</span>
         <span class="dims">vector</span>
@@ -448,43 +465,49 @@ footer a { color: var(--ink); }
   </div>
   <div class="row">
     <figure>
-      <div class="frame alpha" role="img" aria-label="front@1x.png"
-           style="background-image:var(--i7),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/App%20Icon.imagestack/Front.imagestacklayer/Content.imageset/front@1x.png" target="_blank" rel="noopener"
+        title="Open front@1x.png"><div class="frame alpha" role="img" aria-label="front@1x.png"
+           style="background-image:var(--i7),var(--checkers)"></div></a>
       <figcaption><span class="name">front@1x.png</span>
         <span class="dims">400 x 240 <span class="note">Front tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="front@2x.png"
-           style="background-image:var(--i8),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/App%20Icon.imagestack/Front.imagestacklayer/Content.imageset/front@2x.png" target="_blank" rel="noopener"
+        title="Open front@2x.png"><div class="frame alpha" role="img" aria-label="front@2x.png"
+           style="background-image:var(--i8),var(--checkers)"></div></a>
       <figcaption><span class="name">front@2x.png</span>
         <span class="dims">800 x 480 <span class="note">Front tv 2x</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="middle@1x.png"
-           style="background-image:var(--i9),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/App%20Icon.imagestack/Middle.imagestacklayer/Content.imageset/middle@1x.png" target="_blank" rel="noopener"
+        title="Open middle@1x.png"><div class="frame alpha" role="img" aria-label="middle@1x.png"
+           style="background-image:var(--i9),var(--checkers)"></div></a>
       <figcaption><span class="name">middle@1x.png</span>
         <span class="dims">400 x 240 <span class="note">Middle tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="middle@2x.png"
-           style="background-image:var(--i10),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/App%20Icon.imagestack/Middle.imagestacklayer/Content.imageset/middle@2x.png" target="_blank" rel="noopener"
+        title="Open middle@2x.png"><div class="frame alpha" role="img" aria-label="middle@2x.png"
+           style="background-image:var(--i10),var(--checkers)"></div></a>
       <figcaption><span class="name">middle@2x.png</span>
         <span class="dims">800 x 480 <span class="note">Middle tv 2x</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame" role="img" aria-label="back@1x.png"
-           style="background-image:var(--i11)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/App%20Icon.imagestack/Back.imagestacklayer/Content.imageset/back@1x.png" target="_blank" rel="noopener"
+        title="Open back@1x.png"><div class="frame" role="img" aria-label="back@1x.png"
+           style="background-image:var(--i11)"></div></a>
       <figcaption><span class="name">back@1x.png</span>
         <span class="dims">400 x 240 <span class="note">Back tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame" role="img" aria-label="back@2x.png"
-           style="background-image:var(--i12)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/App%20Icon.imagestack/Back.imagestacklayer/Content.imageset/back@2x.png" target="_blank" rel="noopener"
+        title="Open back@2x.png"><div class="frame" role="img" aria-label="back@2x.png"
+           style="background-image:var(--i12)"></div></a>
       <figcaption><span class="name">back@2x.png</span>
         <span class="dims">800 x 480 <span class="note">Back tv 2x</span></span>
       </figcaption>
@@ -505,22 +528,25 @@ footer a { color: var(--ink); }
   </div>
   <div class="row">
     <figure>
-      <div class="frame alpha" role="img" aria-label="front@1x.png"
-           style="background-image:var(--i13),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/App%20Icon%20-%20App%20Store.imagestack/Front.imagestacklayer/Content.imageset/front@1x.png" target="_blank" rel="noopener"
+        title="Open front@1x.png"><div class="frame alpha" role="img" aria-label="front@1x.png"
+           style="background-image:var(--i13),var(--checkers)"></div></a>
       <figcaption><span class="name">front@1x.png</span>
         <span class="dims">1280 x 768 <span class="note">Front tv</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="middle@1x.png"
-           style="background-image:var(--i14),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/App%20Icon%20-%20App%20Store.imagestack/Middle.imagestacklayer/Content.imageset/middle@1x.png" target="_blank" rel="noopener"
+        title="Open middle@1x.png"><div class="frame alpha" role="img" aria-label="middle@1x.png"
+           style="background-image:var(--i14),var(--checkers)"></div></a>
       <figcaption><span class="name">middle@1x.png</span>
         <span class="dims">1280 x 768 <span class="note">Middle tv</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame" role="img" aria-label="back.png"
-           style="background-image:var(--i15)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/App%20Icon%20-%20App%20Store.imagestack/Back.imagestacklayer/Content.imageset/back.png" target="_blank" rel="noopener"
+        title="Open back.png"><div class="frame" role="img" aria-label="back.png"
+           style="background-image:var(--i15)"></div></a>
       <figcaption><span class="name">back.png</span>
         <span class="dims">1280 x 768 <span class="note">Back tv</span></span>
       </figcaption>
@@ -535,15 +561,17 @@ footer a { color: var(--ink); }
   </div>
   <div class="row">
     <figure>
-      <div class="frame" role="img" aria-label="top@1x.png"
-           style="background-image:var(--i16)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/Top%20Shelf%20Image.imageset/top@1x.png" target="_blank" rel="noopener"
+        title="Open top@1x.png"><div class="frame" role="img" aria-label="top@1x.png"
+           style="background-image:var(--i16)"></div></a>
       <figcaption><span class="name">top@1x.png</span>
         <span class="dims">1920 x 720 <span class="note">tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame" role="img" aria-label="top@2x.png"
-           style="background-image:var(--i17)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/Top%20Shelf%20Image.imageset/top@2x.png" target="_blank" rel="noopener"
+        title="Open top@2x.png"><div class="frame" role="img" aria-label="top@2x.png"
+           style="background-image:var(--i17)"></div></a>
       <figcaption><span class="name">top@2x.png</span>
         <span class="dims">3840 x 1440 <span class="note">tv 2x</span></span>
       </figcaption>
@@ -558,15 +586,17 @@ footer a { color: var(--ink); }
   </div>
   <div class="row">
     <figure>
-      <div class="frame" role="img" aria-label="wide@1x.png"
-           style="background-image:var(--i18)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/Top%20Shelf%20Image%20Wide.imageset/wide@1x.png" target="_blank" rel="noopener"
+        title="Open wide@1x.png"><div class="frame" role="img" aria-label="wide@1x.png"
+           style="background-image:var(--i18)"></div></a>
       <figcaption><span class="name">wide@1x.png</span>
         <span class="dims">2320 x 720 <span class="note">tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame" role="img" aria-label="wide@2x.png"
-           style="background-image:var(--i19)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.brandassets/Top%20Shelf%20Image%20Wide.imageset/wide@2x.png" target="_blank" rel="noopener"
+        title="Open wide@2x.png"><div class="frame" role="img" aria-label="wide@2x.png"
+           style="background-image:var(--i19)"></div></a>
       <figcaption><span class="name">wide@2x.png</span>
         <span class="dims">4640 x 1440 <span class="note">tv 2x</span></span>
       </figcaption>
@@ -581,22 +611,25 @@ footer a { color: var(--ink); }
   </div>
   <div class="row">
     <figure>
-      <div class="frame" role="img" aria-label="icon-1024.png"
-           style="background-image:var(--i4)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.appiconset/icon-1024.png" target="_blank" rel="noopener"
+        title="Open icon-1024.png"><div class="frame" role="img" aria-label="icon-1024.png"
+           style="background-image:var(--i4)"></div></a>
       <figcaption><span class="name">icon-1024.png</span>
         <span class="dims">1024 x 1024</span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="icon-1024-dark.png"
-           style="background-image:var(--i5),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.appiconset/icon-1024-dark.png" target="_blank" rel="noopener"
+        title="Open icon-1024-dark.png"><div class="frame alpha" role="img" aria-label="icon-1024-dark.png"
+           style="background-image:var(--i5),var(--checkers)"></div></a>
       <figcaption><span class="name">icon-1024-dark.png</span>
         <span class="dims">1024 x 1024 <span class="note">dark</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="icon-1024-tinted.png"
-           style="background-image:var(--i6),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/AppIcon.appiconset/icon-1024-tinted.png" target="_blank" rel="noopener"
+        title="Open icon-1024-tinted.png"><div class="frame alpha" role="img" aria-label="icon-1024-tinted.png"
+           style="background-image:var(--i6),var(--checkers)"></div></a>
       <figcaption><span class="name">icon-1024-tinted.png</span>
         <span class="dims">1024 x 1024 <span class="note">tinted</span></span>
       </figcaption>
@@ -611,36 +644,41 @@ footer a { color: var(--ink); }
   </div>
   <div class="row">
     <figure>
-      <div class="frame alpha" role="img" aria-label="200-icon@1x.png"
-           style="background-image:var(--i20),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/SplashScreenLogo.imageset/200-icon@1x.png" target="_blank" rel="noopener"
+        title="Open 200-icon@1x.png"><div class="frame alpha" role="img" aria-label="200-icon@1x.png"
+           style="background-image:var(--i20),var(--checkers)"></div></a>
       <figcaption><span class="name">200-icon@1x.png</span>
         <span class="dims">200 x 200 <span class="note">1x</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="200-icon@2x.png"
-           style="background-image:var(--i21),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/SplashScreenLogo.imageset/200-icon@2x.png" target="_blank" rel="noopener"
+        title="Open 200-icon@2x.png"><div class="frame alpha" role="img" aria-label="200-icon@2x.png"
+           style="background-image:var(--i21),var(--checkers)"></div></a>
       <figcaption><span class="name">200-icon@2x.png</span>
         <span class="dims">400 x 400 <span class="note">2x</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="200-icon@3x.png"
-           style="background-image:var(--i22),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/SplashScreenLogo.imageset/200-icon@3x.png" target="_blank" rel="noopener"
+        title="Open 200-icon@3x.png"><div class="frame alpha" role="img" aria-label="200-icon@3x.png"
+           style="background-image:var(--i22),var(--checkers)"></div></a>
       <figcaption><span class="name">200-icon@3x.png</span>
         <span class="dims">600 x 600 <span class="note">3x</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="200-icon-tv@1x.png"
-           style="background-image:var(--i23),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/SplashScreenLogo.imageset/200-icon-tv@1x.png" target="_blank" rel="noopener"
+        title="Open 200-icon-tv@1x.png"><div class="frame alpha" role="img" aria-label="200-icon-tv@1x.png"
+           style="background-image:var(--i23),var(--checkers)"></div></a>
       <figcaption><span class="name">200-icon-tv@1x.png</span>
         <span class="dims">200 x 200 <span class="note">tv 1x</span></span>
       </figcaption>
     </figure>
     <figure>
-      <div class="frame alpha" role="img" aria-label="200-icon-tv@2x.png"
-           style="background-image:var(--i24),var(--checkers)"></div>
+      <a class="open" href="Images.xcassets/SplashScreenLogo.imageset/200-icon-tv@2x.png" target="_blank" rel="noopener"
+        title="Open 200-icon-tv@2x.png"><div class="frame alpha" role="img" aria-label="200-icon-tv@2x.png"
+           style="background-image:var(--i24),var(--checkers)"></div></a>
       <figcaption><span class="name">200-icon-tv@2x.png</span>
         <span class="dims">400 x 400 <span class="note">tv 2x</span></span>
       </figcaption>
@@ -688,8 +726,9 @@ footer a { color: var(--ink); }
   </div>
   <div class="row">
     <figure>
-      <div class="frame" role="img" aria-label="icon.png"
-           style="background-image:var(--i25)"></div>
+      <a class="open" href="icon.png" target="_blank" rel="noopener"
+        title="Open icon.png"><div class="frame" role="img" aria-label="icon.png"
+           style="background-image:var(--i25)"></div></a>
       <figcaption><span class="name">icon.png</span>
         <span class="dims">1024 x 1024</span>
       </figcaption>
