@@ -519,7 +519,7 @@ Composited images (icon centered on background), written as opaque RGB PNGs as t
 For full control, create a JSON config file. Every section is optional, omitted values use built-in defaults. Add `$schema` for editor autocompletion and inline validation:
 
 ```json
-{ "$schema": "https://raw.githubusercontent.com/keiver/tvos-assets/main/schema.json" }
+{ "$schema": "./node_modules/tvos-assets/schema.json" }
 ```
 
 Name it `tvos-assets.config.json` in your project root and the CLI finds it with no flags. `tvos-assets --init` writes a starter file for you. A complete annotated example lives in [`examples/tvos-assets.config.json`](examples/tvos-assets.config.json).
@@ -528,7 +528,7 @@ Name it `tvos-assets.config.json` in your project root and the CLI finds it with
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/keiver/tvos-assets/main/schema.json",
+  "$schema": "./node_modules/tvos-assets/schema.json",
   "inputs": {
     "iconImage": "./icon.png",
     "backgroundImage": "./background.png",
@@ -541,7 +541,7 @@ Name it `tvos-assets.config.json` in your project root and the CLI finds it with
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/keiver/tvos-assets/main/schema.json",
+  "$schema": "./node_modules/tvos-assets/schema.json",
   "inputs": {
     "iconImage": "./icon.png",
     "backgroundImage": "./background.png",

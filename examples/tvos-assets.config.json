@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/keiver/tvos-assets/main/schema.json",
+  "$schema": "../schema.json",
   "inputs": {
     "iconImage": "./icon.png",
     "backgroundImage": "./background.png",

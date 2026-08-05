@@ -1,15 +1,20 @@
 import { existsSync, writeFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { resolve } from "node:path";
 import { CONFIG_FILENAME } from "../config.js";
 
-const SCHEMA_URL = "https://raw.githubusercontent.com/keiver/tvos-assets/main/schema.json";
+/**
+ * schema.json ships inside the package, so point at the installed copy rather
+ * than a URL. It needs no network, and it always describes the version that is
+ * actually installed instead of whatever happens to be on the default branch.
+ */
+const SCHEMA_PATH = "./node_modules/tvos-assets/schema.json";
 
 /**
  * A starter config carrying only the keys most projects touch. Every other key
  * is optional and documented in schema.json, which editors pick up via $schema.
  */
 const TEMPLATE = {
-  $schema: SCHEMA_URL,
+  $schema: SCHEMA_PATH,
   inputs: {
     iconImage: "./assets/icon.png",
     backgroundImage: "./assets/background.png",
@@ -42,7 +47,7 @@ export interface InitResult {
  * someone's configuration is never the helpful reading of `--init`.
  */
 export function initConfigFile(target?: string, cwd: string = process.cwd()): InitResult {
-  const path = resolve(cwd, target && target !== "true" ? target : join(cwd, CONFIG_FILENAME));
+  const path = resolve(cwd, target ?? CONFIG_FILENAME);
 
   if (existsSync(path)) {
     throw new Error(`Refusing to overwrite an existing file: ${path}. Delete or rename it first.`);
