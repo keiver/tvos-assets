@@ -245,27 +245,6 @@ It is one self-contained file. Every image is embedded, so it works offline, ope
 
 **Click any image to open the real file** on disk in a new tab. The thumbnails are downscaled, so this is how you inspect a 4640x1440 Top Shelf at full size.
 
-The page follows your system light/dark setting, has a toggle, and takes your `--color` as its accent:
-
-<p align="center">
-  <img src="docs/preview-page-dark.webp" alt="The same page in dark mode" width="100%">
-</p>
-
-### Seeing it for real
-
-GitHub cannot render HTML inside a README, so the images above are stills. To use the real thing:
-
-```bash
-git clone https://github.com/keiver/tvos-assets.git
-open tvos-assets/examples/tomotv/output/preview.html
-```
-
-That committed example is a full run from real brand art, documented in [`examples/tomotv`](examples/tomotv).
-
-<p align="center">
-  <img src="docs/preview-scroll.gif" alt="Scrolling through a generated preview page" width="100%">
-</p>
-
 ### Turning it off
 
 It is written on every run, including `--out-dir`, where it lands **beside** `Images.xcassets` rather than inside it, so Xcode never compiles it into the catalog. Pass `--no-preview` to skip it in CI or when a script consumes the output positionally.
