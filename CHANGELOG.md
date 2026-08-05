@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-08-05
+- fix(preview): keep the home directory out of preview.html paths (#8)
+
+
 ## [1.4.0] - 2026-08-05
 - feat(cli): full config parity, preview.html, and DX pass (#7)
 

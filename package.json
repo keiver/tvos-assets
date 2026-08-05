@@ -1,6 +1,6 @@
 {
   "name": "tvos-assets",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Generate tvOS and iOS Images.xcassets from icon and background images — CLI, programmatic API, and Expo config plugin",
   "type": "module",
   "main": "dist/lib.js",
