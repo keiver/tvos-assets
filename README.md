@@ -1,12 +1,16 @@
 # tvos-assets
 
-Generates a complete tvOS and iOS `Images.xcassets` bundle from an icon and a background image. Produces all required tvOS Brand Assets (app icons with parallax layers, Top Shelf images), an iOS `AppIcon.appiconset` with light/dark/tinted (iOS 18+) variants, splash screen assets, and a standalone `icon.png`, ready to drop into an Xcode or React Native project. Usable as a CLI, a programmatic API, or an Expo config plugin that regenerates everything at prebuild time.
+**Apple TV asset generation, from three inputs.** Give it an icon, a background, and a hex color, and it builds the whole `Images.xcassets` catalog tvOS expects: layered parallax app icons for the home screen and the App Store, both Top Shelf banners, and the splash screen assets. Everything is named and nested exactly the way Xcode wants it.
+
+That is the primary job. But the same artwork almost always ships an iOS companion app, so it **also** generates a matching `AppIcon.appiconset` with light, dark, and tinted (iOS 18+) variants, keeping both platforms in sync from one source of truth. Use `--platforms` to limit a run to either family.
+
+Use it as a CLI, a programmatic API, or an Expo config plugin that regenerates everything on `expo prebuild`.
 
 <p align="center">
   <img src="docs/preview-berry.webp" alt="tvOS home screen preview, berry icon" width="100%">
 </p>
 
-## Quick Start
+## Quick start
 
 ```bash
 npx tvos-assets --icon ./icon.png --background ./bg.png --color "#F39C12"
@@ -68,7 +72,7 @@ npm install --save-dev tvos-assets
 
 ## Requirements
 
-- Node.js >= 18. This is a CLI tool, it does not run in the browser.
+- Node.js >= 18. This is a command line tool; it does not run in the browser.
 - [sharp](https://sharp.pixelplumbing.com/install) native dependency, installed automatically. See its platform support page if install fails.
 
 ## Usage
@@ -223,17 +227,17 @@ Every capability, and how to reach it from each surface. "via `config`" means th
 
 ## preview.html
 
-> **Every run writes a `preview.html` next to your assets.** You never ask for it. Open it and you can check the whole catalog in a browser before touching Xcode.
+> **Every run writes a `preview.html` next to your assets.** No flag needed. Open it to check the whole catalog in a browser before you touch Xcode.
 
 <p align="center">
-  <img src="docs/preview-page-light.webp" alt="preview.html showing the run inputs, the command, and the generated asset catalog" width="100%">
+  <img src="docs/preview-full.webp" alt="preview.html showing the run inputs, the command, and the generated asset catalog" width="100%">
 </p>
 
 It is one self-contained file. Every image is embedded, so it works offline, opens straight from the zip, and can be handed to a designer as-is.
 
 ### What it shows
 
-**Provenance, so the file explains itself.** A thumbnail of every source file with its role, the exact command that produced the run, and the fully merged config (the same content as `--print-config`). Paths are written relative or as `~/...`, never with your home directory baked in.
+**Provenance, so the file explains itself.** A thumbnail of every source file with its role, the exact command that produced the run, and the fully merged config (the same content as `--print-config`). Paths are shown relative to the output, or with your home directory collapsed to `~`, so a page you commit or share never carries an absolute path from your machine.
 
 **Every generated asset**, grouped by the directory it was written to, with the real filename and true pixel dimensions under each one. Transparent assets sit on a checkerboard so you can see exactly where the alpha is, and the splash colorset renders as light and dark swatches with their hex values.
 
@@ -469,7 +473,7 @@ tvos-assets-YYYYMMDD-HHmmss.zip
         └── Contents.json                        (light/dark color definitions)
 ```
 
-`--platforms ios` drops the `AppIcon.brandassets` tree, `--platforms tvos` drops `AppIcon.appiconset`, and `--no-splash` drops the last two directories. `--dry-run` prints the exact set for your options.
+`--platforms ios` drops the `AppIcon.brandassets` tree, `--platforms tvos` drops `AppIcon.appiconset`, and `--no-splash` drops `SplashScreenLogo.imageset` and `SplashScreenBackground.colorset`. `--dry-run` prints the exact set for your options.
 
 ## Wiring the assets up in Xcode
 
@@ -497,10 +501,10 @@ Drop the generated `Images.xcassets` into your target (or use `--out-dir` to wri
 
 ### Image size requirements
 
-| Input | Minimum | Recommended | Notes |
-|---|---|---|---|
-| **Icon** | 1024x1024 | 1024x1024 | Below minimum is an error. 1024x1024 is enough for every output. |
-| **Background** | 2320x720 | 4640x1440+ | Below minimum is an error. Below recommended is a warning (Top Shelf @2x may look upscaled). |
+| Input | Minimum | Notes |
+|---|---|---|
+| **Icon** | 1024x1024 | Below minimum is an error. Nothing is gained above it: 1024x1024 already covers every output size. |
+| **Background** | 2320x720 | Below minimum is an error. Below the recommended 4640x1440 is a warning, since Top Shelf @2x needs exactly that and anything smaller gets upscaled. |
 
 Minimums apply to raster (PNG) inputs only. SVGs are vector and exempt.
 
@@ -848,7 +852,7 @@ npx tsx src/index.ts --config ./examples/tvos-assets.config.json
 
 ## Demo assets
 
-The icons and backgrounds in the preview screenshots were generated with this [tool](https://keiver.dev/lab/poster-generator).
+The icons and backgrounds in these screenshots came from the [poster generator on keiver.dev](https://keiver.dev/lab/poster-generator).
 
 <p align="center">
   <img src="docs/preview-forest.webp" alt="tvOS home screen preview, rounded square icon" width="100%">
