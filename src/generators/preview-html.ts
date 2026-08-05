@@ -340,7 +340,7 @@ ${sections}
 
   <footer>
     <span>${version}</span>
-    <span>Every image below is embedded in this file. It works offline.</span>
+    <span>Every image on this page is embedded in this file. It works offline.</span>
   </footer>
 </div>
 <script>${SCRIPT}</script>
