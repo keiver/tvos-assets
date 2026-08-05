@@ -1,3 +1,5 @@
+import { tildify } from "../utils/paths.js";
+
 const BIN_NAME = "tvos-assets";
 
 /**
@@ -9,6 +11,9 @@ const SHELL_SAFE = /^[A-Za-z0-9_@%+=:,./-]+$/;
 
 export function shellQuote(arg: string): string {
   if (arg === "") return "''";
+  // Quoting a leading ~ would stop the shell expanding it, so quote only the
+  // remainder: ~/'my project/icon.png' still resolves when pasted back.
+  if (arg.startsWith("~/")) return `~/${shellQuote(arg.slice(2))}`;
   return SHELL_SAFE.test(arg) ? arg : `'${arg.replace(/'/g, `'\\''`)}'`;
 }
 
@@ -19,7 +24,11 @@ export function shellQuote(arg: string): string {
  * script path, which describe how this process happened to start rather than
  * how the user invoked the tool. Rendering the bin name instead keeps the line
  * copy-pasteable for anyone with the package installed.
+ *
+ * Arguments are tildified so a page that gets committed carries `~/...` rather
+ * than the generating machine's home directory. The line stays runnable: the
+ * shell expands `~` back.
  */
 export function formatCommand(args: string[]): string {
-  return [BIN_NAME, ...args.map(shellQuote)].join(" ");
+  return [BIN_NAME, ...args.map((arg) => shellQuote(tildify(arg)))].join(" ");
 }

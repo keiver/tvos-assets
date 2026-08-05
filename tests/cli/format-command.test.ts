@@ -1,3 +1,5 @@
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { formatCommand, shellQuote } from "../../src/cli/format-command";
 
 describe("shellQuote", () => {
@@ -46,6 +48,18 @@ describe("formatCommand", () => {
       "tvos-assets --icon ./brand/icon.svg --background ./brand/background.png " +
         "--color '#F39C12' --out-dir ./out",
     );
+  });
+
+  it("tildifies home paths so a committed page carries no username", () => {
+    const home = homedir();
+    const rendered = formatCommand(["--icon", join(home, "app", "icon.png")]);
+    expect(rendered).toBe("tvos-assets --icon ~/app/icon.png");
+    expect(rendered).not.toContain(home);
+  });
+
+  it("keeps a tilde outside the quotes so the shell still expands it", () => {
+    // '~/my project/icon.png' would be a literal tilde; ~/'my project/...' is not.
+    expect(shellQuote("~/my project/icon.png")).toBe("~/'my project/icon.png'");
   });
 
   it("uses the bin name rather than the argv script path", () => {

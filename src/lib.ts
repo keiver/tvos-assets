@@ -14,6 +14,7 @@ import { generateSplashLogoImageSet } from "./generators/imageset.js";
 import { generateColorSet } from "./generators/colorset.js";
 import { generateIcon } from "./generators/icon.js";
 import { generatePreview } from "./generators/preview.js";
+import type { OutsideLinkStyle } from "./generators/preview.js";
 import type { TvOSImageCreatorConfig } from "./types.js";
 import { ensureDir, cleanDir, writeContentsJson } from "./utils/fs.js";
 
@@ -32,6 +33,8 @@ export interface GenerateOptions {
   command?: string;
   /** Config file this run read, if any, noted on the preview page. */
   configPath?: string;
+  /** How to link source files that sit outside the output directory. */
+  outsideLinks?: OutsideLinkStyle;
   /** Called before each generation phase with a human-readable message. */
   onStep?: (message: string) => void;
 }
@@ -191,6 +194,7 @@ export async function generateAssets(
       toolVersion: options.toolVersion,
       command: options.command,
       configPath: options.configPath,
+      outsideLinks: options.outsideLinks,
     });
   }
 

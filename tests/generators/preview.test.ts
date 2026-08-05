@@ -184,6 +184,31 @@ describe("preview.html", () => {
     expect(parsed.brandAssets.name).toBe("AppIcon");
   });
 
+  it("links every thumbnail to the real file on disk", () => {
+    const hrefs = [...html.matchAll(/class="open" href="([^"]+)"/g)].map((match) => match[1]);
+    // 21 catalog PNGs + icon.png + 2 inputs. Swatches have no file, so no link.
+    expect(hrefs).toHaveLength(24);
+    expect(html).toContain('target="_blank"');
+    expect(html).toContain('rel="noopener"');
+
+    for (const href of hrefs) {
+      const target = decodeURI(href);
+      const absolute = target.startsWith("/") ? target : join(OUT, target);
+      expect(existsSync(absolute)).toBe(true);
+    }
+  });
+
+  it("encodes spaces in catalog paths so the links are valid URLs", () => {
+    expect(html).toContain("App%20Icon.imagestack");
+    expect(html).not.toMatch(/href="[^"]*App Icon/);
+  });
+
+  it("links catalog files relatively so they survive the zip being extracted anywhere", () => {
+    const catalog = [...html.matchAll(/class="open" href="(Images\.xcassets[^"]+)"/g)];
+    expect(catalog.length).toBeGreaterThan(0);
+    expect(html).not.toMatch(/class="open" href="\/[^"]*Images\.xcassets/);
+  });
+
   it("carries the run metadata in the header", () => {
     expect(html).toContain("2026-01-01 00:00:00");
     expect(html).toContain("v9.9.9");
@@ -206,6 +231,37 @@ describe("preview.html", () => {
     expect(partialHtml).not.toContain("App Icon.imagestack");
     expect(partialHtml).not.toContain('class="parallax"');
     expect(partialHtml).toContain("AppIcon.appiconset");
+  });
+
+  it("links sources absolutely by default, relatively when asked", async () => {
+    const dir = join(TMP, "links");
+    mkdirSync(dir, { recursive: true });
+    const config = resolveConfig({ icon, background, color: "#101010", outDir: dir });
+    const xcassetsDir = join(dir, "Images.xcassets");
+    await generateAssets(config, xcassetsDir, { platforms: ["ios"] });
+
+    const inputHref = (page: string): string =>
+      page.match(/class="open" href="([^"]*icon\.png)"/)?.[1] ?? "";
+
+    // Default suits zip output: the page is built in a temp dir and the sources
+    // are not shipped with it, so only an absolute path can resolve.
+    const absPath = join(dir, "abs.html");
+    await generatePreview({ xcassetsDir, outputPath: absPath, config, platforms: ["ios"] });
+    expect(inputHref(readFileSync(absPath, "utf-8")).startsWith("/")).toBe(true);
+
+    // Directory output keeps the page beside its sources, so relative stays
+    // valid for anyone who clones the project and leaks no local path.
+    const relPath = join(dir, "rel.html");
+    await generatePreview({
+      xcassetsDir,
+      outputPath: relPath,
+      config,
+      platforms: ["ios"],
+      outsideLinks: "relative",
+    });
+    const relHtml = readFileSync(relPath, "utf-8");
+    expect(inputHref(relHtml).startsWith("/")).toBe(false);
+    expect(inputHref(relHtml)).toContain("..");
   });
 
   it("honors renamed asset bundles", async () => {

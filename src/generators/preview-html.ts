@@ -166,6 +166,20 @@ figure { margin: 0; min-width: 0; }
   background-size: contain, 16px 16px;
   background-position: center, 0 0;
 }
+/* Thumbnails are downscaled WebP; the link opens the real file on disk. */
+a.open { display: block; text-decoration: none; color: inherit; position: relative; }
+a.open:hover .frame, a.open:focus-visible .frame { outline-color: var(--accent); outline-width: 2px; }
+a.open:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+a.open::after {
+  content: "open";
+  position: absolute; right: 6px; bottom: 6px;
+  padding: 2px 6px; font-size: 10px; letter-spacing: 0.06em;
+  background: var(--accent); color: #16161a;
+  opacity: 0; transition: opacity 120ms;
+}
+a.open:hover::after, a.open:focus-visible::after { opacity: 1; }
+@media (hover: none) { a.open::after { opacity: 1; } }
+
 figcaption { padding-top: 9px; font-size: 11px; }
 figcaption .name { display: block; overflow-wrap: anywhere; }
 figcaption .dims { display: block; color: var(--ink-dim); }
@@ -187,7 +201,7 @@ figcaption .note { color: var(--accent); }
   will-change: transform;
 }
 .parallax[data-active="1"] .layer { transition: transform 90ms linear; }
-.hint { margin: 0; font-size: 11px; color: var(--ink-dim); max-width: 34ch; }
+.hint { margin: 0; font-size: 11px; color: var(--ink-dim); }
 .hint b { color: var(--ink); font-weight: 400; }
 
 /* ---- colorset ---- */
@@ -223,7 +237,6 @@ footer a { color: var(--ink); }
   .row, .swatches, .parallax-block { grid-template-columns: minmax(0, 1fr); }
   /* A full-width tile needs more height or the image floats in a letterbox. */
   .frame { height: 200px; }
-  .hint { max-width: none; }
 }
 `;
 
@@ -282,6 +295,13 @@ function aspectRatio(width: number, height: number): string {
  * The inputs, the command, and the resolved config: enough for someone holding
  * only this file to see what went in and reproduce the run.
  */
+/** Wrap a frame in a link to the real file, when we know where it lives. */
+function linked(href: string | undefined, label: string, frame: string): string {
+  if (!href) return frame;
+  return `<a class="open" href="${esc(href)}" target="_blank" rel="noopener"
+        title="Open ${esc(label)}">${frame}</a>`;
+}
+
 function renderProvenance(options: RenderPreviewOptions): string {
   const parts: string[] = [];
 
@@ -289,10 +309,14 @@ function renderProvenance(options: RenderPreviewOptions): string {
     const figures = options.inputs
       .map(
         (input) => `<figure>
-      <div class="frame${input.hasAlpha ? " alpha" : ""}" role="img" aria-label="${esc(input.filename)}"
+      ${linked(
+        input.href,
+        input.filename,
+        `<div class="frame${input.hasAlpha ? " alpha" : ""}" role="img" aria-label="${esc(input.filename)}"
            style="background-image:${
              input.hasAlpha ? `var(--${input.imageKey}),var(--checkers)` : `var(--${input.imageKey})`
-           }"></div>
+           }"></div>`,
+      )}
       <figcaption><span class="role">${esc(input.role)}</span>
         <span class="name">${esc(input.filename)}</span>
         <span class="dims">${input.vector ? "vector" : `${input.width} x ${input.height}`}</span>
@@ -372,10 +396,14 @@ function renderGroup(group: PreviewGroup, index: number): string {
       .map((asset) => {
         const note = asset.note ? ` <span class="note">${esc(asset.note)}</span>` : "";
         return `<figure>
-      <div class="frame${asset.hasAlpha ? " alpha" : ""}" role="img" aria-label="${esc(asset.filename)}"
+      ${linked(
+        asset.href,
+        asset.filename,
+        `<div class="frame${asset.hasAlpha ? " alpha" : ""}" role="img" aria-label="${esc(asset.filename)}"
            style="background-image:${
              asset.hasAlpha ? `var(--${asset.imageKey}),var(--checkers)` : `var(--${asset.imageKey})`
-           }"></div>
+           }"></div>`,
+      )}
       <figcaption><span class="name">${esc(asset.filename)}</span>
         <span class="dims">${asset.width} x ${asset.height}${note}</span>
       </figcaption>
@@ -403,6 +431,7 @@ export function renderPreviewHtml(options: RenderPreviewOptions): string {
   const checkers =
     "repeating-conic-gradient(var(--checker) 0% 25%, transparent 0% 50%)";
 
+  // config here is already the display copy: paths rewritten relative or tildified.
   const meta: [string, string][] = [
     ["Icon", esc(config.inputs.iconImage)],
     ["Background", esc(config.inputs.backgroundImage)],

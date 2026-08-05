@@ -1,8 +1,9 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { join, basename, extname, relative, dirname } from "node:path";
+import { join, basename, extname, relative, dirname, sep } from "node:path";
 import sharp from "sharp";
 import type { TvOSImageCreatorConfig } from "../types.js";
 import { safeWriteFile } from "../utils/fs.js";
+import { displayPath } from "../utils/paths.js";
 import { renderPreviewHtml } from "./preview-html.js";
 
 /** Long edge of the embedded thumbnails, in CSS pixels before device scaling. */
@@ -20,6 +21,8 @@ export interface PreviewAsset {
   hasAlpha: boolean;
   /** Short qualifier shown next to the filename (scale, idiom, appearance). */
   note?: string;
+  /** Link to the real file on disk, so a thumbnail can open the full-size original. */
+  href?: string;
 }
 
 export interface PreviewParallax {
@@ -84,6 +87,61 @@ function locationOf(dir: string, catalogRoot: string): string {
   return parent ? `Images.xcassets/${parent}` : "Images.xcassets";
 }
 
+/** How to link files that sit outside the preview's own directory. */
+export type OutsideLinkStyle = "relative" | "absolute";
+
+/**
+ * A copy of the config with every path rewritten for display.
+ *
+ * The page is a committed, shareable artifact, so it must not carry the
+ * generating machine's home directory. Only the rendered copy is rewritten;
+ * resolution itself still runs on real absolute paths.
+ */
+function displayConfig(
+  config: TvOSImageCreatorConfig,
+  previewDir: string,
+  outside: OutsideLinkStyle,
+): TvOSImageCreatorConfig {
+  const show = (path: string): string => displayPath(path, previewDir, outside === "relative");
+  const copy = JSON.parse(JSON.stringify(config)) as TvOSImageCreatorConfig;
+
+  copy.inputs.iconImage = show(copy.inputs.iconImage);
+  copy.inputs.backgroundImage = show(copy.inputs.backgroundImage);
+  if (copy.inputs.iconDarkImage) copy.inputs.iconDarkImage = show(copy.inputs.iconDarkImage);
+  if (copy.inputs.iconTintedImage) copy.inputs.iconTintedImage = show(copy.inputs.iconTintedImage);
+  copy.output.directory = show(copy.output.directory);
+
+  for (const stack of [copy.brandAssets.appIconSmall, copy.brandAssets.appIconLarge]) {
+    for (const layer of ["front", "middle", "back"] as const) {
+      const art = stack.layers[layer];
+      if (art.imagePath) art.imagePath = show(art.imagePath);
+    }
+  }
+
+  return copy;
+}
+
+/**
+ * A link from preview.html to a real file on disk. Segments are encoded because
+ * asset names contain spaces.
+ *
+ * Anything under the preview's own directory (the whole catalog, icon.png) is
+ * always relative, so it survives the zip being extracted anywhere.
+ *
+ * Sources sit outside that directory, and the right link depends on where the
+ * page ends up. Written straight into a directory, the page keeps its
+ * neighbours, so a relative `../brand/icon.svg` stays correct for anyone who
+ * clones the project and never leaks a local path. Packed into a zip, the page
+ * is generated in a temp directory and the sources are not shipped with it, so
+ * only an absolute path resolves, and only on the machine that generated it.
+ */
+function fileHref(target: string, previewDir: string, outside: OutsideLinkStyle): string {
+  const rel = relative(previewDir, target);
+  const inside = Boolean(rel) && !rel.startsWith("..");
+  const usable = inside || outside === "relative";
+  return encodeURI(usable && rel ? rel.split(sep).join("/") : target);
+}
+
 function componentsToHex(components: Record<string, string>): string {
   const channel = (raw: string | undefined): string =>
     Math.round(Math.min(1, Math.max(0, Number(raw ?? 0))) * 255)
@@ -131,7 +189,7 @@ class ImageTable {
 }
 
 /** Read one .imageset / .appiconset directory into preview assets, in Contents.json order. */
-async function readImageSet(dir: string, table: ImageTable): Promise<PreviewAsset[]> {
+async function readImageSet(dir: string, table: ImageTable, previewDir: string, outside: OutsideLinkStyle): Promise<PreviewAsset[]> {
   const contents = readJson(join(dir, "Contents.json"));
   const entries = Array.isArray(contents?.images) ? (contents.images as ContentsImageEntry[]) : [];
   const assets: PreviewAsset[] = [];
@@ -148,6 +206,7 @@ async function readImageSet(dir: string, table: ImageTable): Promise<PreviewAsse
       imageKey: key,
       hasAlpha,
       note: describeEntry(entry),
+      href: fileHref(filePath, previewDir, outside),
     });
   }
 
@@ -167,6 +226,8 @@ async function readImageStack(
   dir: string,
   table: ImageTable,
   catalogRoot: string,
+  previewDir: string,
+  outside: OutsideLinkStyle,
 ): Promise<PreviewGroup> {
   const assets: PreviewAsset[] = [];
   const byLayer = new Map<string, PreviewAsset[]>();
@@ -174,7 +235,7 @@ async function readImageStack(
   for (const layerName of LAYER_READ_ORDER) {
     const imagesetDir = join(dir, `${layerName}.imagestacklayer`, "Content.imageset");
     if (!existsSync(imagesetDir)) continue;
-    const layerAssets = await readImageSet(imagesetDir, table);
+    const layerAssets = await readImageSet(imagesetDir, table, previewDir, outside);
     for (const asset of layerAssets) {
       asset.note = [layerName, asset.note].filter(Boolean).join(" ");
     }
@@ -240,7 +301,12 @@ function readColorSet(dir: string, catalogRoot: string): PreviewGroup {
  * from config. Disabled assets, renamed bundles, and custom scales are all
  * reflected automatically.
  */
-async function collectCatalog(xcassetsDir: string, table: ImageTable): Promise<PreviewGroup[]> {
+async function collectCatalog(
+  xcassetsDir: string,
+  table: ImageTable,
+  previewDir: string,
+  outside: OutsideLinkStyle,
+): Promise<PreviewGroup[]> {
   const stacks: PreviewGroup[] = [];
   const brandImageSets: PreviewGroup[] = [];
   const appIconSets: PreviewGroup[] = [];
@@ -256,12 +322,12 @@ async function collectCatalog(xcassetsDir: string, table: ImageTable): Promise<P
         const childDir = join(dir, child);
         const childSuffix = extname(child);
         if (childSuffix === ".imagestack") {
-          stacks.push(await readImageStack(childDir, table, xcassetsDir));
+          stacks.push(await readImageStack(childDir, table, xcassetsDir, previewDir, outside));
         } else if (childSuffix === ".imageset") {
           brandImageSets.push({
             title: child,
             location: locationOf(childDir, xcassetsDir),
-            assets: await readImageSet(childDir, table),
+            assets: await readImageSet(childDir, table, previewDir, outside),
           });
         }
       }
@@ -269,13 +335,13 @@ async function collectCatalog(xcassetsDir: string, table: ImageTable): Promise<P
       appIconSets.push({
         title: name,
         location: locationOf(dir, xcassetsDir),
-        assets: await readImageSet(dir, table),
+        assets: await readImageSet(dir, table, previewDir, outside),
       });
     } else if (suffix === ".imageset") {
       imageSets.push({
         title: name,
         location: locationOf(dir, xcassetsDir),
-        assets: await readImageSet(dir, table),
+        assets: await readImageSet(dir, table, previewDir, outside),
       });
     } else if (suffix === ".colorset") {
       colorSets.push(readColorSet(dir, xcassetsDir));
@@ -306,13 +372,20 @@ export interface PreviewInput {
   hasAlpha: boolean;
   /** True for SVG sources, which rasterize per output size rather than upscaling. */
   vector: boolean;
+  /** Link to the source file on disk. */
+  href?: string;
 }
 
 /**
  * Every source file the run reads, in the order they matter. Layer art is
  * deduplicated: the same file applied to both imagestacks is one input.
  */
-async function collectInputs(config: TvOSImageCreatorConfig, table: ImageTable): Promise<PreviewInput[]> {
+async function collectInputs(
+  config: TvOSImageCreatorConfig,
+  table: ImageTable,
+  previewDir: string,
+  outside: OutsideLinkStyle,
+): Promise<PreviewInput[]> {
   const candidates: { role: string; path?: string }[] = [
     { role: "icon", path: config.inputs.iconImage },
     { role: "background", path: config.inputs.backgroundImage },
@@ -340,6 +413,7 @@ async function collectInputs(config: TvOSImageCreatorConfig, table: ImageTable):
       imageKey: key,
       hasAlpha,
       vector: extname(path).toLowerCase() === ".svg",
+      href: fileHref(path, previewDir, outside),
     });
   }
   return inputs;
@@ -356,6 +430,12 @@ export interface GeneratePreviewOptions {
   command?: string;
   /** Config file the run read, if any. */
   configPath?: string;
+  /**
+   * How to link source files, which sit outside the preview's directory.
+   * "relative" suits directory output, where the page keeps its neighbours.
+   * Defaults to "absolute", correct for zip output built in a temp directory.
+   */
+  outsideLinks?: OutsideLinkStyle;
   /** Injected in tests to keep output deterministic. */
   generatedAt?: string;
 }
@@ -367,9 +447,11 @@ export interface GeneratePreviewOptions {
  */
 export async function generatePreview(options: GeneratePreviewOptions): Promise<void> {
   const table = new ImageTable();
+  const previewDir = dirname(options.outputPath);
+  const outside = options.outsideLinks ?? "absolute";
   // Inputs first, so a source that is also an output is embedded once and shared.
-  const inputs = await collectInputs(options.config, table);
-  const groups = await collectCatalog(options.xcassetsDir, table);
+  const inputs = await collectInputs(options.config, table, previewDir, outside);
+  const groups = await collectCatalog(options.xcassetsDir, table, previewDir, outside);
 
   if (options.standaloneIconPath && existsSync(options.standaloneIconPath)) {
     const { key, width, height, hasAlpha } = await table.add(options.standaloneIconPath);
@@ -383,6 +465,7 @@ export async function generatePreview(options: GeneratePreviewOptions): Promise<
           height,
           imageKey: key,
           hasAlpha,
+          href: fileHref(options.standaloneIconPath, previewDir, outside),
         },
       ],
     });
@@ -395,11 +478,13 @@ export async function generatePreview(options: GeneratePreviewOptions): Promise<
     groups,
     inputs,
     images: table.entries,
-    config: options.config,
+    config: displayConfig(options.config, previewDir, outside),
     platforms: options.platforms,
     toolVersion: options.toolVersion,
     command: options.command,
-    configPath: options.configPath,
+    configPath: options.configPath
+      ? displayPath(options.configPath, previewDir, outside === "relative")
+      : undefined,
     generatedAt: options.generatedAt ?? new Date().toISOString().replace("T", " ").slice(0, 19),
     totals: {
       files: catalogFiles + extras,

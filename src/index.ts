@@ -326,6 +326,10 @@ Examples:
         toolVersion: version,
         command: formatCommand(process.argv.slice(2)),
         configPath,
+        // Directory output keeps the page beside its sources, so relative links stay
+        // valid for anyone who clones the project. A zip is built in a temp dir and
+        // does not carry the sources, so only absolute paths resolve there.
+        outsideLinks: isDirMode ? "relative" : "absolute",
         onStep: step,
       });
 
