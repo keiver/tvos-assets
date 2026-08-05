@@ -26,6 +26,18 @@ function toPosix(path: string): string {
 }
 
 /**
+ * Does a `relative()` result climb out of its reference directory?
+ *
+ * Only a whole `..` segment escapes. A directory may legitimately be named
+ * `..old`, and a plain `startsWith("..")` reads that as an escape, pushing a
+ * path that is really inside the output onto the absolute form. Either
+ * separator is accepted, for the reason `tildify` accepts either.
+ */
+export function isUpward(rel: string): boolean {
+  return rel === ".." || rel.startsWith("../") || rel.startsWith("..\\");
+}
+
+/**
  * How a path should be shown on a generated page.
  *
  * Prefers a path relative to where the page lives, which is both shorter and
@@ -42,7 +54,7 @@ export function displayPath(
 ): string {
   const rel = relative(from, path);
   if (rel === "") return "."; // the reference directory itself
-  if (!rel.startsWith("..")) return `./${toPosix(rel)}`;
+  if (!isUpward(rel)) return `./${toPosix(rel)}`;
   // An upward path is only acceptable while it cannot spell out the home
   // directory. From outside the home into it, `relative()` climbs to the root
   // and back down through /Users/<name>/... — the exact leak tildify exists to

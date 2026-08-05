@@ -3,7 +3,7 @@ import { join, basename, extname, relative, dirname, sep } from "node:path";
 import sharp from "sharp";
 import type { TvOSImageCreatorConfig } from "../types.js";
 import { safeWriteFile } from "../utils/fs.js";
-import { displayPath, tildify } from "../utils/paths.js";
+import { displayPath, isUpward, tildify } from "../utils/paths.js";
 import { renderPreviewHtml } from "./preview-html.js";
 
 /** Long edge of the embedded thumbnails, in CSS pixels before device scaling. */
@@ -142,7 +142,7 @@ function displayConfig(
  */
 function fileHref(target: string, previewDir: string, outside: OutsideLinkStyle): string {
   const rel = relative(previewDir, target);
-  const inside = Boolean(rel) && !rel.startsWith("..");
+  const inside = Boolean(rel) && !isUpward(rel);
   if (inside) return encodeHref(rel.split(sep).join("/"));
 
   const targetInHome = tildify(target) !== target;
