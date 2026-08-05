@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-05
+- feat(cli): full config parity, preview.html, and DX pass (#7)
+
+
 ## [1.3.1] - 2026-08-05
 - chore: 1.3.1 - republish with expanded 1.3.0 docs (#6)
 
