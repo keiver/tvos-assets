@@ -118,13 +118,18 @@ program
   .description("Generate tvOS and iOS Images.xcassets from icon and background images")
   .version(version)
   // Inputs
-  .option("--icon <path>", "Path to icon PNG or SVG (transparent background)")
+  .option(
+    "--icon <path>",
+    "Path to icon PNG or SVG (transparent background; optional when --layer-front and --layer-middle are given)",
+  )
   .option("--background <path>", "Path to background PNG or SVG")
   .option("--color <hex>", 'Background color hex (e.g. "#B43939")')
   .option("--dark-color <hex>", "Dark mode background color hex (default: auto-darkened from --color)")
   .option("--icon-dark <path>", "iOS dark-appearance icon override (default: derived from --icon)")
   .option("--icon-tinted <path>", "iOS tinted-appearance icon override (default: grayscale of --icon)")
   .option("--icon-border-radius <pixels>", "Border radius for icon in pixels (0 = square, large value = circle)")
+  .option("--ios-icon-scale <0-1>", "Fraction of the iOS 1024 canvas the mark covers (default 0.8)")
+  .option("--tv-icon-scale <0-1>", "Fraction of the shorter tvOS side the mark covers (default 0.75)")
   .option("--layer-front <path>", "Custom front parallax layer art (both imagestacks)")
   .option("--layer-middle <path>", "Custom middle parallax layer art (both imagestacks)")
   .option("--layer-back <path>", "Custom back parallax layer art (both imagestacks)")
@@ -238,6 +243,8 @@ Examples:
         output: options.output,
         outDir: options.outDir,
         iconBorderRadius: options.iconBorderRadius,
+        iosIconScale: options.iosIconScale as string | undefined,
+        tvIconScale: options.tvIconScale as string | undefined,
         overrides,
       });
 
@@ -259,7 +266,12 @@ Examples:
         const shown = relative(process.cwd(), configPath) || configPath;
         log(`  Config:     ${pc.cyan(shown)}${discoveredConfig ? pc.dim(" (auto-detected)") : ""}`);
       }
-      log(`  Icon:       ${pc.cyan(config.inputs.iconImage)}`);
+      const assembledFrom = config.inputs.iconAssembledFrom;
+      log(
+        assembledFrom
+          ? `  Icon:       ${pc.cyan(assembledFrom.join(" + "))}${pc.dim(" (assembled)")}`
+          : `  Icon:       ${pc.cyan(config.inputs.iconImage)}`,
+      );
       log(`  Background: ${pc.cyan(config.inputs.backgroundImage)}`);
       log(`  Color:      ${pc.cyan(config.inputs.backgroundColor)}`);
       const darkColorAuto =

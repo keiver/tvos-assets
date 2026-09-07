@@ -1,8 +1,9 @@
 import type { TvOSImageCreatorConfig } from "../types.js";
 import { safeWriteFile } from "../utils/fs.js";
 import { compositeIconOnBackground } from "../utils/image-processing.js";
+import type { ContentBox } from "../utils/image-processing.js";
 
-export async function generateIcon(config: TvOSImageCreatorConfig, iconOutputPath: string, iconSourceSize?: number): Promise<void> {
+export async function generateIcon(config: TvOSImageCreatorConfig, iconOutputPath: string, iconSourceSize?: number, content?: ContentBox): Promise<void> {
   const buffer = await compositeIconOnBackground(
     config.inputs.backgroundImage,
     config.inputs.iconImage,
@@ -12,6 +13,8 @@ export async function generateIcon(config: TvOSImageCreatorConfig, iconOutputPat
       opaque: true,
       borderRadius: config.inputs.iconBorderRadius,
       sourceIconSize: iconSourceSize,
+      iconScale: config.iosIcon.iconScale,
+      content,
     },
   );
   safeWriteFile(iconOutputPath, buffer);

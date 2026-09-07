@@ -11,6 +11,7 @@ import {
   scaleMultiplier,
   validateOutputDimensions,
 } from "../utils/image-processing.js";
+import type { ContentBox } from "../utils/image-processing.js";
 import {
   imageSetContentsJson,
   buildTopShelfImageEntries,
@@ -23,6 +24,7 @@ export async function generateTopShelfImageSet(
   asset: ImageSetAssetConfig,
   config: TvOSImageCreatorConfig,
   iconSourceSize?: number,
+  content?: ContentBox,
 ): Promise<void> {
   if (!asset.enabled) return;
 
@@ -51,6 +53,8 @@ export async function generateTopShelfImageSet(
         opaque: true,
         borderRadius: config.inputs.iconBorderRadius,
         sourceIconSize: iconSourceSize,
+        iconScale: config.brandAssets.iconScale,
+        content,
       },
     );
 

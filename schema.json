@@ -15,7 +15,7 @@
       "properties": {
         "iconImage": {
           "type": "string",
-          "description": "Path to the app icon PNG or SVG. Must have a transparent background. The icon is composited onto the background image for app icons and Top Shelf images, and rendered standalone for the splash screen logo. SVGs are rasterized at the density each output size requires."
+          "description": "Path to the app icon PNG or SVG. Must have a transparent background. The icon is composited onto the background image for app icons and Top Shelf images, and rendered standalone for the splash screen logo. SVGs are rasterized at the density each output size requires. Optional when every icon layer of an imagestack carries its own art (brandAssets.<stack>.layers.front/middle.imagePath): the icon is then assembled from those layers, back to front."
         },
         "backgroundImage": {
           "type": "string",
@@ -46,7 +46,10 @@
           "description": "Optional PNG or SVG for the iOS tinted-appearance icon. When omitted, a grayscale version of the main icon is generated."
         }
       },
-      "required": ["iconImage", "backgroundImage", "backgroundColor"],
+      "required": [
+        "backgroundImage",
+        "backgroundColor"
+      ],
       "additionalProperties": false
     },
     "output": {
@@ -60,13 +63,16 @@
         },
         "mode": {
           "type": "string",
-          "enum": ["zip", "dir"],
+          "enum": [
+            "zip",
+            "dir"
+          ],
           "default": "zip",
           "description": "\"zip\" writes a timestamped archive. \"dir\" writes Images.xcassets directly into the output directory (what the Expo config plugin uses)."
         },
         "cleanBeforeGenerate": {
           "type": "boolean",
-          "description": "Deprecated — ignored. Output is always generated in a fresh temp directory before zipping.",
+          "description": "Deprecated \u2014 ignored. Output is always generated in a fresh temp directory before zipping.",
           "default": true
         }
       },
@@ -96,6 +102,13 @@
         "topShelfImageWide": {
           "$ref": "#/$defs/imageSetAsset",
           "description": "Wide variant of the Top Shelf banner. Same compositing as topShelfImage. Default: 2320x720 at 1x and 2x."
+        },
+        "iconScale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "default": 0.75,
+          "description": "How much of the shorter tvOS output side the mark covers on the imagestacks and Top Shelf images, measured after the icon is normalized to its own artwork. Apple asks for a 10-15% safe margin on every parallax layer, because a focused icon scales up and its layers shift against each other; 0.75 leaves 12.5% a side."
         }
       },
       "additionalProperties": false
@@ -113,6 +126,13 @@
           "type": "string",
           "description": "Folder name for the .appiconset bundle. Must match the ASSETCATALOG_COMPILER_APPICON_NAME build setting for the iOS target.",
           "default": "AppIcon"
+        },
+        "iconScale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "default": 0.8,
+          "description": "How much of the 1024 canvas the mark covers, measured after the icon is normalized to its own artwork so a designer's transparent margin does not shrink it. Apple's icon grid centers the primary shape at roughly 80% of the canvas, with about a 10% margin."
         }
       },
       "additionalProperties": false
@@ -153,7 +173,11 @@
                 "scales": {
                   "$ref": "#/$defs/scaleFactorArray",
                   "description": "Scale factors for universal idiom.",
-                  "default": ["1x", "2x", "3x"]
+                  "default": [
+                    "1x",
+                    "2x",
+                    "3x"
+                  ]
                 }
               },
               "additionalProperties": false
@@ -165,7 +189,10 @@
                 "scales": {
                   "$ref": "#/$defs/scaleFactorArray",
                   "description": "Scale factors for tv idiom.",
-                  "default": ["1x", "2x"]
+                  "default": [
+                    "1x",
+                    "2x"
+                  ]
                 }
               },
               "additionalProperties": false
@@ -224,12 +251,18 @@
   "$defs": {
     "scaleFactor": {
       "type": "string",
-      "enum": ["1x", "2x", "3x"],
+      "enum": [
+        "1x",
+        "2x",
+        "3x"
+      ],
       "description": "Image scale factor. 1x = base resolution, 2x = retina, 3x = super retina."
     },
     "scaleFactorArray": {
       "type": "array",
-      "items": { "$ref": "#/$defs/scaleFactor" },
+      "items": {
+        "$ref": "#/$defs/scaleFactor"
+      },
       "minItems": 1,
       "uniqueItems": true
     },
@@ -248,12 +281,18 @@
           "description": "Height in points."
         }
       },
-      "required": ["width", "height"],
+      "required": [
+        "width",
+        "height"
+      ],
       "additionalProperties": false
     },
     "imageSource": {
       "type": "string",
-      "enum": ["icon", "background"],
+      "enum": [
+        "icon",
+        "background"
+      ],
       "description": "Which input image to use. \"icon\" composites the icon on the background. \"background\" uses the background image only."
     },
     "layerConfig": {
@@ -269,7 +308,9 @@
           "description": "Optional PNG or SVG that replaces the default source file for this layer, enabling true per-layer parallax art. The source field still controls rendering: icon layers sit centered on transparency, background layers cover-fill opaque."
         }
       },
-      "required": ["source"],
+      "required": [
+        "source"
+      ],
       "additionalProperties": false
     },
     "layers": {
@@ -289,7 +330,11 @@
           "description": "Background layer (farthest from viewer). Typically the background image. Always rendered opaque."
         }
       },
-      "required": ["front", "middle", "back"],
+      "required": [
+        "front",
+        "middle",
+        "back"
+      ],
       "additionalProperties": false
     },
     "imageStackAsset": {
@@ -318,7 +363,13 @@
           "description": "Layer configuration for the parallax imagestack."
         }
       },
-      "required": ["enabled", "name", "size", "scales", "layers"],
+      "required": [
+        "enabled",
+        "name",
+        "size",
+        "scales",
+        "layers"
+      ],
       "additionalProperties": false
     },
     "imageSetAsset": {
@@ -347,7 +398,13 @@
           "description": "Filename prefix for generated PNGs. Produces files like {filePrefix}@1x.png."
         }
       },
-      "required": ["enabled", "name", "size", "scales", "filePrefix"],
+      "required": [
+        "enabled",
+        "name",
+        "size",
+        "scales",
+        "filePrefix"
+      ],
       "additionalProperties": false
     },
     "colorEntry": {
@@ -365,7 +422,10 @@
           "description": "Color for dark mode (#RRGGBB)."
         }
       },
-      "required": ["light", "dark"],
+      "required": [
+        "light",
+        "dark"
+      ],
       "additionalProperties": false
     }
   }

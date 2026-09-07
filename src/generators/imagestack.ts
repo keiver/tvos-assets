@@ -7,6 +7,7 @@ import {
   scaleMultiplier,
   validateOutputDimensions,
 } from "../utils/image-processing.js";
+import type { ContentBox } from "../utils/image-processing.js";
 import {
   imageStackContentsJson,
   imageStackLayerContentsJson,
@@ -24,14 +25,18 @@ async function generateLayerImages(
   imagesetDir: string,
   isAppStore: boolean,
   iconSourceSize?: number,
+  content?: ContentBox,
 ): Promise<void> {
   const layerKey = layerName.toLowerCase() as "front" | "middle" | "back";
   const layerConfig = asset.layers[layerKey];
   const borderRadius = config.inputs.iconBorderRadius;
   // Border radius applies only to the shared icon input — per-layer art is used as-is
-  const borderOpts = layerConfig.source !== "background" && !layerConfig.imagePath && borderRadius > 0 && iconSourceSize
+  const border = layerConfig.source !== "background" && !layerConfig.imagePath && borderRadius > 0 && iconSourceSize
     ? { borderRadius, sourceIconSize: iconSourceSize }
     : undefined;
+  // Every icon layer shares the run's one content box and one scale, which is
+  // what keeps front registered against middle once they are normalised.
+  const iconOpts = { ...border, iconScale: config.brandAssets.iconScale, content };
 
   // imagePath overrides which file feeds the layer; `source` still decides rendering:
   // background layers cover-fill opaque, icon layers sit centered on transparency.
@@ -47,7 +52,7 @@ async function generateLayerImages(
 
     const buffer = layerConfig.source === "background"
       ? await resizeImageOpaque(backgroundFile, w, h)
-      : await renderIconOnTransparentCanvas(iconFile, w, h, borderOpts);
+      : await renderIconOnTransparentCanvas(iconFile, w, h, iconOpts);
 
     safeWriteFile(join(imagesetDir, filename), buffer);
     return;
@@ -62,7 +67,7 @@ async function generateLayerImages(
 
     const buffer = layerConfig.source === "background"
       ? await resizeImageOpaque(backgroundFile, w, h)
-      : await renderIconOnTransparentCanvas(iconFile, w, h, borderOpts);
+      : await renderIconOnTransparentCanvas(iconFile, w, h, iconOpts);
 
     safeWriteFile(join(imagesetDir, filename), buffer);
   }
@@ -73,6 +78,7 @@ export async function generateImageStack(
   asset: ImageStackAssetConfig,
   config: TvOSImageCreatorConfig,
   iconSourceSize?: number,
+  content?: ContentBox,
 ): Promise<void> {
   if (!asset.enabled) return;
 
@@ -106,6 +112,6 @@ export async function generateImageStack(
     writeContentsJson(join(imagesetDir, "Contents.json"), imagesetContents);
 
     // Generate actual PNG files
-    await generateLayerImages(layerName, asset, config, imagesetDir, isAppStore, iconSourceSize);
+    await generateLayerImages(layerName, asset, config, imagesetDir, isAppStore, iconSourceSize, content);
   }
 }

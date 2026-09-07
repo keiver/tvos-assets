@@ -28,7 +28,7 @@ describe("resolveConfig — v1.3 additions", () => {
     const bg = await createTestBackground(TMP);
     const config = resolveConfig({ icon, background: bg, color: "#FF0000" });
     expect(config.output.mode).toBe("zip");
-    expect(config.iosIcon).toEqual({ enabled: true, name: "AppIcon" });
+    expect(config.iosIcon).toEqual({ enabled: true, name: "AppIcon", iconScale: 0.8 });
   });
 
   it("--out-dir switches to dir mode and sets the directory", async () => {

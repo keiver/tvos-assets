@@ -4,12 +4,17 @@
  * Usage in app.json (list AFTER expo-splash-screen and any TV config plugin so
  * the generated assets overwrite their single-icon output):
  *
+ * `icon` is optional when `layers` supplies art for both front and middle: the
+ * icon is then assembled from that art.
+ *
  *   ["tvos-assets/plugin", {
  *     "icon": "./assets/brand/icon.svg",
  *     "background": "./assets/brand/background.png",
  *     "color": "#1C1C1E",
  *     "darkColor": "#1C1C1E",
  *     "iconBorderRadius": 0,
+ *     "iosIconScale": 0.8,
+ *     "tvIconScale": 0.75,
  *     "iconDark": "./assets/brand/icon-dark.svg",
  *     "iconTinted": "./assets/brand/icon-tinted.svg",
  *     "layers": { "front": "./assets/brand/layer-front.svg", "middle": "./assets/brand/layer-middle.svg" },
@@ -80,6 +85,8 @@ function buildResolveArgs(projectRoot, props) {
     iconTinted: resolveInput(projectRoot, props.iconTinted),
     config: resolveInput(projectRoot, props.config),
     iconBorderRadius: props.iconBorderRadius != null ? String(props.iconBorderRadius) : undefined,
+    iosIconScale: props.iosIconScale != null ? String(props.iosIconScale) : undefined,
+    tvIconScale: props.tvIconScale != null ? String(props.tvIconScale) : undefined,
     // Not used for output (assets go straight into the xcassets catalog), but
     // keeps resolveConfig's output-dir writability check pointed somewhere real.
     outDir: path.join(projectRoot, "ios"),

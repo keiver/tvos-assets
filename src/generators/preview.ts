@@ -105,7 +105,10 @@ function displayConfig(
   const show = (path: string): string => displayPath(path, previewDir, outside === "relative");
   const copy = JSON.parse(JSON.stringify(config)) as TvOSImageCreatorConfig;
 
-  copy.inputs.iconImage = show(copy.inputs.iconImage);
+  // An assembled icon lives in a scratch dir that is gone by the time anyone
+  // reads the page, so the layer art it came from is what gets shown instead.
+  copy.inputs.iconImage = copy.inputs.iconAssembledFrom ? "" : show(copy.inputs.iconImage);
+  copy.inputs.iconAssembledFrom = copy.inputs.iconAssembledFrom?.map(show);
   copy.inputs.backgroundImage = show(copy.inputs.backgroundImage);
   if (copy.inputs.iconDarkImage) copy.inputs.iconDarkImage = show(copy.inputs.iconDarkImage);
   if (copy.inputs.iconTintedImage) copy.inputs.iconTintedImage = show(copy.inputs.iconTintedImage);
@@ -401,9 +404,19 @@ export interface PreviewInput {
   href?: string;
 }
 
+interface InputCandidate {
+  role: string;
+  path?: string;
+  /** Written to a scratch dir this run deletes, so a link to it would dangle. */
+  ephemeral?: boolean;
+}
+
 /**
  * Every source file the run reads, in the order they matter. Layer art is
  * deduplicated: the same file applied to both imagestacks is one input.
+ *
+ * A supplied icon leads the list. An assembled one is a product of the layer
+ * art, not a source, so it follows the layers it was built from.
  */
 async function collectInputs(
   config: TvOSImageCreatorConfig,
@@ -411,22 +424,32 @@ async function collectInputs(
   previewDir: string,
   outside: OutsideLinkStyle,
 ): Promise<PreviewInput[]> {
-  const candidates: { role: string; path?: string }[] = [
-    { role: "icon", path: config.inputs.iconImage },
+  const assembled = Boolean(config.inputs.iconAssembledFrom);
+
+  const icon: InputCandidate = {
+    role: assembled ? "icon (assembled)" : "icon",
+    path: config.inputs.iconImage,
+    ephemeral: assembled,
+  };
+
+  const layers: InputCandidate[] = [];
+  for (const stack of [config.brandAssets.appIconSmall, config.brandAssets.appIconLarge]) {
+    for (const layer of ["front", "middle", "back"] as const) {
+      layers.push({ role: `layer ${layer}`, path: stack.layers[layer].imagePath });
+    }
+  }
+
+  const rest: InputCandidate[] = [
     { role: "background", path: config.inputs.backgroundImage },
     { role: "icon dark", path: config.inputs.iconDarkImage },
     { role: "icon tinted", path: config.inputs.iconTintedImage },
   ];
 
-  for (const stack of [config.brandAssets.appIconSmall, config.brandAssets.appIconLarge]) {
-    for (const layer of ["front", "middle", "back"] as const) {
-      candidates.push({ role: `layer ${layer}`, path: stack.layers[layer].imagePath });
-    }
-  }
+  const candidates = assembled ? [...layers, icon, ...rest] : [icon, ...rest, ...layers];
 
   const inputs: PreviewInput[] = [];
   const seen = new Set<string>();
-  for (const { role, path } of candidates) {
+  for (const { role, path, ephemeral } of candidates) {
     if (!path || seen.has(path) || !existsSync(path)) continue;
     seen.add(path);
     const { key, width, height, hasAlpha } = await table.add(path);
@@ -438,7 +461,7 @@ async function collectInputs(
       imageKey: key,
       hasAlpha,
       vector: extname(path).toLowerCase() === ".svg",
-      href: fileHref(path, previewDir, outside),
+      href: ephemeral ? undefined : fileHref(path, previewDir, outside),
     });
   }
   return inputs;

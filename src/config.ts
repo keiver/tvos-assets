@@ -2,7 +2,7 @@ import { readFileSync, existsSync, lstatSync, statSync, accessSync, constants } 
 import { resolve, join, extname, dirname } from "node:path";
 import { homedir } from "node:os";
 import sharp from "sharp";
-import type { TvOSImageCreatorConfig } from "./types.js";
+import type { ImageStackAssetConfig, TvOSImageCreatorConfig } from "./types.js";
 import { darkenHex } from "./utils/color.js";
 
 const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -23,6 +23,10 @@ export interface CLIArgs {
   iconBorderRadius?: string;
   iconDark?: string;
   iconTinted?: string;
+  /** Fraction of the 1024 canvas the mark covers on the iOS app icon. */
+  iosIconScale?: string;
+  /** Fraction of the shorter output side the mark covers on tvOS. */
+  tvIconScale?: string;
   /** Programmatic config overrides; higher precedence than a config file, lower than explicit args. */
   overrides?: DeepPartial<TvOSImageCreatorConfig>;
 }
@@ -52,6 +56,7 @@ function getDefaultConfig(
     },
     brandAssets: {
       name: "AppIcon",
+      iconScale: TV_ICON_SCALE,
       appIconSmall: {
         enabled: true,
         name: "App Icon",
@@ -92,6 +97,7 @@ function getDefaultConfig(
     iosIcon: {
       enabled: true,
       name: "AppIcon",
+      iconScale: IOS_ICON_SCALE,
     },
     splashScreen: {
       logo: {
@@ -212,6 +218,64 @@ function validateAssetName(name: string, label: string): void {
   }
 }
 
+const MISSING_ICON_MESSAGE =
+  "Icon image is required. Use --icon, set inputs.iconImage in config, or supply art for " +
+  "every icon layer (--layer-front and --layer-middle) so the icon can be assembled from it.";
+
+/**
+ * Whether any icon layer art was supplied at all, anywhere in the incoming
+ * config. Deliberately permissive: a false positive only defers the missing-icon
+ * error to the post-merge check, which throws the same message once every layer
+ * is resolved. It exists so a run with no inputs still names the icon first.
+ */
+function mayAssembleIcon(...sources: (DeepPartial<TvOSImageCreatorConfig> | undefined)[]): boolean {
+  return sources.some((source) => {
+    const brand = source?.brandAssets;
+    return [brand?.appIconSmall, brand?.appIconLarge].some(
+      (stack) => stack?.layers?.front?.imagePath ?? stack?.layers?.middle?.imagePath,
+    );
+  });
+}
+
+/** Apple stacks imagestack layers back to front, and so does an assembled icon. */
+const STACKING_ORDER = ["back", "middle", "front"] as const;
+
+/**
+ * The layer art this stack's icon can be assembled from, in stacking order, or
+ * undefined when it cannot.
+ *
+ * Only `source: "icon"` layers count: a `background` layer is the backdrop, not
+ * part of the icon. Every one of them must carry its own `imagePath`, because a
+ * layer without one falls back to `inputs.iconImage` — the very thing being
+ * derived.
+ */
+function assemblyLayers(stack: ImageStackAssetConfig): string[] | undefined {
+  const paths = STACKING_ORDER.map((key) => stack.layers[key])
+    .filter((layer) => layer.source === "icon")
+    .map((layer) => layer.imagePath);
+
+  if (paths.length === 0) return undefined;
+  return paths.every((path): path is string => Boolean(path)) ? paths : undefined;
+}
+
+/**
+ * Apple's iOS icon grid centres the primary shape at about 80% of the canvas,
+ * with roughly a 10% margin. tvOS wants more room: the guidance is a 10-15%
+ * safe margin on each layer, since a focused icon scales up and its layers
+ * slide against each other, so 0.75 sits inside that band at 12.5% a side.
+ */
+const IOS_ICON_SCALE = 0.8;
+const TV_ICON_SCALE = 0.75;
+
+function resolveIconScale(raw: unknown, label: string, fallback: number): number {
+  if (raw === undefined || raw === null || raw === "") return fallback;
+  const scale = Number(raw);
+  if (!Number.isFinite(scale) || scale <= 0 || scale > 1) {
+    throw new Error(`Invalid ${label}: "${String(raw)}". Use a number greater than 0 and at most 1.`);
+  }
+  return scale;
+}
+
 const MAX_CONFIG_SIZE = 1024 * 1024; // 1 MB
 
 export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
@@ -256,8 +320,11 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     ""
   ).trim();
 
-  if (!iconImage) {
-    throw new Error("Icon image is required. Use --icon or set inputs.iconImage in config.");
+  // An icon is required unless parallax layer art can be assembled into one.
+  // Whether it actually can is only knowable after the merge resolves every
+  // layer, so this reports the clear-cut case and defers the rest.
+  if (!iconImage && !mayAssembleIcon(fileConfig, cliArgs.overrides)) {
+    throw new Error(MISSING_ICON_MESSAGE);
   }
   if (!backgroundImage) {
     throw new Error("Background image is required. Use --background or set inputs.backgroundImage in config.");
@@ -266,7 +333,7 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     throw new Error("Background color is required. Use --color or set inputs.backgroundColor in config.");
   }
 
-  const resolvedIcon = validateImagePath(iconImage, "Icon image");
+  const resolvedIcon = iconImage ? validateImagePath(iconImage, "Icon image") : "";
   const resolvedBg = validateImagePath(backgroundImage, "Background image");
 
   // Validate color format
@@ -369,6 +436,28 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
         );
       }
     }
+  }
+
+  merged.iosIcon.iconScale = resolveIconScale(
+    cliArgs.iosIconScale ?? merged.iosIcon.iconScale,
+    "iosIcon.iconScale",
+    IOS_ICON_SCALE,
+  );
+  merged.brandAssets.iconScale = resolveIconScale(
+    cliArgs.tvIconScale ?? merged.brandAssets.iconScale,
+    "brandAssets.iconScale",
+    TV_ICON_SCALE,
+  );
+
+  // With no icon input, assemble one from the parallax layer art. Assigned
+  // unconditionally so a config file cannot inject a derived value.
+  merged.inputs.iconAssembledFrom = resolvedIcon
+    ? undefined
+    : assemblyLayers(merged.brandAssets.appIconLarge) ??
+      assemblyLayers(merged.brandAssets.appIconSmall);
+
+  if (!resolvedIcon && !merged.inputs.iconAssembledFrom) {
+    throw new Error(MISSING_ICON_MESSAGE);
   }
 
   // Apply CLI output overrides; --out-dir wins and switches to direct-directory mode

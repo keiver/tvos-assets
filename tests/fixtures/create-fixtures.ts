@@ -70,6 +70,22 @@ export function createTestSvgIcon(dir: string, name = "icon.svg"): string {
   return filePath;
 }
 
+/**
+ * Create one piece of 1024x1024 parallax layer art: a solid circle of `fill` at
+ * radius `r`, centered, on transparency. Two layers with different radii overlap,
+ * so a composite reveals which one was painted on top.
+ */
+export function createTestSvgLayer(dir: string, name: string, fill: string, r: number): string {
+  const filePath = join(dir, name);
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    filePath,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">` +
+      `<circle cx="512" cy="512" r="${r}" fill="${fill}"/></svg>`,
+  );
+  return filePath;
+}
+
 /** Create a symlink to a PNG */
 export function createSymlink(target: string, linkPath: string): void {
   symlinkSync(target, linkPath);
