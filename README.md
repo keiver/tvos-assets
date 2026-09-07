@@ -62,7 +62,7 @@ Every option, on every surface. **Config key** is the dotted path in `tvos-asset
 
 | Option | Config key | Plugin | Type | Default | Description |
 |---|---|---|---|---|---|
-| `--icon <path>` | `inputs.iconImage` | `icon` | path | **required** | Icon PNG or SVG with a transparent background. |
+| `--icon <path>` | `inputs.iconImage` | `icon` | path | **required\*** | Icon PNG or SVG with a transparent background. \*Optional when `--layer-front` and `--layer-middle` are both given: the icon is then assembled from them. See [Assembling the icon from layer art](#assembling-the-icon-from-layer-art). |
 | `--background <path>` | `inputs.backgroundImage` | `background` | path | **required** | Background PNG or SVG. |
 | `--color <hex>` | `inputs.backgroundColor` | `color` | `#RRGGBB` | **required** | Splash background color, light mode. |
 | `--dark-color <hex>` | `inputs.darkBackgroundColor` | `darkColor` | `#RRGGBB` | auto | Dark mode splash background. Auto-darkened from `--color` (50% HSL lightness reduction). |
@@ -80,6 +80,8 @@ Every option, on every surface. **Config key** is the dotted path in `tvos-asset
 | `--set brandAssets.appIconSmall.size.width=` | `brandAssets.appIconSmall.size` | via `config` | `{width,height}` | `400x240` | Base size in points, multiplied by each scale. |
 | `--set brandAssets.appIconSmall.scales=` | `brandAssets.appIconSmall.scales` | via `config` | string[] | `1x,2x` | Scale factors to generate. |
 | `--set brandAssets.appIconLarge.*=` | `brandAssets.appIconLarge.*` | via `config` | same four keys | `App Icon - App Store`, `1280x768`, `1x` | App Store imagestack. Same structure as `appIconSmall`. |
+| `--ios-icon-scale <0-1>` | `iosIcon.iconScale` | `iosIconScale` | number | `0.8` | How much of the 1024 canvas the mark covers. Apple's icon grid centres the primary shape at about 80%. See [Sizing the mark](#sizing-the-mark). |
+| `--tv-icon-scale <0-1>` | `brandAssets.iconScale` | `tvIconScale` | number | `0.75` | How much of the shorter tvOS side the mark covers, on both imagestacks and both Top Shelf images. Apple asks for a 10-15% safe margin per layer. |
 | `--layer-front`, `--layer-middle`, `--layer-back` | `brandAssets.<stack>.layers.<layer>.imagePath` | `layers` | path | icon, icon, background | Custom parallax art per layer. The CLI flags apply to both imagestacks. See [Per-layer parallax art](#per-layer-parallax-art). |
 | `--set brandAssets.<stack>.layers.<layer>.source=` | `brandAssets.<stack>.layers.<layer>.source` | via `config` | `icon` \| `background` | front/middle `icon`, back `background` | How the layer renders: `icon` is centered on transparency, `background` is an opaque cover fill. |
 | `--no-top-shelf` | `brandAssets.topShelfImage(Wide).enabled` | via `config` | boolean | `true` | Both Top Shelf imagesets on/off. |
@@ -143,6 +145,8 @@ Every capability, and how to reach it from each surface. "via `config`" means th
 | Home screen icon size | `--set brandAssets.appIconSmall.size.width=` | `brandAssets.appIconSmall.size` | via `config` |
 | Home screen icon scales | `--set brandAssets.appIconSmall.scales=` | `brandAssets.appIconSmall.scales` | via `config` |
 | App Store icon (all of the above) | `--set brandAssets.appIconLarge.*=` | `brandAssets.appIconLarge.*` | via `config` |
+| Mark size on iOS | `--ios-icon-scale` | `iosIcon.iconScale` | `iosIconScale` |
+| Mark size on tvOS | `--tv-icon-scale` | `brandAssets.iconScale` | `tvIconScale` |
 | Per-layer parallax art | `--layer-front`, `--layer-middle`, `--layer-back` | `brandAssets.*.layers.*.imagePath` | `layers` |
 | Per-layer source | `--set brandAssets.*.layers.*.source=` | `brandAssets.*.layers.*.source` | via `config` |
 | Top Shelf on/off | `--no-top-shelf` | `brandAssets.topShelfImage(Wide).enabled` | via `config` |
@@ -187,7 +191,6 @@ Regenerate all assets automatically on every `expo prebuild`, for both tvOS (`EX
 ```json
 "plugins": [
   ["tvos-assets/plugin", {
-    "icon": "./assets/brand/icon.svg",
     "background": "./assets/brand/background.png",
     "color": "#1C1C1E",
     "iconBorderRadius": 0,
@@ -196,7 +199,7 @@ Regenerate all assets automatically on every `expo prebuild`, for both tvOS (`EX
 ]
 ```
 
-Props are the **Plugin** column of the [options table](#options); all paths resolve relative to the project root. Anything without a dedicated prop is reachable through `config`, a path to a full JSON config file deep-merged under the props above.
+No `icon` prop above: with art for both icon layers, the plugin assembles one. Props are the **Plugin** column of the [options table](#options); all paths resolve relative to the project root. Anything without a dedicated prop is reachable through `config`, a path to a full JSON config file deep-merged under the props above.
 
 Install as a devDependency (`npm i -D tvos-assets`) and list the plugin **after** `expo-splash-screen` (and any TV config plugin, such as `@react-native-tvos/config-tv`) so the generated splash imagesets overwrite their single-icon output.
 
@@ -234,6 +237,57 @@ Or per stack in a config file (`brandAssets.<stack>.layers.<layer>.imagePath`), 
 Registration matters. Icon-sourced layers are all placed identically (centered, scaled to 60% of the shorter output side), so export every layer from the **same square artboard** as the full icon and they stay perfectly aligned in the stack. A typical split puts highlights and foreground detail on Front, the main shape on Middle, and the background image on Back. `iconBorderRadius` is not applied to custom layer art.
 
 Open the generated `preview.html` and point at the imagestack to check your layer separation before building.
+
+## Sizing the mark
+
+Scale alone does not place a mark, because it sizes the *artboard* and your own
+transparent margin then shrinks the mark inside it. Tomo TV's art fills 67.6% of
+its 1024 artboard, so an 0.8 scale drew it at 54% of the icon.
+
+So the icon is first normalised to the square its visible artwork occupies, and
+the scale is applied to that. `--ios-icon-scale 0.8` means the mark covers 80% of
+the icon, whatever padding your file carries:
+
+| | Default | Why |
+| --- | --- | --- |
+| `--ios-icon-scale` | `0.8` | Apple's icon grid centres the primary shape at roughly 80% of the canvas, leaving about a 10% margin. |
+| `--tv-icon-scale` | `0.75` | tvOS wants 10-15% of safe margin on every parallax layer: a focused icon scales up ~1.05-1.1x and its layers slide against each other, so content near an edge clips. 0.75 leaves 12.5% a side. |
+
+One box is measured per run, from the flat icon, and applied to every surface
+*and* every parallax layer. Sharing one transform is what keeps the layers
+registered: normalising each layer to its own bounds would slide the front layer
+off the middle one.
+
+The splash screen logo is not affected. It already fills its own square.
+
+## Assembling the icon from layer art
+
+Because every icon-sourced layer sits on that same square artboard, the flat icon
+is just those layers stacked. Supplying it separately means keeping a third file
+in sync with two you already ship, so when you give art for **every** icon layer,
+`--icon` becomes optional:
+
+```bash
+tvos-assets --background bg.png --color "#1C1C1E" \
+  --layer-front ./layer-front.svg --layer-middle ./layer-middle.svg
+```
+
+The icon is composited back to front from that art (the Back layer is the
+background, so it is left out) and used everywhere a flat icon is needed: the iOS
+`AppIcon.appiconset`, both Top Shelf images, the splash screen logo, and
+`icon.png`. The imagestacks keep reading your layer files directly, so vector art
+stays vector there.
+
+Details worth knowing:
+
+- **Every** icon layer needs art. With only `--layer-front`, the Middle layer
+  would still fall back to the icon being derived, so `--icon` stays required.
+- When the two imagestacks carry different art, the icon is assembled from
+  `appIconLarge`.
+- `iconBorderRadius` applies to the assembled icon, in the units of your layer
+  artboard, exactly as it would to a supplied one.
+- `preview.html` lists the assembled icon after the layers it came from, so you
+  can check the composite against its parts.
 
 ## Programmatic API
 

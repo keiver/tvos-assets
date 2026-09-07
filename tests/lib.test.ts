@@ -5,7 +5,12 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig } from "../src/config";
 import { generateAssets } from "../src/lib";
-import { createTestIcon, createTestBackground, createTestSvgIcon } from "./fixtures/create-fixtures";
+import {
+  createTestIcon,
+  createTestBackground,
+  createTestSvgIcon,
+  createTestSvgLayer,
+} from "./fixtures/create-fixtures";
 import type { TvOSImageCreatorConfig } from "../src/types";
 
 const TMP = join(__dirname, "../.test-tmp-lib");
@@ -25,6 +30,104 @@ async function makeConfig(): Promise<TvOSImageCreatorConfig> {
   const bg = await createTestBackground(TMP);
   return resolveConfig({ icon, background: bg, color: "#FF0000", output: join(TMP, "out") });
 }
+
+describe("generateAssets with an assembled icon", () => {
+  /** Middle is a wide blue disc, front a narrow red one, so the paint order shows. */
+  async function makeAssembledConfig(): Promise<TvOSImageCreatorConfig> {
+    const bg = await createTestBackground(TMP);
+    const front = createTestSvgLayer(TMP, "front.svg", "#FF0000", 200);
+    const middle = createTestSvgLayer(TMP, "middle.svg", "#0000FF", 400);
+    const layers = { front: { imagePath: front }, middle: { imagePath: middle } };
+
+    return resolveConfig({
+      background: bg,
+      color: "#FF0000",
+      output: join(TMP, "out"),
+      overrides: { brandAssets: { appIconSmall: { layers }, appIconLarge: { layers } } },
+    });
+  }
+
+  /** RGB of one pixel, as a #rrggbb string. */
+  async function pixelAt(file: string, x: number, y: number): Promise<string> {
+    const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const i = (y * info.width + x) * 4;
+    return "#" + [data[i], data[i + 1], data[i + 2]].map((c) => c.toString(16).padStart(2, "0")).join("");
+  }
+
+  it("generates every icon-derived asset without an icon input", async () => {
+    const config = await makeAssembledConfig();
+    const xcassetsDir = join(TMP, "Images.xcassets");
+
+    await generateAssets(config, xcassetsDir);
+
+    expect(existsSync(join(xcassetsDir, "AppIcon.appiconset", "icon-1024.png"))).toBe(true);
+    expect(existsSync(join(xcassetsDir, "AppIcon.appiconset", "icon-1024-dark.png"))).toBe(true);
+    expect(existsSync(join(xcassetsDir, "AppIcon.brandassets", "Top Shelf Image.imageset"))).toBe(true);
+    expect(existsSync(join(xcassetsDir, "SplashScreenLogo.imageset", "200-icon@3x.png"))).toBe(true);
+  });
+
+  it("paints the layers back to front: the front layer wins the overlap", async () => {
+    const config = await makeAssembledConfig();
+    const xcassetsDir = join(TMP, "Images.xcassets");
+
+    await generateAssets(config, xcassetsDir);
+
+    // The dark variant is the bare icon on transparency at 1024. The content box
+    // is the middle disc (the larger one), so it renders at the full iOS scale
+    // and the front disc at half of it. A point past the front disc's edge but
+    // inside the middle one must be blue; reversed order would paint it red.
+    const middleRadius = (1024 * config.iosIcon.iconScale) / 2;
+    const frontRadius = middleRadius / 2;
+    const probe = Math.round((frontRadius + middleRadius) / 2);
+    expect(probe).toBeGreaterThan(frontRadius);
+    expect(probe).toBeLessThan(middleRadius);
+
+    const dark = join(xcassetsDir, "AppIcon.appiconset", "icon-1024-dark.png");
+    expect(await pixelAt(dark, 512, 512)).toBe("#ff0000");
+    expect(await pixelAt(dark, 512, 512 - probe)).toBe("#0000ff");
+  });
+
+  it("sizes the mark to the configured share of the canvas, not the artboard", async () => {
+    const config = await makeAssembledConfig();
+    const xcassetsDir = join(TMP, "Images.xcassets");
+
+    await generateAssets(config, xcassetsDir);
+
+    // The layer art is a disc on a mostly empty 1024 artboard. Without content
+    // normalisation that padding would shrink the mark; with it, the mark lands
+    // at exactly the configured share of the canvas.
+    const dark = join(xcassetsDir, "AppIcon.appiconset", "icon-1024-dark.png");
+    const { data, info } = await sharp(dark).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    let left = info.width;
+    let right = -1;
+    for (let x = 0; x < info.width; x++) {
+      if (data[(512 * info.width + x) * 4 + 3] > 8) {
+        if (x < left) left = x;
+        if (x > right) right = x;
+      }
+    }
+    const covered = (right - left + 1) / info.width;
+    expect(covered).toBeCloseTo(config.iosIcon.iconScale, 1);
+  });
+
+  it("leaves the caller's config untouched", async () => {
+    const config = await makeAssembledConfig();
+
+    await generateAssets(config, join(TMP, "Images.xcassets"));
+
+    expect(config.inputs.iconImage).toBe("");
+    expect(config.inputs.iconAssembledFrom).toHaveLength(2);
+  });
+
+  it("refuses a config with neither an icon nor layer art", async () => {
+    const config = await makeAssembledConfig();
+    const broken = { ...config, inputs: { ...config.inputs, iconAssembledFrom: undefined } };
+
+    await expect(generateAssets(broken, join(TMP, "Images.xcassets"))).rejects.toThrow(
+      /no icon image and no layer art/,
+    );
+  });
+});
 
 describe("generateAssets", () => {
   it("generates tvOS + iOS + splash assets by default", async () => {

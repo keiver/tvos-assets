@@ -1,6 +1,18 @@
 # Changelog
 
 ## [Unreleased]
+- feat(icons): the mark is sized to Apple's proportions instead of a hardcoded
+  0.6 of the shorter side. The icon is normalized to the square its visible
+  artwork occupies before scaling, so the number means "the mark covers N% of
+  the canvas" no matter how much transparent margin the source carries. New
+  `--ios-icon-scale` (default 0.8, Apple's icon grid) and `--tv-icon-scale`
+  (default 0.75, inside Apple's 10-15% parallax safe margin). One content box is
+  measured per run and shared by every surface and every parallax layer, which
+  keeps the layers registered.
+- feat(config): `--icon` is optional when every icon layer carries its own art.
+  The flat icon is assembled from that art back to front and used for the iOS
+  appiconset, Top Shelf images, splash logo, and `icon.png`, so a project with
+  parallax layers no longer maintains a hand-flattened third copy of them.
 
 ## [1.4.0] - 2026-08-05
 - feat(cli): full config parity, preview.html, and DX pass (#7)

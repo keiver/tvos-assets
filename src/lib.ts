@@ -1,3 +1,5 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   resolveConfig,
@@ -16,7 +18,8 @@ import { generateIcon } from "./generators/icon.js";
 import { generatePreview } from "./generators/preview.js";
 import type { OutsideLinkStyle } from "./generators/preview.js";
 import type { TvOSImageCreatorConfig } from "./types.js";
-import { ensureDir, cleanDir, writeContentsJson } from "./utils/fs.js";
+import { ensureDir, cleanDir, writeContentsJson, safeWriteFile } from "./utils/fs.js";
+import { assembleIconFromLayers, contentBox } from "./utils/image-processing.js";
 
 export type TargetPlatform = "tvos" | "ios";
 
@@ -139,16 +142,47 @@ export function planAssets(config: TvOSImageCreatorConfig, options: PlanOptions 
  * The catalog may already exist (e.g. an Expo-generated ios/<app>/Images.xcassets);
  * asset directories owned by this tool are cleaned and rewritten, everything else
  * in the catalog is left untouched.
+ *
+ * When the icon is assembled from layer art rather than supplied, the assembled
+ * PNG is written to a scratch directory that is removed once the run is done: it
+ * is an intermediate, and every asset derived from it is already a real output.
  */
 export async function generateAssets(
   config: TvOSImageCreatorConfig,
   xcassetsDir: string,
   options: GenerateOptions = {},
 ): Promise<GenerateResult> {
+  if (!config.inputs.iconAssembledFrom) {
+    if (!config.inputs.iconImage) {
+      throw new Error("Config has no icon image and no layer art to assemble one from.");
+    }
+    return generateResolved(config, xcassetsDir, options);
+  }
+
+  const scratch = mkdtempSync(join(tmpdir(), "tvos-assets-"));
+  try {
+    const iconPath = join(scratch, "assembled-icon.png");
+    safeWriteFile(iconPath, await assembleIconFromLayers(config.inputs.iconAssembledFrom));
+    const resolved = { ...config, inputs: { ...config.inputs, iconImage: iconPath } };
+    return await generateResolved(resolved, xcassetsDir, options);
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+async function generateResolved(
+  config: TvOSImageCreatorConfig,
+  xcassetsDir: string,
+  options: GenerateOptions,
+): Promise<GenerateResult> {
   const platforms = options.platforms ?? ["tvos", "ios"];
   const step = options.onStep ?? (() => {});
 
   const { warnings, iconSourceSize } = await validateInputImages(config);
+
+  // Measured once from the flat icon and reused for every surface, including
+  // each parallax layer, so one transform keeps the layers registered.
+  const content = await contentBox(config.inputs.iconImage);
 
   step("Creating xcassets directory...");
   ensureDir(xcassetsDir);
@@ -157,13 +191,13 @@ export async function generateAssets(
   if (platforms.includes("tvos")) {
     step("Generating tvOS brand assets (app icons + top shelf)...");
     cleanDir(join(xcassetsDir, `${config.brandAssets.name}.brandassets`));
-    await generateBrandAssets(xcassetsDir, config, iconSourceSize);
+    await generateBrandAssets(xcassetsDir, config, iconSourceSize, content);
   }
 
   if (platforms.includes("ios") && config.iosIcon.enabled) {
     step("Generating iOS app icon (light + dark + tinted)...");
     cleanDir(join(xcassetsDir, `${config.iosIcon.name}.appiconset`));
-    await generateAppIconSet(xcassetsDir, config, iconSourceSize);
+    await generateAppIconSet(xcassetsDir, config, iconSourceSize, content);
   }
 
   if (config.splashScreen.logo.enabled) {
@@ -180,7 +214,7 @@ export async function generateAssets(
 
   if (options.standaloneIconPath) {
     step("Generating icon.png (1024x1024)...");
-    await generateIcon(config, options.standaloneIconPath, iconSourceSize);
+    await generateIcon(config, options.standaloneIconPath, iconSourceSize, content);
   }
 
   if (options.previewPath) {

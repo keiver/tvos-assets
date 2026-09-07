@@ -46,6 +46,13 @@ export interface ImageSetAssetConfig {
 
 export interface BrandAssetsConfig {
   name: string;
+  /**
+   * How much of the shorter output side the mark covers on tvOS, after the
+   * icon is normalised to its own artwork. Apple asks for a 10-15% safe margin
+   * on every layer, because a focused icon scales ~1.05-1.1x and the layers
+   * shift against each other, so content near an edge clips.
+   */
+  iconScale: number;
   appIconSmall: ImageStackAssetConfig;
   appIconLarge: ImageStackAssetConfig;
   topShelfImage: ImageSetAssetConfig;
@@ -92,6 +99,12 @@ export interface InputConfig {
   iconDarkImage?: string;
   /** Optional tinted-appearance iOS icon override; auto-derived (grayscale) when omitted. */
   iconTintedImage?: string;
+  /**
+   * Derived, never authored: when no icon input is supplied, the parallax layer
+   * art the flat icon is assembled from, in back-to-front stacking order.
+   * `resolveConfig` sets it and `generateAssets` turns it into `iconImage`.
+   */
+  iconAssembledFrom?: string[];
 }
 
 export type OutputMode = "zip" | "dir";
@@ -105,6 +118,12 @@ export interface OutputConfig {
 export interface IosIconConfig {
   enabled: boolean;
   name: string;
+  /**
+   * How much of the 1024 canvas the mark covers, after the icon is normalised
+   * to its own artwork. Apple's icon grid centres the primary shape at roughly
+   * 80% of the canvas, leaving about a 10% margin.
+   */
+  iconScale: number;
 }
 
 export interface XcassetsMetaConfig {

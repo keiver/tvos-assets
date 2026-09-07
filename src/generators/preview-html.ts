@@ -435,7 +435,13 @@ export function renderPreviewHtml(options: RenderPreviewOptions): string {
 
   // config here is already the display copy: paths rewritten relative or tildified.
   const meta: [string, string][] = [
-    ["Icon", esc(config.inputs.iconImage)],
+    [
+      "Icon",
+      // No icon was supplied: name the layer art it was assembled from instead.
+      config.inputs.iconAssembledFrom
+        ? esc(`${config.inputs.iconAssembledFrom.join(" + ")} (assembled)`)
+        : esc(config.inputs.iconImage),
+    ],
     ["Background", esc(config.inputs.backgroundImage)],
     ["Color", `<span class="chip" style="background:${accent}"></span>${esc(config.inputs.backgroundColor)}`],
     [

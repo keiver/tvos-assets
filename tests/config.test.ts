@@ -13,6 +13,7 @@ import {
   createTextFile,
   createBadJsonConfig,
   createValidConfig,
+  createTestSvgLayer,
 } from "./fixtures/create-fixtures";
 
 const TMP = join(__dirname, "../.test-tmp-config");
@@ -342,6 +343,146 @@ describe("resolveConfig", () => {
     expect(() =>
       resolveConfig({ icon, background: bg }),
     ).toThrow(/Background color is required/);
+  });
+
+  // --- Icon scale ---
+
+  describe("icon scale", () => {
+    it("defaults to Apple's proportions: 0.8 on iOS, 0.75 on tvOS", async () => {
+      const { icon, bg } = await createStandardInputs();
+      const config = resolveConfig({ icon, background: bg, color: "#FF0000" });
+
+      expect(config.iosIcon.iconScale).toBe(0.8);
+      expect(config.brandAssets.iconScale).toBe(0.75);
+    });
+
+    it("CLI flags override both", async () => {
+      const { icon, bg } = await createStandardInputs();
+      const config = resolveConfig({
+        icon,
+        background: bg,
+        color: "#FF0000",
+        iosIconScale: "0.9",
+        tvIconScale: "0.7",
+      });
+
+      expect(config.iosIcon.iconScale).toBe(0.9);
+      expect(config.brandAssets.iconScale).toBe(0.7);
+    });
+
+    it("a config file sets them when no flag is given", async () => {
+      const { icon, bg } = await createStandardInputs();
+      const configPath = join(TMP, "scale.json");
+      writeFileSync(
+        configPath,
+        JSON.stringify({ iosIcon: { iconScale: 0.65 }, brandAssets: { iconScale: 0.6 } }),
+      );
+
+      const config = resolveConfig({ icon, background: bg, color: "#FF0000", config: configPath });
+
+      expect(config.iosIcon.iconScale).toBe(0.65);
+      expect(config.brandAssets.iconScale).toBe(0.6);
+    });
+
+    it.each([["0"], ["-0.5"], ["1.5"], ["abc"]])("rejects %s", async (value) => {
+      const { icon, bg } = await createStandardInputs();
+      expect(() =>
+        resolveConfig({ icon, background: bg, color: "#FF0000", iosIconScale: value }),
+      ).toThrow(/Invalid iosIcon.iconScale/);
+    });
+  });
+
+  // --- Assembling the icon from parallax layer art ---
+
+  describe("assembled icon", () => {
+    // --layer-front / --layer-middle write imagePath onto both imagestacks.
+    function layerOverrides(front: string, middle: string) {
+      const layers = { front: { imagePath: front }, middle: { imagePath: middle } };
+      return { brandAssets: { appIconSmall: { layers }, appIconLarge: { layers } } };
+    }
+
+    it("accepts a missing icon when every icon layer carries art, in back-to-front order", async () => {
+      const bg = await createTestBackground(TMP);
+      const front = createTestSvgLayer(TMP, "front.svg", "#FF0000", 200);
+      const middle = createTestSvgLayer(TMP, "middle.svg", "#0000FF", 400);
+
+      const config = resolveConfig({
+        background: bg,
+        color: "#FF0000",
+        overrides: layerOverrides(front, middle),
+      });
+
+      expect(config.inputs.iconImage).toBe("");
+      expect(config.inputs.iconAssembledFrom).toEqual([resolve(middle), resolve(front)]);
+    });
+
+    it("still requires an icon when only one icon layer carries art", async () => {
+      const bg = await createTestBackground(TMP);
+      const front = createTestSvgLayer(TMP, "front.svg", "#FF0000", 200);
+      const layers = { front: { imagePath: front } };
+
+      expect(() =>
+        resolveConfig({
+          background: bg,
+          color: "#FF0000",
+          overrides: { brandAssets: { appIconSmall: { layers }, appIconLarge: { layers } } },
+        }),
+      ).toThrow(/Icon image is required/);
+    });
+
+    it("a supplied icon wins: nothing is assembled", async () => {
+      const { icon, bg } = await createStandardInputs();
+      const front = createTestSvgLayer(TMP, "front.svg", "#FF0000", 200);
+      const middle = createTestSvgLayer(TMP, "middle.svg", "#0000FF", 400);
+
+      const config = resolveConfig({
+        icon,
+        background: bg,
+        color: "#FF0000",
+        overrides: layerOverrides(front, middle),
+      });
+
+      expect(config.inputs.iconImage).toBe(resolve(icon));
+      expect(config.inputs.iconAssembledFrom).toBeUndefined();
+    });
+
+    it("assembles from appIconLarge when the two stacks carry different art", async () => {
+      const bg = await createTestBackground(TMP);
+      const smallFront = createTestSvgLayer(TMP, "small-front.svg", "#FF0000", 200);
+      const smallMiddle = createTestSvgLayer(TMP, "small-middle.svg", "#0000FF", 400);
+      const largeFront = createTestSvgLayer(TMP, "large-front.svg", "#00FF00", 250);
+      const largeMiddle = createTestSvgLayer(TMP, "large-middle.svg", "#FFFF00", 450);
+
+      const config = resolveConfig({
+        background: bg,
+        color: "#FF0000",
+        overrides: {
+          brandAssets: {
+            appIconSmall: {
+              layers: { front: { imagePath: smallFront }, middle: { imagePath: smallMiddle } },
+            },
+            appIconLarge: {
+              layers: { front: { imagePath: largeFront }, middle: { imagePath: largeMiddle } },
+            },
+          },
+        },
+      });
+
+      expect(config.inputs.iconAssembledFrom).toEqual([resolve(largeMiddle), resolve(largeFront)]);
+    });
+
+    it("a config file cannot inject iconAssembledFrom", async () => {
+      const { icon, bg } = await createStandardInputs();
+      const configPath = join(TMP, "injected.json");
+      writeFileSync(
+        configPath,
+        JSON.stringify({ inputs: { iconAssembledFrom: ["/etc/passwd"] } }),
+      );
+
+      const config = resolveConfig({ icon, background: bg, color: "#FF0000", config: configPath });
+
+      expect(config.inputs.iconAssembledFrom).toBeUndefined();
+    });
   });
 
   // --- Whitespace-only inputs (Phase 3 fix) ---
