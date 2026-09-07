@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.5.0] - 2026-09-07
+- feat(icons): size the mark to Apple's proportions, assemble it from layer art (#9)
+
 - feat(icons): the mark is sized to Apple's proportions instead of a hardcoded
   0.6 of the shorter side. The icon is normalized to the square its visible
   artwork occupies before scaling, so the number means "the mark covers N% of
