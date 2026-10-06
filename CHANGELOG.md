@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.6.2] - 2026-10-06
+- docs(readme): rewrite in plainer language, App Store video options; lockfile peer dependency (#13)
+
 - docs(readme): rewritten in plainer language for iOS and the App Store art as well as Apple TV;
   the options table now covers `appStore.video` (fps, codec, audio, audioStart, audioEnd).
 - chore(deps): `package-lock.json` records the optional `@expo/config-plugins` peer dependency
