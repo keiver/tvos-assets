@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.6.1] - 2026-10-06
+- fix(preview): keep appStore.video.audio relative in preview.html (#12)
+
 - fix(preview): `appStore.video.audio` shows in preview.html's resolved config relative to the
   page, like every other path, instead of as an absolute path under the home directory.
 
