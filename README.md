@@ -675,5 +675,3 @@ node -e 'console.log(typeof require("tvos-assets/plugin"))'           # CJS plug
 ## License
 
 MIT. The demo icons and backgrounds in the screenshots come from the [poster generator on keiver.dev](https://keiver.dev/lab/poster-generator).
-
-<img src="docs/parallax.gif" alt="The three imagestack layers separating to show parallax depth" width="420">
