@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+
+## [1.6.0] - 2026-10-06
+- feat(app-store): App Store creative assets: header, search results, universal and In-App Event media, from the icon or row artwork, with looping videos (#10)
+
 - feat(app-store): App Store creative assets for iOS 27 and iPadOS 27 (`--app-store`, config
   `appStore`, plugin prop `appStore`): `header.png` (3840x1646), `search-results.png`
   (3840x2560) and `universal.png` (5244x2950), opaque, art in Apple's template safe areas, plus
