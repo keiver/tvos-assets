@@ -357,8 +357,9 @@ Design it at 3840x1646 (the header canvas) and export it as SVG. Every rule is c
 | Rows are evenly spaced, and repeat every two (row 3 lines up with row 1) | New rows above and below continue the stagger on a taller canvas. |
 | Fills meant to cover everything cover exactly 0,0 to width,height (`rect`, or a rectangular `path`) | Those stretch to a bigger canvas; anything else keeps its place, centred. |
 | No `<text>`, and no `<image>` linking outside the file | Outline text and embed images, so every machine renders the same pixels. |
+| A shape may hold one `<animate attributeName values dur>`, whose `dur` divides the `animate.rows` loop | Videos play it frame by frame (a blinking dot, say) and stills show its first value. A `dur` that does not divide the loop fails, since the loop would jump. |
 
-Rows may stop at the canvas edge or run past it; they are re-tiled either way. Anything outside the `<mask>` (type, logos, a vignette) never moves.
+Rows may stop at the canvas edge or run past it; they are re-tiled either way. Anything outside the `<mask>` (type, logos, a vignette) never moves. Texture that should travel with the cards, such as scan lines, goes in the cards' own fill: a `pattern` with `patternUnits="userSpaceOnUse"` moves with each card.
 
 [`examples/row-artwork/`](examples/row-artwork) holds six files that pass these rules, one per card shape: circles, rounded `rect`s, hexagon `polygon`s, `path` tiles drawn with relative commands, 16:9 `rect`s under a fixed vignette, and interlocking diamonds.
 
@@ -366,7 +367,9 @@ Rows may stop at the canvas edge or run past it; they are re-tiled either way. A
 
 ### Recordings
 
-App Store Connect also takes video for the header and search results. Point `header.video` or `searchResults.video` at a recording (`.mov`, `.mp4` or `.m4v`), such as a simulator capture from `xcrun simctl io <udid> recordVideo` of a tour that starts and ends on the same screen, and tvos-assets writes `header.mp4` or `search-results.mp4`: it fills the canvas (cover, centre crop), resamples to a constant frame rate (simulator captures only write frames when the screen changes), dissolves the last 0.5 s into the start so the loop has no cut, and caps it at 30 s. Encoding is H.264 High with a silent stereo AAC track, or ProRes 422 HQ in `.mov` with `video.codec: "prores"`. It needs ffmpeg on `PATH` or at `FFMPEG_PATH`.
+App Store Connect also takes video for the header and search results. Point `header.video` or `searchResults.video` at a recording (`.mov`, `.mp4` or `.m4v`), such as a simulator capture from `xcrun simctl io <udid> recordVideo` of a tour that starts and ends on the same screen, and tvos-assets writes `header.mp4` or `search-results.mp4`: it fills the canvas (cover, centre crop), resamples to a constant frame rate (simulator captures only write frames when the screen changes), dissolves the last 0.5 s into the start so the loop has no cut, and caps it at 30 s. Encoding is H.264 High with a silent stereo AAC track, or ProRes 422 HQ in `.mov` with `video.codec: "prores"`. On a Mac it uses the VideoToolbox hardware encoder, elsewhere libx264 (or prores_ks). It needs ffmpeg on `PATH` or at `FFMPEG_PATH`.
+
+Row-motion loops render fast: only the cards move, so each frame is blended from the artwork drawn once with every card lit and once with none, through a card mask built from row strips drawn once, several frames at a time. A 20 s 4K header loop takes about 15 s on an M1 Max. Art the blend cannot reproduce exactly (rows that overlap, more than one element drawn through the mask, or a blend that differs from a full render) is drawn in full each frame instead.
 
 ```json
 "appStore": { "enabled": true, "searchResults": { "video": "./applestore/tour.mov" } }

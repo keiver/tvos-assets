@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { resolveConfig } from "../../src/config";
 import {
   encodeRows,
+  encoderPreference,
   ffmpegPath,
   generateAppStoreVideos,
   pickEncoder,
@@ -112,6 +113,15 @@ describe("row motion", () => {
   });
 });
 
+describe("encoderPreference", () => {
+  it("puts the VideoToolbox hardware encoder first on a Mac, the software one elsewhere", () => {
+    expect(encoderPreference("h264", "darwin")).toEqual(["h264_videotoolbox", "libx264"]);
+    expect(encoderPreference("prores", "darwin")).toEqual(["prores_videotoolbox", "prores_ks"]);
+    expect(encoderPreference("h264", "linux")).toEqual(["libx264", "h264_videotoolbox"]);
+    expect(encoderPreference("prores", "linux")).toEqual(["prores_ks", "prores_videotoolbox"]);
+  });
+});
+
 const hasFfmpeg = spawnSync(ffmpegPath(), ["-version"]).status === 0;
 const describeWithFfmpeg = hasFfmpeg ? describe : describe.skip;
 
@@ -145,6 +155,15 @@ describeWithFfmpeg("encodeRows (ffmpeg)", () => {
       expect(frame(n)[p]).toBeGreaterThan(180);
       expect(frame(n)[p + 1]).toBeLessThan(80);
     }
+  });
+
+  it("refuses an <animate> whose dur does not divide the loop", async () => {
+    const source = join(TMP, "blink.svg");
+    writeFileSync(source, ROW_SVG.replace('fill="#FF0000"/>', 'fill="#FF0000"><animate attributeName="opacity" values="1;0" dur="2s"/></rect>'));
+    const ffmpeg = ffmpegPath();
+    await expect(
+      encodeRows({ ffmpeg, encoder: await pickEncoder(ffmpeg, "h264"), source, output: join(TMP, "blink.mp4"), width: 400, height: 200, fps: 30, seconds: 5, codec: "h264" }),
+    ).rejects.toThrow(/lasts 2 s, which does not divide the 5 s loop/);
   });
 });
 

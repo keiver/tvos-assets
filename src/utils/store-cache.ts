@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { safeWriteFile } from "./fs.js";
 
 /** Bump when the App Store renderers change what they draw, so older outputs are redrawn. */
-const RENDERER = "1";
+const RENDERER = "2";
 
 /** Hash of everything an output is made from: file contents for paths, values for the rest. */
 export function inputKey(files: (string | undefined)[], settings: unknown): string {

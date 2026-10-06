@@ -6,7 +6,7 @@ import type { AppStorePlacementConfig, TvOSImageCreatorConfig } from "../types.j
 import { ensureDir, safeWriteFile } from "../utils/fs.js";
 import { compositeCenterInRect } from "../utils/image-processing.js";
 import type { CenterItem, ContentBox, Rect } from "../utils/image-processing.js";
-import { parseRowArtwork, renderRows } from "../utils/svg-rows.js";
+import { animateAt, parseRowArtwork, renderRows } from "../utils/svg-rows.js";
 import type { RowArtwork } from "../utils/svg-rows.js";
 import { StoreCache, inputKey } from "../utils/store-cache.js";
 
@@ -161,7 +161,7 @@ export async function renderSource(
     const svg = readFileSync(source, "utf8");
     const art = readRowArtwork(source);
     image = art
-      ? sharp(Buffer.from(renderRows(art, width, height, undefined, centre)))
+      ? sharp(Buffer.from(renderRows({ ...art, source: animateAt(art.source, 0) }, width, height, undefined, centre)))
       : sharp(Buffer.from(svg)).resize(width, height, { fit: "cover" });
   } else {
     image = sharp(source).resize(width, height, { fit: "cover" });

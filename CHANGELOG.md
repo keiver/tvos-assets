@@ -7,9 +7,12 @@
   opt-in In-App Event media (`event-card.png` 3840x2160, `event-details.png` 2160x3840).
   Per placement: finished artwork (`source`), row artwork re-tiled to each canvas, a row-motion
   loop video (`animate`), or a recording cut into a seamless loop (`video`); `enabled` skips a
-  placement. Videos are H.264 High with a silent stereo track (or ProRes 422 HQ) via ffmpeg.
+  placement. Videos are H.264 High with a silent stereo track (or ProRes 422 HQ) via ffmpeg,
+  on VideoToolbox on a Mac. Row-motion frames are blended from layers drawn once, several at a
+  time: a 20 s 4K header loop takes about 15 s on an M1 Max.
   Unchanged outputs are skipped. `preview.html` outlines the safe areas and plays the videos.
-  Six example row artwork files in `examples/row-artwork/`.
+  Six example row artwork files in `examples/row-artwork/`. Row artwork videos play SVG
+  `<animate>` on its shapes frame by frame.
 
 ## [1.5.0] - 2026-09-07
 - feat(icons): size the mark to Apple's proportions, assemble it from layer art (#9)

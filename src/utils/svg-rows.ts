@@ -12,6 +12,8 @@
  *    width,height) are stretched to a bigger canvas; everything else stays where it is, centred.
  * 6. No `<text>` (convert it to outlines) and no `<image>` pointing outside the file, so every
  *    machine renders the same pixels.
+ * 7. A shape may hold one `<animate attributeName values dur>` (a blinking dot, say): videos play
+ *    it, stills show its first value, and its `dur` must divide the loop.
  */
 
 export interface Box {
@@ -28,6 +30,8 @@ export interface RowArtwork {
   rows: { y: number; xs: number[]; template: string; cx: number; cy: number }[];
   pitchX: number;
   pitchY: number;
+  /** Size of one card's bounding box. */
+  card: { width: number; height: number };
   /** The card under the centre of the fixed layer (what is drawn outside the mask), if any. */
   anchor?: Box;
   source: string;
@@ -160,7 +164,7 @@ export function parseRowArtwork(svg: string): RowArtwork {
     if (!close(Math.min(d, pitchX - d), 0)) fail(`rows must repeat every two; the row at y=${rows[i].y.toFixed(1)} does not line up with the row at y=${rows[i - 2].y.toFixed(1)}`);
   }
 
-  return { width, height, rows, pitchX, pitchY, anchor: anchorCard(svg, width, height, boxes), source: svg };
+  return { width, height, rows, pitchX, pitchY, card: { width: w0, height: h0 }, anchor: anchorCard(svg, width, height, boxes), source: svg };
 }
 
 const SHAPE = /<(path|rect|circle|ellipse|polygon)\b[^>]*?(?:\/>|>[\s\S]*?<\/\1>)/g;
@@ -180,11 +184,51 @@ function anchorCard(svg: string, width: number, height: number, cards: Box[]): B
   return card && { x0: card.x0, y0: card.y0, x1: card.x1, y1: card.y1 };
 }
 
+const ANIMATED = /<(\w+)\b([^>]*?)>\s*<animate\b([^>]*?)\/>\s*<\/\1>/g;
+
+/** Seconds in an SMIL clock value: "1.5s", "800ms" or a bare number. */
+function clockSeconds(value: string): number {
+  const v = value.trim();
+  return v.endsWith("ms") ? parseFloat(v) / 1000 : parseFloat(v);
+}
+
+/** The `dur` of every `<animate>` in the SVG, in seconds. */
+export function animationPeriods(svg: string): number[] {
+  return [...svg.matchAll(ANIMATED)].map((m) => clockSeconds(attr(m[3], "dur") ?? "0"));
+}
+
+/**
+ * The SVG with each `<animate>` replaced by its value at `t` seconds, set on the shape holding it:
+ * `values` (or `from`/`to`), optional `keyTimes`, linear between numbers, else `calcMode="discrete"`.
+ */
+export function animateAt(svg: string, t: number): string {
+  return svg.replace(ANIMATED, (_m, name: string, attrs: string, anim: string) => {
+    const target = attr(anim, "attributeName");
+    const dur = clockSeconds(attr(anim, "dur") ?? "0");
+    const values = (attr(anim, "values") ?? [attr(anim, "from"), attr(anim, "to")].filter(Boolean).join(";")).split(";").map((v) => v.trim());
+    if (!target || !(dur > 0) || values.length === 0 || !values[0]) return `<${name}${attrs}/>`;
+    const keyTimes = attr(anim, "keyTimes")?.split(";").map(Number) ?? values.map((_v, i) => (values.length > 1 ? i / (values.length - 1) : 0));
+    // Rounded so every cycle repeats the same values (frames reuse a state's layers).
+    const p = Math.round(((((t % dur) + dur) % dur) / dur) * 1e6) / 1e6 % 1;
+    let i = 0;
+    while (i < keyTimes.length - 1 && keyTimes[i + 1] <= p) i++;
+    const a = values[i], b = values[Math.min(i + 1, values.length - 1)];
+    const span = (keyTimes[i + 1] ?? 1) - keyTimes[i];
+    const numeric = !Number.isNaN(Number(a)) && !Number.isNaN(Number(b));
+    const value = numeric && attr(anim, "calcMode") !== "discrete" && span > 0
+      ? String(+(Number(a) + (Number(b) - Number(a)) * ((p - keyTimes[i]) / span)).toFixed(4))
+      : a;
+    const rest = attrs.replace(new RegExp(`\\s${target}="[^"]*"`), "");
+    return `<${name}${rest} ${target}="${value}"/>`;
+  });
+}
+
 /**
  * The artwork on a `width` x `height` canvas: the original's centre placed at `centre` (default the
  * canvas centre), its full-canvas fills stretched to cover the canvas, its rows re-tiled across it
  * with the source's spacing and stagger, each row shifted horizontally by `offsets(k)` (row 0 is the
- * top source row; rows above and below repeat the stagger).
+ * top source row; rows above and below repeat the stagger). `mask` "open" lets everything through
+ * the mask and "shut" nothing, in place of the cards.
  */
 export function renderRows(
   art: RowArtwork,
@@ -192,6 +236,7 @@ export function renderRows(
   height: number,
   offsets: (row: number) => number = () => 0,
   centre: { x: number; y: number } = { x: width / 2, y: height / 2 },
+  mask: "cards" | "open" | "shut" = "cards",
 ): string {
   const { width: W, height: H, pitchX, pitchY } = art;
   // The canvas in source coordinates runs from (-dx, -dy) to (width - dx, height - dy).
@@ -237,7 +282,10 @@ export function renderRows(
     .replace(/<\/svg>\s*$/, "")
     .replace(/<mask\b([^>]*)>[\s\S]*?<\/mask>/, (_m, attrs: string) => {
       const region = attrs.replace(/\s(x|y|width|height)="[^"]*"/g, "");
-      return `<mask${region} x="${left}" y="${top}" width="${right - left}" height="${bottom - top}">${cells.join("")}</mask>`;
+      const content = mask === "cards" ? cells.join("")
+        : mask === "open" ? `<rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}" fill="white"/>`
+        : "";
+      return `<mask${region} x="${left}" y="${top}" width="${right - left}" height="${bottom - top}">${content}</mask>`;
     })
     .replace(/<(rect|path)\b[^>]*\/?>/g, stretch);
 

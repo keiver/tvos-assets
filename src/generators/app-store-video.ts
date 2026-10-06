@@ -1,11 +1,12 @@
 import { execFile, spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
+import os from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import sharp from "sharp";
 import type { AppStoreVideoCodec, TvOSImageCreatorConfig } from "../types.js";
 import { ensureDir } from "../utils/fs.js";
-import { parseRowArtwork, renderRows } from "../utils/svg-rows.js";
+import { rowFrames } from "../utils/row-frames.js";
+import { animationPeriods, parseRowArtwork } from "../utils/svg-rows.js";
 import { StoreCache, inputKey } from "../utils/store-cache.js";
 import { designCentre, enabledAssets, readRowArtwork } from "./app-store.js";
 import type { AppStoreAsset } from "./app-store.js";
@@ -15,7 +16,9 @@ const run = promisify(execFile);
 function encoderArgs(codec: AppStoreVideoCodec, encoder: string): string[] {
   const args = ["-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709"];
   if (codec === "prores") {
-    args.push("-c:v", "prores_ks", "-profile:v", "3", "-vendor", "apl0", "-c:a", "pcm_s16le");
+    args.push("-c:v", encoder, "-profile:v", encoder === "prores_ks" ? "3" : "hq");
+    if (encoder === "prores_ks") args.push("-vendor", "apl0");
+    args.push("-c:a", "pcm_s16le");
   } else {
     args.push("-c:v", encoder, "-profile:v", "high", "-b:v", "20M", "-maxrate", "24M", "-bufsize", "40M");
     if (encoder === "libx264") args.push("-preset", "slow");
@@ -65,7 +68,14 @@ export function ffprobePath(): string {
   return process.env.FFPROBE_PATH || "ffprobe";
 }
 
-/** The encoder this ffmpeg build offers for `codec`, libx264 first for H.264. */
+/** Encoders for `codec` in order of preference: the VideoToolbox hardware encoder first on a Mac. */
+export function encoderPreference(codec: AppStoreVideoCodec, platform: NodeJS.Platform = process.platform): string[] {
+  const hardware = codec === "prores" ? "prores_videotoolbox" : "h264_videotoolbox";
+  const software = codec === "prores" ? "prores_ks" : "libx264";
+  return platform === "darwin" ? [hardware, software] : [software, hardware];
+}
+
+/** The first encoder in `encoderPreference` this ffmpeg build offers. */
 export async function pickEncoder(ffmpeg: string, codec: AppStoreVideoCodec): Promise<string> {
   let listing: string;
   try {
@@ -77,7 +87,7 @@ export async function pickEncoder(ffmpeg: string, codec: AppStoreVideoCodec): Pr
     }
     throw err;
   }
-  const wanted = codec === "prores" ? ["prores_ks"] : ["libx264", "h264_videotoolbox"];
+  const wanted = encoderPreference(codec);
   const found = wanted.find((name) => new RegExp(`\\s${name}\\s`).test(listing));
   if (!found) throw new Error(`ffmpeg at "${ffmpeg}" has none of: ${wanted.join(", ")}.`);
   return found;
@@ -136,9 +146,13 @@ export function rowOffset(k: number, t: number, period: number, pitch: number): 
   return (direction * pitch * t) / period;
 }
 
+/** Frames rendered ahead of the one ffmpeg is waiting for. */
+const IN_FLIGHT = Math.min(8, Math.max(2, os.availableParallelism?.() ?? os.cpus().length));
+
 /**
  * Slide the rows of row artwork one pitch per loop, so the last frame runs into the first;
- * everything outside the mask stays put. Frames are rendered with sharp and piped to ffmpeg.
+ * everything outside the mask stays put. Frames are rendered several at a time and piped to
+ * ffmpeg in order.
  */
 export async function encodeRows(options: {
   ffmpeg: string;
@@ -155,6 +169,12 @@ export async function encodeRows(options: {
 }): Promise<void> {
   const { width, height, fps, seconds, centre } = options;
   const art = parseRowArtwork(readFileSync(options.source, "utf8"));
+  for (const dur of animationPeriods(art.source)) {
+    const cycles = seconds / dur;
+    if (!(dur > 0) || Math.abs(cycles - Math.round(cycles)) > 1e-6) {
+      throw new Error(`Row artwork: an <animate> lasts ${dur} s, which does not divide the ${seconds} s loop, so the loop would jump.`);
+    }
+  }
   const frames = Math.round(seconds * fps);
   const pixelFormat = options.codec === "prores" ? "yuv422p10le" : "yuv420p";
   const ff = spawn(
@@ -177,13 +197,24 @@ export async function encodeRows(options: {
     ff.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg failed (${code}): ${stderr.trim()}`))));
   });
 
-  for (let f = 0; f < frames; f++) {
-    const t = f / fps;
-    const svg = renderRows(art, width, height, (k) => rowOffset(k, t, seconds, art.pitchX), centre);
-    const raw = await sharp(Buffer.from(svg)).flatten({ background: { r: 0, g: 0, b: 0 } }).removeAlpha().raw().toBuffer();
-    if (!ff.stdin.write(raw)) await new Promise((resolve) => ff.stdin.once("drain", resolve));
+  const source = await rowFrames(art, width, height, centre ?? { x: width / 2, y: height / 2 }, (k, t) => rowOffset(k, t, seconds, art.pitchX));
+  const ahead = new Map<number, Promise<Buffer>>();
+  let next = 0;
+  try {
+    for (let f = 0; f < frames; f++) {
+      while (next < frames && next < f + IN_FLIGHT) {
+        const n = next++;
+        const pending = source.frame(n / fps);
+        pending.catch(() => undefined);
+        ahead.set(n, pending);
+      }
+      const raw = await (ahead.get(f) as Promise<Buffer>);
+      ahead.delete(f);
+      if (!ff.stdin.write(raw)) await new Promise((resolve) => ff.stdin.once("drain", resolve));
+    }
+  } finally {
+    ff.stdin.end();
   }
-  ff.stdin.end();
   await done;
 }
 

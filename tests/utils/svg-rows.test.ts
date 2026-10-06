@@ -3,7 +3,7 @@ jest.setTimeout(60000);
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
-import { parseRowArtwork, pathCentre, renderRows } from "../../src/utils/svg-rows";
+import { animateAt, animationPeriods, parseRowArtwork, pathCentre, renderRows } from "../../src/utils/svg-rows";
 import { ROW_SVG } from "../fixtures/row-artwork";
 
 const EXAMPLES = join(__dirname, "../../examples/row-artwork");
@@ -31,6 +31,23 @@ describe("parseRowArtwork", () => {
 
   it("says what is missing from an SVG that is not row artwork", () => {
     expect(() => parseRowArtwork(`<svg width="10" height="10"></svg>`)).toThrow(/<mask>/);
+  });
+});
+
+describe("animateAt", () => {
+  const dot = `<circle cx="5" cy="5" r="2" fill="red" opacity="0.5"><animate attributeName="opacity" values="1;1;0;0" keyTimes="0;0.5;0.6;1" dur="1s" repeatCount="indefinite"/></circle>`;
+
+  it("sets the animated attribute to its value at t, replacing the static one", () => {
+    expect(animateAt(dot, 0)).toBe(`<circle cx="5" cy="5" r="2" fill="red" opacity="1"/>`);
+    expect(animateAt(dot, 0.55)).toBe(`<circle cx="5" cy="5" r="2" fill="red" opacity="0.5"/>`);
+    expect(animateAt(dot, 0.8)).toBe(`<circle cx="5" cy="5" r="2" fill="red" opacity="0"/>`);
+    expect(animateAt(dot, 1.8)).toBe(animateAt(dot, 0.8));
+  });
+
+  it("holds values with calcMode discrete, and reads ms clocks", () => {
+    const step = dot.replace('dur="1s"', 'dur="1000ms" calcMode="discrete"');
+    expect(animateAt(step, 0.55)).toContain('opacity="1"');
+    expect(animationPeriods(step)).toEqual([1]);
   });
 });
 
