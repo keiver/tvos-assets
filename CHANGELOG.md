@@ -8,7 +8,8 @@
   Per placement: finished artwork (`source`), row artwork re-tiled to each canvas, a row-motion
   loop video (`animate`), or a recording cut into a seamless loop (`video`); `enabled` skips a
   placement. Videos are H.264 High with a silent stereo track (or ProRes 422 HQ) via ffmpeg.
-  Unchanged outputs are skipped. `preview.html` outlines the safe areas and links the videos.
+  Unchanged outputs are skipped. `preview.html` outlines the safe areas and plays the videos.
+  Six example row artwork files in `examples/row-artwork/`.
 - feat(icons): the mark is sized to Apple's proportions instead of a hardcoded
   0.6 of the shorter side. The icon is normalized to the square its visible
   artwork occupies before scaling, so the number means "the mark covers N% of
