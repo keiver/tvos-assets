@@ -7,7 +7,7 @@ tvos-assets writes the `Images.xcassets` catalog Xcode expects: tvOS parallax ap
 Run it as a CLI, from Node, or as an [Expo config plugin](#expo-config-plugin) on every `expo prebuild`.
 
 <p align="center">
-  <img src="docs/preview-top-shelf.webp" alt="Apple TV home screen: the generated Top Shelf image filling the top of the screen, with the generated app icon focused in the dock below" width="100%">
+  <img src="docs/preview-tvos-assets.webp" alt="Apple TV Home Screen with an app focused: its generated Top Shelf image, a globe over a dark background with a yellow swoosh, fills the top of the screen above its generated parallax app icon" width="100%">
 </p>
 
 ## Quick start
