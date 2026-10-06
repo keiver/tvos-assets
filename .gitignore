@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
 
+# licensed music the TomoTV example's videos embed; supply your own track
+examples/tomotv/brand/music.mp3
+
 # build output
 dist/
 

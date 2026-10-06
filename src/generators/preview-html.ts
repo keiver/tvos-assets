@@ -168,6 +168,11 @@ figure { margin: 0; min-width: 0; }
   background-size: contain, 16px 16px;
   background-position: center, 0 0;
 }
+/* Store art fills a box of its own aspect ratio, so the safe-area percentages land on the image. */
+.row.wide { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.frame.fitted { height: auto; position: relative; background-size: 100% 100%; }
+.safe-area { position: absolute; outline: 1px dashed var(--accent); pointer-events: none; }
+video.frame { display: block; background: #000; object-fit: cover; }
 /* Thumbnails are downscaled WebP; the link opens the real file on disk. */
 a.open { display: block; text-decoration: none; color: inherit; position: relative; }
 a.open:hover .frame, a.open:focus-visible .frame { outline-color: var(--accent); outline-width: 2px; }
@@ -397,14 +402,19 @@ function renderGroup(group: PreviewGroup, index: number): string {
     const figures = group.assets
       .map((asset) => {
         const note = asset.note ? ` <span class="note">${esc(asset.note)}</span>` : "";
+        const safe = asset.safeArea;
+        const pct = (fraction: number): string => `${(fraction * 100).toFixed(3)}%`;
+        const fitted = safe ? ` fitted" style="aspect-ratio:${aspectRatio(asset.width, asset.height)};` : `" style="`;
+        const outline = safe
+          ? `<div class="safe-area" title="Art safe area" style="left:${pct(safe.left)};top:${pct(safe.top)};width:${pct(safe.width)};height:${pct(safe.height)}"></div>`
+          : "";
         return `<figure>
       ${linked(
         asset.href,
         asset.filename,
-        `<div class="frame${asset.hasAlpha ? " alpha" : ""}" role="img" aria-label="${esc(asset.filename)}"
-           style="background-image:${
+        `<div class="frame${asset.hasAlpha ? " alpha" : ""}${fitted}background-image:${
              asset.hasAlpha ? `var(--${asset.imageKey}),var(--checkers)` : `var(--${asset.imageKey})`
-           }"></div>`,
+           }" role="img" aria-label="${esc(asset.filename)}">${outline}</div>`,
       )}
       <figcaption><span class="name">${esc(asset.filename)}</span>
         <span class="dims">${asset.width} x ${asset.height}${note}</span>
@@ -412,7 +422,26 @@ function renderGroup(group: PreviewGroup, index: number): string {
     </figure>`;
       })
       .join("\n    ");
-    parts.push(`  <div class="row">\n    ${figures}\n  </div>`);
+    const wide = group.assets.some((asset) => asset.safeArea) ? " wide" : "";
+    parts.push(`  <div class="row${wide}">\n    ${figures}\n  </div>`);
+  }
+
+  if (group.videos && group.videos.length > 0) {
+    const figures = group.videos
+      .map((video) => {
+        const player = video.href
+          ? `<video class="frame fitted" style="aspect-ratio:${aspectRatio(video.width, video.height)}" src="${esc(video.href)}"
+        autoplay loop muted playsinline preload="metadata" aria-label="${esc(video.filename)}"></video>`
+          : "";
+        return `<figure>
+      ${player}
+      <figcaption><span class="name">${esc(video.filename)}</span>
+        <span class="dims">${video.width} x ${video.height} <span class="note">${esc(video.note)}</span></span>
+      </figcaption>
+    </figure>`;
+      })
+      .join("\n    ");
+    parts.push(`  <div class="row wide">\n    ${figures}\n  </div>`);
   }
 
   parts.push("</section>");

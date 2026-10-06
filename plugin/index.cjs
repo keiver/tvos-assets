@@ -18,13 +18,19 @@
  *     "iconDark": "./assets/brand/icon-dark.svg",
  *     "iconTinted": "./assets/brand/icon-tinted.svg",
  *     "layers": { "front": "./assets/brand/layer-front.svg", "middle": "./assets/brand/layer-middle.svg" },
+ *     "appStore": {
+ *       "outDir": "./AppStore", "background": "./assets/brand/store-bg.svg", "centerImage": "./assets/brand/wordmark.svg",
+ *       "searchResults": { "background": "./shots/library.png", "center": false, "video": "./shots/tour.mov" },
+ *       "video": { "fps": 30, "codec": "h264" }
+ *     },
  *     "config": "./tvos-assets.config.json"
  *   }]
  *
  * With EXPO_TV=1 it generates the parallax brandassets + Top Shelf images and
  * sets the tvOS Info.plist icon keys; otherwise it generates the iOS
  * AppIcon.appiconset (light + dark + tinted). Splash screen logo/colorset are
- * generated for both.
+ * generated for both, and so are the App Store creative assets when `appStore`
+ * is set; they go to its `outDir` (default ./AppStore), outside ios/.
  *
  * This file is CommonJS because Expo loads plugins with require(); the ESM
  * library is pulled in with dynamic import inside the async mods.
@@ -60,6 +66,38 @@ async function loadLib() {
   return import("../dist/lib.js");
 }
 
+/** Plugin `appStore` props to config overrides; `video: { fps, codec, audio }` sets how videos are encoded. */
+function appStoreOverrides(projectRoot, props) {
+  const art = (source) => {
+    const out = {};
+    if (source.background) out.backgroundImage = resolveInput(projectRoot, source.background);
+    if (source.centerImage) out.centerImage = resolveInput(projectRoot, source.centerImage);
+    return out;
+  };
+
+  const overrides = { enabled: true, ...art(props) };
+  if (props.iconScale != null) overrides.iconScale = props.iconScale;
+  for (const placement of ["header", "searchResults", "universal", "eventCard", "eventDetails"]) {
+    const source = props[placement];
+    if (!source) continue;
+    overrides[placement] = art(source);
+    if (source.center != null) overrides[placement].center = source.center;
+    if (source.enabled != null) overrides[placement].enabled = source.enabled;
+    if (source.source) overrides[placement].source = resolveInput(projectRoot, source.source);
+    if (source.animate) overrides[placement].animate = source.animate;
+    if (source.video) overrides[placement].video = resolveInput(projectRoot, source.video);
+  }
+  if (props.video) {
+    overrides.video = {};
+    if (props.video.fps != null) overrides.video.fps = props.video.fps;
+    if (props.video.codec != null) overrides.video.codec = props.video.codec;
+    if (props.video.audio) overrides.video.audio = resolveInput(projectRoot, props.video.audio);
+    if (props.video.audioStart != null) overrides.video.audioStart = props.video.audioStart;
+    if (props.video.audioEnd != null) overrides.video.audioEnd = props.video.audioEnd;
+  }
+  return overrides;
+}
+
 function buildResolveArgs(projectRoot, props) {
   const overrides = {};
 
@@ -74,6 +112,10 @@ function buildResolveArgs(projectRoot, props) {
       }
       overrides.brandAssets[stackKey] = { layers };
     }
+  }
+
+  if (props.appStore) {
+    overrides.appStore = appStoreOverrides(projectRoot, props.appStore);
   }
 
   return {
@@ -94,6 +136,11 @@ function buildResolveArgs(projectRoot, props) {
   };
 }
 
+function appStoreOutDir(projectRoot, props) {
+  if (!props.appStore) return undefined;
+  return path.resolve(projectRoot, props.appStore.outDir || "AppStore");
+}
+
 function withTvosAssets(config, props = {}) {
   const { withDangerousMod, withInfoPlist } = loadConfigPlugins();
 
@@ -109,7 +156,9 @@ function withTvosAssets(config, props = {}) {
       const platforms = isTvBuild() ? ["tvos"] : ["ios"];
 
       console.log(`[tvos-assets] Generating ${platforms[0]} assets into ${xcassetsDir}`);
-      const { warnings } = await lib.generateAssets(resolved, xcassetsDir, { platforms });
+      const appStoreDir = appStoreOutDir(projectRoot, props);
+      if (appStoreDir) console.log(`[tvos-assets] Writing App Store creative assets into ${appStoreDir}`);
+      const { warnings } = await lib.generateAssets(resolved, xcassetsDir, { platforms, appStoreDir });
       for (const warning of warnings) {
         console.warn(`[tvos-assets] Warning: ${warning}`);
       }
@@ -142,3 +191,4 @@ function withTvosAssets(config, props = {}) {
 module.exports = withTvosAssets;
 module.exports.buildResolveArgs = buildResolveArgs;
 module.exports.isTvBuild = isTvBuild;
+module.exports.appStoreOutDir = appStoreOutDir;

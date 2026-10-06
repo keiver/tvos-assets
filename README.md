@@ -4,6 +4,8 @@
 
 The same artwork almost always ships an iOS companion app, so it **also** generates a matching `AppIcon.appiconset` with light, dark, and tinted (iOS 18+) variants, keeping both platforms in sync from one source of truth. Use `--platforms` to limit a run to either family.
 
+With `--app-store` it also writes the iOS 27 and iPadOS 27 [App Store creative assets](#app-store-creative-assets): the product page header, search results, universal and In-App Event images, and looping header and search-results videos, from your icon or from one SVG of artwork.
+
 Use it as a CLI, a programmatic API, or an Expo config plugin that regenerates everything on `expo prebuild`.
 
 <p align="center">
@@ -92,6 +94,15 @@ Every option, on every surface. **Config key** is the dotted path in `tvos-asset
 | `--no-ios-icon` | `iosIcon.enabled` | via `config` | boolean | `true` | iOS `AppIcon.appiconset` on/off. |
 | `--ios-icon-name <name>` | `iosIcon.name` | via `config` | string | `AppIcon` | Name of the `.appiconset`. Must match `ASSETCATALOG_COMPILER_APPICON_NAME` on the iOS target. |
 | `--no-splash` | `splashScreen.logo.enabled`, `splashScreen.background.enabled` | via `config` | boolean | `true` | Splash logo imageset and background colorset on/off. |
+| `--app-store` | `appStore.enabled` | `appStore` | boolean | `false` | App Store creative assets into `AppStore/` (plugin: `appStore.outDir`). See [App Store creative assets](#app-store-creative-assets). |
+| `--app-store-background <path>` | `appStore.backgroundImage` | `appStore.background` | path | `--background` | Backdrop for the creative assets. |
+| `--app-store-center <path>` | `appStore.centerImage` | `appStore.centerImage` | path | the icon | Centre art, such as a wordmark, contain-fit in each safe area. |
+| `--set appStore.header.source=` | `appStore.<placement>.source` | same keys | path | none | Finished artwork (SVG or PNG) for that placement; row artwork is re-tiled to each canvas. See [From finished artwork](#from-finished-artwork). Required by `eventCard` and `eventDetails`. |
+| `--set appStore.header.animate.rows=20` | `appStore.<placement>.animate` | same keys | `{ rows: seconds }` | none | Row-motion loop video from row artwork `source`, 5-30 s (15-30 s for In-App Events). Not for `universal`. |
+| `--set appStore.searchResults.video=` | `appStore.<placement>.video` | same keys | path | none | A recording cut into that placement's looping video (needs ffmpeg). Not for `universal`. `appStore.video` sets `fps` (30/60) and `codec` (`h264`/`prores`). |
+| `--set appStore.universal.enabled=false` | `appStore.<placement>.enabled` | same keys | boolean | on, In-App Event placements off | Write that placement or skip it. Placements: `header`, `searchResults`, `universal`, `eventCard`, `eventDetails`. |
+| `--set appStore.iconScale=` | `appStore.iconScale` | `appStore.iconScale` | number | `0.8` | How much of each art safe area the centre item covers, per side. |
+| `--set appStore.searchResults.center=false` | `appStore.<placement>` | same keys | object | `center: true` | Per-placement `backgroundImage`, `centerImage`, and `center` (false writes the backdrop alone). |
 | `--splash-logo-name <name>` | `splashScreen.logo.name` | via `config` | string | `SplashScreenLogo` | Imageset folder name. Must match your LaunchScreen storyboard. |
 | `--splash-logo-size <px>` | `splashScreen.logo.baseSize` | via `config` | number | `200` | Base logo size in px, multiplied by each scale. |
 | `--set splashScreen.logo.filePrefix=` | `splashScreen.logo.filePrefix` | via `config` | string | `200-icon` | Output filename prefix. |
@@ -181,6 +192,9 @@ It is one self-contained file. Every image is embedded, so it works offline, ope
 - **Every generated asset**, grouped by the directory it was written to, with the real filename and true pixel dimensions. Transparent assets sit on a checkerboard so you can see exactly where the alpha is, and the splash colorset renders as light and dark swatches with their hex values.
 - **The parallax, moving.** Both imagestacks are live: point at one and the Front, Middle and Back layers separate the way tvOS moves them when the icon takes focus. This is the one property a flat thumbnail cannot show you, and the fastest way to tell whether your per-layer art actually reads as depth.
 - **Click any image to open the real file** on disk in a new tab. The thumbnails are downscaled, so this is how you inspect a 4640x1440 Top Shelf at full size.
+- **The App Store creative assets**, when `--app-store` is on: each still with its art safe area outlined, and the header and search-results videos playing in a loop. Videos are too large to embed, so they play from the files beside the page.
+
+[`examples/tomotv/output/preview.html`](examples/tomotv/output/preview.html) is a real one, from the art and config TomoTV ships.
 
 Under `--out-dir` it lands **beside** `Images.xcassets` rather than inside it, so Xcode never compiles it into the catalog. Pass `--no-preview` to skip it in CI or when a script consumes the output positionally.
 
@@ -208,6 +222,7 @@ The plugin registers an iOS dangerous mod, so it executes inside every `expo pre
 - **`EXPO_TV=1 expo prebuild`** writes the parallax `AppIcon.brandassets` (home and App Store imagestacks, Top Shelf standard and wide) into `ios/<project>/Images.xcassets/`, and sets the tvOS `Info.plist` keys `CFBundleIcons.CFBundlePrimaryIcon` and `TVTopShelfImage.TVTopShelfPrimaryImage(-Wide)`.
 - **`expo prebuild`** (no `EXPO_TV`) writes `AppIcon.appiconset` with light, dark, and tinted 1024x1024 variants, replacing the Expo-generated single-size icon.
 - **Both** write the splash screen logo imageset and background colorset.
+- **With an `appStore` prop**, both also write the [App Store creative assets](#app-store-creative-assets) into its `outDir` (default `./AppStore`), outside `ios/` so prebuild never wipes them. Unchanged files are skipped, so the videos only render again after their artwork or settings change. For example: `"appStore": { "outDir": "./AppStore", "header": { "source": "./store/artwork.svg", "animate": { "rows": 20 } }, "searchResults": { "source": "./store/artwork.svg", "animate": { "rows": 20 } }, "universal": { "source": "./store/artwork.svg" } }`.
 
 Asset directories owned by the plugin (`AppIcon.brandassets`, `AppIcon.appiconset`, `SplashScreenLogo.imageset`, `SplashScreenBackground.colorset`) are cleaned and rewritten on each run. Everything else in the catalog is left untouched. Changing your app icon becomes: replace the input files, run prebuild.
 
@@ -234,7 +249,7 @@ tvos-assets --icon icon.svg --background bg.png --color "#1C1C1E" \
 
 Or per stack in a config file (`brandAssets.<stack>.layers.<layer>.imagePath`), or with the plugin's `layers` prop.
 
-Registration matters. Icon-sourced layers are all placed identically (centered, scaled to 60% of the shorter output side), so export every layer from the **same square artboard** as the full icon and they stay perfectly aligned in the stack. A typical split puts highlights and foreground detail on Front, the main shape on Middle, and the background image on Back. `iconBorderRadius` is not applied to custom layer art.
+Registration matters. Icon-sourced layers are all placed identically (one content box and one scale for every layer, see [Sizing the mark](#sizing-the-mark)), so export every layer from the **same square artboard** as the full icon and they stay perfectly aligned in the stack. A typical split puts highlights and foreground detail on Front, the main shape on Middle, and the background image on Back. `iconBorderRadius` is not applied to custom layer art.
 
 Open the generated `preview.html` and point at the imagestack to check your layer separation before building.
 
@@ -288,6 +303,87 @@ Details worth knowing:
   artboard, exactly as it would to a supplied one.
 - `preview.html` lists the assembled icon after the layers it came from, so you
   can check the composite against its parts.
+
+## App Store creative assets
+
+`--app-store` also writes the iOS 27 and iPadOS 27 creative assets into `AppStore/`, beside `Images.xcassets`. Every placement App Store Connect takes is covered:
+
+| Placement | Image | Video | Default |
+|---|---|---|---|
+| Product page header | `header.png` 3840x1646 | `header.mp4`, 5-30 s | on |
+| Search results | `search-results.png` 3840x2560 | `search-results.mp4`, 5-30 s | on |
+| Universal (header and search results in one) | `universal.png` 5244x2950 | none: PNG only | on |
+| In-App Event card | `event-card.png` 3840x2160 | `event-card.mp4`, 15-30 s | off, needs `source` |
+| In-App Event details page | `event-details.png` 2160x3840 | `event-details.mp4`, 15-30 s | off, needs `source` |
+
+Videos are written when a placement has `animate` or a recording (below). Apple publishes no safe area for In-App Event media, so those two are drawn only from finished artwork.
+
+Each image is an opaque PNG: the backdrop (`--app-store-background`, else `--background`) cover-filled, with a centre item in the art safe area from Apple's creative asset templates. The centre item is `--app-store-center` (a wordmark, say) or the icon. Apple's own samples pair a full-bleed scene with a wordmark, and its guidance asks search results to show the interface, so every placement can take its own art:
+
+```json
+"appStore": {
+  "enabled": true,
+  "backgroundImage": "./brand/scene.png",
+  "centerImage": "./brand/wordmark.svg",
+  "searchResults": { "backgroundImage": "./shots/library.png", "center": false }
+}
+```
+
+### From finished artwork
+
+Give a placement its own `source` (SVG or PNG) to use finished artwork instead of the generated backdrop and centre item, and `enabled: false` to skip a placement. Row artwork is an SVG whose `<mask>` holds rows of one repeated shape over full-canvas fills (a Figma or Sketch export of a wall of cards, say), with anything fixed drawn on top. One such file serves every placement: it is re-tiled to each canvas with its own row and column spacing, its fills stretched, and its centre placed on the placement's art safe-area centre (the canvas centre for In-App Event media). When the card under the fixed layer would not fit a safe area whole, the artwork moves until it does and the next card shows by one gap. `animate: { rows: <seconds> }` turns it into the placement's video: the rows slide one card per loop, alternating direction, while the fixed layer stays put, so the last frame runs into the first.
+
+```json
+"appStore": {
+  "enabled": true,
+  "header": { "source": "./store/header.svg", "animate": { "rows": 20 } },
+  "searchResults": { "source": "./store/header.svg", "animate": { "rows": 20 } },
+  "universal": { "source": "./store/header.svg" }
+}
+```
+
+That writes `header.png` and `header.mp4` (3840x1646), `search-results.png` and `search-results.mp4` (3840x2560) and `universal.png` (5244x2950). Files whose inputs have not changed since the last run are left as they are (`.tvos-assets-store.json` in the output directory keeps the record), so a prebuild only renders the videos after the artwork changes.
+
+#### What row artwork must be
+
+Design it at 3840x1646 (the header canvas) and export it as SVG. Every rule is checked, and a file that breaks one fails with a message naming it.
+
+| Rule | Why |
+|---|---|
+| `<svg>` has numeric `width` and `height` in px | The canvas the rows and the fixed layer are measured against. |
+| Exactly one `<mask>`, and the fill behind the cards uses it (`mask="url(#id)"`) | The mask's children are the cards; whatever is masked shows through them. |
+| The cards are `path`, `rect`, `circle`, `ellipse` or `polygon`, at least two, all the same size, none with a `transform` | Each row is re-drawn from one card; flatten transforms before exporting. |
+| Cards in a row are evenly spaced, with one spacing for every row | The spacing is how far a row slides per loop. |
+| Rows are evenly spaced, and repeat every two (row 3 lines up with row 1) | New rows above and below continue the stagger on a taller canvas. |
+| Fills meant to cover everything cover exactly 0,0 to width,height (`rect`, or a rectangular `path`) | Those stretch to a bigger canvas; anything else keeps its place, centred. |
+| No `<text>`, and no `<image>` linking outside the file | Outline text and embed images, so every machine renders the same pixels. |
+| A shape may hold one `<animate attributeName values dur>`, whose `dur` divides the `animate.rows` loop | Videos play it frame by frame (a blinking dot, say) and stills show its first value. A `dur` that does not divide the loop fails, since the loop would jump. |
+
+Rows may stop at the canvas edge or run past it; they are re-tiled either way. What is drawn through the mask (type seen through the cards, the fill behind them) is the scene behind the cards and never moves. A shape drawn on top that fits inside one card belongs to it and rides with its row (a live dot on one channel, say); since a row moves one card per loop, it hands over to the next card in the last half second, so the loop closes. Everything else drawn on top (a vignette, a logo across several cards, anything in a transformed group) stays put. Texture that should travel with the cards, such as scan lines, goes in the cards' own fill: a `pattern` with `patternUnits="userSpaceOnUse"` moves with each card.
+
+[`examples/row-artwork/`](examples/row-artwork) holds six files that pass these rules, one per card shape: circles, rounded `rect`s, hexagon `polygon`s, `path` tiles drawn with relative commands, 16:9 `rect`s under a fixed vignette, and interlocking diamonds.
+
+<img src="docs/row-artwork.webp" alt="The six example row artwork files rendered as 21:9 headers: dots, pills, honeycomb, tiles, screens and diamonds" width="100%">
+
+### Recordings
+
+App Store Connect also takes video for the header and search results. Point `header.video` or `searchResults.video` at a recording (`.mov`, `.mp4` or `.m4v`), such as a simulator capture from `xcrun simctl io <udid> recordVideo` of a tour that starts and ends on the same screen, and tvos-assets writes `header.mp4` or `search-results.mp4`: it fills the canvas (cover, centre crop), resamples to a constant frame rate (simulator captures only write frames when the screen changes), dissolves the last 0.5 s into the start so the loop has no cut, and caps it at 30 s. Encoding is H.264 High with a silent stereo AAC track, or ProRes 422 HQ in `.mov` with `video.codec: "prores"`. H.264 is encoded with libx264, whose quality holds steady across keyframes, so the loop point does not hitch. ProRes uses the VideoToolbox hardware encoder on a Mac, prores_ks elsewhere. It needs ffmpeg on `PATH` or at `FFMPEG_PATH`.
+
+Row-motion loops render fast: only the cards move, so each frame is blended from the artwork drawn once with every card lit and once with none, through a card mask built from row strips drawn once, several frames at a time. A 20 s 4K header loop takes about 30 s on an M1 Max. Art the blend cannot reproduce exactly (rows that overlap, more than one element drawn through the mask, or a blend that differs from a full render) is drawn in full each frame instead.
+
+```json
+"appStore": { "enabled": true, "searchResults": { "video": "./applestore/tour.mov" } }
+```
+
+### Music
+
+`video.audio` puts music (`.mp3`, `.m4a`, `.aac`, `.wav` or `.aiff`) on every video instead of the silent track, looped so it never cuts: each video takes a stretch of the track as long as itself plus one second, plays from that second on, and crossfades the stretch's last second into its first. The stretch is chosen between `video.audioStart` and `video.audioEnd` (seconds into the track; by default from the first sound, past any silent lead-in, to the end): where the beat a loop length later lines up with the beat at its start, and the level never drops below half the music's median. Set `audioEnd` to `audioStart` plus the video's length plus 1 s to pin the stretch exactly.
+
+```json
+"appStore": { "enabled": true, "video": { "audio": "./store/music.mp3", "audioStart": 30, "audioEnd": 90 } }
+```
+
+`preview.html` outlines the safe area on each still and plays the videos in a loop. Upload them in App Store Connect under Header and Search Results, or in Asset Library. The Expo plugin writes them on every prebuild when its `appStore` prop is set.
 
 ## Programmatic API
 
@@ -473,6 +569,7 @@ The quickest start is `tvos-assets --init`, which writes exactly that with `$sch
   },
   "brandAssets": {
     "name": "AppIcon",
+    "iconScale": 0.75,
     "appIconSmall": {
       "enabled": true,
       "name": "App Icon",
@@ -512,7 +609,8 @@ The quickest start is `tvos-assets --init`, which writes exactly that with `$sch
   },
   "iosIcon": {
     "enabled": true,
-    "name": "AppIcon"
+    "name": "AppIcon",
+    "iconScale": 0.8
   },
   "splashScreen": {
     "logo": {
@@ -529,6 +627,18 @@ The quickest start is `tvos-assets --init`, which writes exactly that with `$sch
       "universal": { "light": "#B43939", "dark": "#5A1C1C" },
       "tv": { "light": "#B43939", "dark": "#5A1C1C" }
     }
+  },
+  "appStore": {
+    "enabled": true,
+    "iconScale": 0.8,
+    "backgroundImage": "./store-bg.png",
+    "centerImage": "./wordmark.svg",
+    "header": { "enabled": true, "center": true, "source": "./artwork.svg", "animate": { "rows": 20 } },
+    "searchResults": { "enabled": true, "center": true, "video": "./tour.mov" },
+    "universal": { "enabled": true, "center": true },
+    "eventCard": { "enabled": false, "center": true },
+    "eventDetails": { "enabled": false, "center": true },
+    "video": { "fps": 30, "codec": "h264" }
   },
   "xcassetsMeta": {
     "author": "xcode",

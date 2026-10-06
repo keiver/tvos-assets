@@ -14,6 +14,12 @@ describe("parseSetEntry", () => {
     expect(parseSetEntry("xcassetsMeta.version=2").value).toBe(2);
   });
 
+  it("takes the App Store music and its loop window, which have no default", () => {
+    expect(parseSetEntry("appStore.video.audio=./music.mp3").value).toBe("./music.mp3");
+    expect(parseSetEntry("appStore.video.audioStart=12.5").value).toBe(12.5);
+    expect(() => parseSetEntry("appStore.video.audioEnd=soon")).toThrow(/expected a number/);
+  });
+
   it("coerces booleans", () => {
     expect(parseSetEntry("iosIcon.enabled=false").value).toBe(false);
     expect(parseSetEntry("iosIcon.enabled=true").value).toBe(true);

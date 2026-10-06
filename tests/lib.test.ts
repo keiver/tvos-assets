@@ -4,7 +4,7 @@ import sharp from "sharp";
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig } from "../src/config";
-import { generateAssets } from "../src/lib";
+import { generateAssets, planAssets } from "../src/lib";
 import {
   createTestIcon,
   createTestBackground,
@@ -126,6 +126,18 @@ describe("generateAssets with an assembled icon", () => {
     await expect(generateAssets(broken, join(TMP, "Images.xcassets"))).rejects.toThrow(
       /no icon image and no layer art/,
     );
+  });
+});
+
+describe("planAssets", () => {
+  it("counts the App Store creative assets only when enabled", async () => {
+    const config = await makeConfig();
+    const off = planAssets(config);
+    expect(off.appStore).toBe(0);
+
+    const on = planAssets({ ...config, appStore: { ...config.appStore, enabled: true } });
+    expect(on.appStore).toBe(3);
+    expect(on.total).toBe(off.total + 3);
   });
 });
 

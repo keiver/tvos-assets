@@ -1,6 +1,6 @@
 jest.setTimeout(60000);
 
-import { existsSync, mkdirSync, rmSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { resolveConfig } from "../../src/config";
@@ -269,6 +269,65 @@ describe("preview.html", () => {
     expect(partialHtml).not.toContain("App Icon.imagestack");
     expect(partialHtml).not.toContain('class="parallax"');
     expect(partialHtml).toContain("AppIcon.appiconset");
+  });
+
+  it("shows the App Store creative assets with their art safe areas outlined", async () => {
+    const storeOut = join(TMP, "store");
+    mkdirSync(storeOut, { recursive: true });
+    const config = resolveConfig({
+      icon,
+      background,
+      color: "#101010",
+      outDir: storeOut,
+      overrides: { appStore: { enabled: true } },
+    });
+    const xcassetsDir = join(storeOut, "Images.xcassets");
+    const previewPath = join(storeOut, "preview.html");
+    mkdirSync(join(storeOut, "AppStore"), { recursive: true });
+    writeFileSync(join(storeOut, "AppStore", "header.mp4"), "not a real video");
+    await generateAssets(config, xcassetsDir, {
+      platforms: ["ios"],
+      appStoreDir: join(storeOut, "AppStore"),
+      previewPath,
+    });
+
+    const storeHtml = readFileSync(previewPath, "utf-8");
+    expect(storeHtml).toContain("App Store creative assets");
+    expect(storeHtml).toContain('class="row wide"');
+    expect([...storeHtml.matchAll(/class="safe-area"/g)]).toHaveLength(3);
+    expect(storeHtml).toMatch(/<video class="frame fitted" style="aspect-ratio:[^"]+" src="AppStore\/header\.mp4"\s+autoplay loop muted playsinline/);
+    // Header art safe area: 1097/3840 from the left, 661/1646 tall.
+    expect(storeHtml).toContain("left:28.568%;top:29.951%;width:42.865%;height:40.158%");
+  });
+
+  it("keeps the home directory out of the App Store paths in the resolved config", async () => {
+    const storeOut = join(TMP, "store-paths");
+    mkdirSync(storeOut, { recursive: true });
+    const config = resolveConfig({
+      icon,
+      background,
+      color: "#101010",
+      outDir: storeOut,
+      overrides: {
+        appStore: {
+          enabled: true,
+          backgroundImage: background,
+          centerImage: icon,
+          header: { source: background },
+          searchResults: { backgroundImage: background, centerImage: icon },
+        },
+      },
+    });
+    const previewPath = join(storeOut, "preview.html");
+    await generateAssets(config, join(storeOut, "Images.xcassets"), {
+      platforms: ["ios"],
+      appStoreDir: join(storeOut, "AppStore"),
+      previewPath,
+    });
+
+    const resolved = readFileSync(previewPath, "utf-8").match(/<summary>Show resolved config<\/summary>\s*<pre>([\s\S]*?)<\/pre>/)?.[1];
+    expect(resolved).toContain("appStore");
+    expect(resolved).not.toContain(homedir());
   });
 
   it("links sources absolutely by default, relatively when asked", async () => {
