@@ -12,17 +12,18 @@ brand/                       source art (inputs)
   background.png             4640x1440, opaque
   background-appstore.png    back layer of the App Store imagestack
   artwork.svg                row artwork for the App Store creative assets
+  event-live-tv.svg          row artwork for the Live TV In-App Event, no text
 tvos-assets.config.json      the config below
 output/                      generated, committed so you can inspect it without running anything
   Images.xcassets/
-  AppStore/                  header, search results and universal images, header and search-results videos
+  AppStore/                  header, search results, universal and In-App Event images, and four looping videos
   icon.png
   preview.html               open this first
 ```
 
 Open [`output/preview.html`](output/preview.html) in a browser. Images are
 embedded, so it works straight from a clone with no server and no network; the
-two videos play from `output/AppStore/` beside it. Point at either app icon to
+videos play from `output/AppStore/` beside it. Point at either app icon to
 see the three parallax layers separate the way tvOS moves them on focus.
 
 ## The command
@@ -42,9 +43,9 @@ cd examples/tomotv
 npx tsx ../../src/index.ts
 ```
 
-Both write `output/` exactly as committed here: **49 files**, 21 `Contents.json`
-+ 21 PNGs + `icon.png` + `preview.html` + 5 App Store assets. The two videos
-take a few minutes to render the first time; `output/AppStore/.tvos-assets-store.json`
+Both write `output/` exactly as committed here: **53 files**, 21 `Contents.json`
++ 21 PNGs + `icon.png` + `preview.html` + 9 App Store assets. Each video takes
+several minutes to render the first time; `output/AppStore/.tvos-assets-store.json`
 records what each file was made from, so later runs skip anything unchanged.
 
 ### Per-platform variants
@@ -52,10 +53,10 @@ records what each file was made from, so later runs skip anything unchanged.
 The committed `output/` covers both platforms. To generate one family only:
 
 ```bash
-# tvOS brand assets only (no AppIcon.appiconset) -> 45 files
+# tvOS brand assets only (no AppIcon.appiconset) -> 49 files
 npx tsx ../../src/index.ts --platforms tvos --out-dir ./out-tvos
 
-# iOS app icon only (no AppIcon.brandassets) -> 19 files
+# iOS app icon only (no AppIcon.brandassets) -> 23 files
 npx tsx ../../src/index.ts --platforms ios --out-dir ./out-ios
 ```
 
@@ -84,7 +85,9 @@ TomoTV's `app.json` plugin block, which this config reproduces:
     "outDir": "./applestore/generated/listing",
     "header": { "source": "./applestore/listing/artwork.svg", "animate": { "rows": 20 } },
     "searchResults": { "source": "./applestore/listing/artwork.svg", "animate": { "rows": 20 } },
-    "universal": { "source": "./applestore/listing/artwork.svg" }
+    "universal": { "source": "./applestore/listing/artwork.svg" },
+    "eventCard": { "enabled": true, "source": "./applestore/listing/event-live-tv.svg", "animate": { "rows": 20 } },
+    "eventDetails": { "enabled": true, "source": "./applestore/listing/event-live-tv.svg", "animate": { "rows": 20 } }
   },
   "config": "./tvos-assets.config.json"
 }]
@@ -105,6 +108,7 @@ parts that matter:
 | `iosIcon.iconScale` | `0.68` | The plugin's `iosIconScale`: the mark covers 68% of the iOS icon. |
 | `appStore.{header,searchResults}` | `source` + `animate: { rows: 20 }` | Row artwork re-tiled to each canvas, plus a 20 s loop where the rows slide and TOMO TV stays put. |
 | `appStore.universal` | `source` | Same artwork; universal takes no video. |
+| `appStore.{eventCard,eventDetails}` | `enabled` + `source` + `animate: { rows: 20 }` | Media for a Live TV In-App Event (badge: Major Update). Its own artwork, with no text: Apple asks event media to leave out the app and event name, which the App Store draws over the card. Every card carries scan lines in its fill, so they slide with it; a red live dot stays fixed on the centre card and blinks once a second (an SVG `<animate>`). |
 | `output.mode` | `"dir"` | Writes the catalog straight into `output/` instead of a timestamped zip. |
 
 ## Why the layers line up

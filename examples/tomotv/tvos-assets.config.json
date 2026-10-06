@@ -80,7 +80,9 @@
     "enabled": true,
     "header": { "source": "./brand/artwork.svg", "animate": { "rows": 20 } },
     "searchResults": { "source": "./brand/artwork.svg", "animate": { "rows": 20 } },
-    "universal": { "source": "./brand/artwork.svg" }
+    "universal": { "source": "./brand/artwork.svg" },
+    "eventCard": { "enabled": true, "source": "./brand/event-live-tv.svg", "animate": { "rows": 20 } },
+    "eventDetails": { "enabled": true, "source": "./brand/event-live-tv.svg", "animate": { "rows": 20 } }
   },
   "xcassetsMeta": {
     "author": "xcode",
