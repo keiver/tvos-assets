@@ -4,7 +4,8 @@ import sharp from "sharp";
 import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig } from "../../src/config";
-import { APP_STORE_ASSETS as ALL_ASSETS, generateAppStoreAssets } from "../../src/generators/app-store";
+import { APP_STORE_ASSETS as ALL_ASSETS, designCentre, generateAppStoreAssets } from "../../src/generators/app-store";
+import { parseRowArtwork } from "../../src/utils/svg-rows";
 import type { Rect } from "../../src/utils/image-processing";
 
 // The placements with an art safe area: the ones the icon composition draws.
@@ -213,6 +214,24 @@ describe("generateAppStoreAssets from a source", () => {
     writeFileSync(art, ROW_SVG.replace("#FFC312", "#FFD54F"));
     await generateAppStoreAssets(dir, config);
     expect(statSync(join(dir, "header.png")).mtimeMs).toBeGreaterThan(before);
+  });
+});
+
+describe("designCentre", () => {
+  const asset = { placement: "universal" as const, filename: "u.png", title: "U", width: 400, height: 200, safeArea: { x: 100, y: 50, width: 200, height: 100 } };
+
+  it("keeps the safe-area centre when the card under the fixed layer fits", () => {
+    expect(designCentre(asset, parseRowArtwork(ROW_SVG))).toEqual({ x: 200, y: 100 });
+  });
+
+  it("moves the artwork until that card is whole and the next card shows by one gap", () => {
+    // The mark sits on the card at x 270..330, past the safe area's right edge (300).
+    const art = parseRowArtwork(ROW_SVG.replace('x="190"', 'x="290"'));
+    expect(art.anchor).toEqual({ x0: 270, y0: 80, x1: 330, y1: 120 });
+    const centre = designCentre(asset, art);
+    expect(centre).toEqual({ x: 90, y: 100 });
+    // Card lands at 160..220; the next one starts at 260, 40 (one gap) inside the edge.
+    expect(art.anchor!.x1 + centre.x - 200).toBe(220);
   });
 });
 

@@ -7,7 +7,7 @@ import type { AppStoreVideoCodec, TvOSImageCreatorConfig } from "../types.js";
 import { ensureDir } from "../utils/fs.js";
 import { parseRowArtwork, renderRows } from "../utils/svg-rows.js";
 import { StoreCache, inputKey } from "../utils/store-cache.js";
-import { designCentre, enabledAssets } from "./app-store.js";
+import { designCentre, enabledAssets, readRowArtwork } from "./app-store.js";
 import type { AppStoreAsset } from "./app-store.js";
 
 const run = promisify(execFile);
@@ -213,7 +213,7 @@ export async function generateAppStoreVideos(outDir: string, config: TvOSImageCr
     const output = join(outDir, filename);
     const placement = config.appStore[asset.placement];
     const common = { ffmpeg, encoder, output, width: asset.width, height: asset.height, fps, codec };
-    const centre = designCentre(asset);
+    const centre = designCentre(asset, readRowArtwork(placement.source));
     const key = placement.video
       ? inputKey([placement.video], ["recording", common.width, common.height, fps, codec, encoder])
       : inputKey([placement.source], ["rows", common.width, common.height, fps, codec, encoder, placement.animate, centre]);

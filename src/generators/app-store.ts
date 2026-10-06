@@ -116,10 +116,37 @@ export function enabledAssets(config: TvOSImageCreatorConfig): AppStoreAsset[] {
   return APP_STORE_ASSETS.filter((asset) => config.appStore[asset.placement].enabled);
 }
 
-/** Where row artwork's centre goes: the centre of the placement's art safe area, else of its canvas. */
-export function designCentre(asset: AppStoreAsset): { x: number; y: number } {
+/**
+ * Where row artwork's centre goes: the centre of the placement's art safe area (else of its canvas),
+ * moved when the card under the fixed layer would not sit whole in the safe area (half a gap clear):
+ * sideways until the next card shows by one gap, vertically until it is half a gap clear.
+ */
+export function designCentre(asset: AppStoreAsset, art?: RowArtwork): { x: number; y: number } {
   const s = asset.safeArea;
-  return s ? { x: s.x + s.width / 2, y: s.y + s.height / 2 } : { x: asset.width / 2, y: asset.height / 2 };
+  if (!s) return { x: asset.width / 2, y: asset.height / 2 };
+  const centre = { x: s.x + s.width / 2, y: s.y + s.height / 2 };
+  const card = art?.anchor;
+  if (!art || !card) return centre;
+  const fit = (lo: number, hi: number, min: number, max: number, clear: number, to: number): number => {
+    const room = Math.max(clear, Math.min(to, max - min - (hi - lo) - clear));
+    return lo < min + clear ? min + room - lo : hi > max - clear ? max - room - hi : 0;
+  };
+  const dx = centre.x - art.width / 2, dy = centre.y - art.height / 2;
+  const gx = art.pitchX - (card.x1 - card.x0), gy = art.pitchY - (card.y1 - card.y0);
+  return {
+    x: centre.x + fit(card.x0 + dx, card.x1 + dx, s.x, s.x + s.width, gx / 2, 2 * gx),
+    y: centre.y + fit(card.y0 + dy, card.y1 + dy, s.y, s.y + s.height, gy / 2, gy / 2),
+  };
+}
+
+/** Row artwork read from `source`, or undefined when it is not an SVG that follows the rules. */
+export function readRowArtwork(source: string | undefined): RowArtwork | undefined {
+  if (!source || !isSvgPath(source)) return undefined;
+  try {
+    return parseRowArtwork(readFileSync(source, "utf8"));
+  } catch {
+    return undefined;
+  }
 }
 
 /** Finished artwork on the canvas: row artwork re-tiled to it, any other SVG or PNG cover-filled. */
@@ -132,12 +159,7 @@ export async function renderSource(
   let image: sharp.Sharp;
   if (isSvgPath(source)) {
     const svg = readFileSync(source, "utf8");
-    let art: RowArtwork | undefined;
-    try {
-      art = parseRowArtwork(svg);
-    } catch {
-      art = undefined;
-    }
+    const art = readRowArtwork(source);
     image = art
       ? sharp(Buffer.from(renderRows(art, width, height, undefined, centre)))
       : sharp(Buffer.from(svg)).resize(width, height, { fit: "cover" });
@@ -162,7 +184,7 @@ export async function generateAppStoreAssets(
   for (const asset of assets) {
     const placement = config.appStore[asset.placement];
     if (placement.source) {
-      const centre = designCentre(asset);
+      const centre = designCentre(asset, readRowArtwork(placement.source));
       const key = inputKey([placement.source], ["still", asset.width, asset.height, centre]);
       if (cache.fresh(asset.filename, key)) continue;
       safeWriteFile(join(outDir, asset.filename), await renderSource(placement.source, asset.width, asset.height, centre));

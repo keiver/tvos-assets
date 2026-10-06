@@ -28,6 +28,8 @@ export interface RowArtwork {
   rows: { y: number; xs: number[]; template: string; cx: number; cy: number }[];
   pitchX: number;
   pitchY: number;
+  /** The card under the centre of the fixed layer (what is drawn outside the mask), if any. */
+  anchor?: Box;
   source: string;
 }
 
@@ -158,7 +160,24 @@ export function parseRowArtwork(svg: string): RowArtwork {
     if (!close(Math.min(d, pitchX - d), 0)) fail(`rows must repeat every two; the row at y=${rows[i].y.toFixed(1)} does not line up with the row at y=${rows[i - 2].y.toFixed(1)}`);
   }
 
-  return { width, height, rows, pitchX, pitchY, source: svg };
+  return { width, height, rows, pitchX, pitchY, anchor: anchorCard(svg, width, height, boxes), source: svg };
+}
+
+const SHAPE = /<(path|rect|circle|ellipse|polygon)\b[^>]*?(?:\/>|>[\s\S]*?<\/\1>)/g;
+
+/** The card whose box holds the centre of every non-full-canvas shape outside the mask and defs. */
+function anchorCard(svg: string, width: number, height: number, cards: Box[]): Box | undefined {
+  const drawn = svg.replace(/<mask\b[\s\S]*?<\/mask>/g, "").replace(/<defs\b[\s\S]*?<\/defs>/g, "");
+  const fixed = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+  for (const [tag] of drawn.matchAll(SHAPE)) {
+    const b = cardBox(tag);
+    if (typeof b === "string" || (b.x0 <= TOL && b.y0 <= TOL && b.x1 >= width - TOL && b.y1 >= height - TOL)) continue;
+    fixed.x0 = Math.min(fixed.x0, b.x0); fixed.y0 = Math.min(fixed.y0, b.y0);
+    fixed.x1 = Math.max(fixed.x1, b.x1); fixed.y1 = Math.max(fixed.y1, b.y1);
+  }
+  const cx = (fixed.x0 + fixed.x1) / 2, cy = (fixed.y0 + fixed.y1) / 2;
+  const card = cards.find((c) => c.x0 <= cx && cx <= c.x1 && c.y0 <= cy && cy <= c.y1);
+  return card && { x0: card.x0, y0: card.y0, x1: card.x1, y1: card.y1 };
 }
 
 /**
