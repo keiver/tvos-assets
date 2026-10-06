@@ -1,12 +1,12 @@
 # tvos-assets
 
-**Apple TV asset generation, from three inputs.** Give it an icon, a background, and a hex color, and it builds the whole `Images.xcassets` catalog tvOS expects: layered parallax app icons for the home screen and the App Store, both Top Shelf banners, and the splash screen assets. Everything is named and nested exactly the way Xcode wants it.
+App icons, Top Shelf images, splash screens and App Store listing art for Apple TV and iOS apps, from your icon art, a background and a color.
 
-The same artwork almost always ships an iOS companion app, so it **also** generates a matching `AppIcon.appiconset` with light, dark, and tinted (iOS 18+) variants, keeping both platforms in sync from one source of truth. Use `--platforms` to limit a run to either family.
+It writes the `Images.xcassets` catalog Xcode expects: the tvOS parallax app icons for the home screen and the App Store, both Top Shelf images, the iOS app icon with its dark and tinted variants, and the splash screen logo and color. `--platforms` limits a run to tvOS or iOS.
 
-With `--app-store` it also writes the iOS 27 and iPadOS 27 [App Store creative assets](#app-store-creative-assets): the product page header, search results, universal and In-App Event images, and looping header and search-results videos, from your icon or from one SVG of artwork.
+With `--app-store` it also writes the iOS 27 and iPadOS 27 [App Store creative assets](#app-store-creative-assets): header, search results, universal and In-App Event images, and looping videos.
 
-Use it as a CLI, a programmatic API, or an Expo config plugin that regenerates everything on `expo prebuild`.
+Run it as a CLI, from code, or as an Expo config plugin on every `expo prebuild`.
 
 <p align="center">
   <img src="docs/preview-top-shelf.webp" alt="Apple TV home screen: the generated Top Shelf image filling the top of the screen, with the generated app icon focused in the dock below" width="100%">
@@ -44,7 +44,7 @@ Requires Node.js >= 18 and the [sharp](https://sharp.pixelplumbing.com/install) 
 tvos-assets --icon <path> --background <path> --color <hex> [options]
 ```
 
-The three inputs can come from flags or from a config file. Once a config file supplies them, the whole command is just `tvos-assets`.
+The inputs can come from flags or from a config file. Once a config file supplies them, the whole command is just `tvos-assets`.
 
 **Config file discovery.** When `--config` is omitted, the CLI looks for `tvos-assets.config.json` in the current directory and uses it if present. The banner says `(auto-detected)` when that happens. Run `tvos-assets --init` to scaffold a starter file.
 
@@ -192,7 +192,7 @@ It is one self-contained file. Every image is embedded, so it works offline, ope
 - **Every generated asset**, grouped by the directory it was written to, with the real filename and true pixel dimensions. Transparent assets sit on a checkerboard so you can see exactly where the alpha is, and the splash colorset renders as light and dark swatches with their hex values.
 - **The parallax, moving.** Both imagestacks are live: point at one and the Front, Middle and Back layers separate the way tvOS moves them when the icon takes focus. This is the one property a flat thumbnail cannot show you, and the fastest way to tell whether your per-layer art actually reads as depth.
 - **Click any image to open the real file** on disk in a new tab. The thumbnails are downscaled, so this is how you inspect a 4640x1440 Top Shelf at full size.
-- **The App Store creative assets**, when `--app-store` is on: each still with its art safe area outlined, and the header and search-results videos playing in a loop. Videos are too large to embed, so they play from the files beside the page.
+- **The App Store creative assets**, when `--app-store` is on: each still with its art safe area outlined, and every video playing in a loop. Videos are too large to embed, so they play from the files beside the page.
 
 [`examples/tomotv/output/preview.html`](examples/tomotv/output/preview.html) is a real one, from the art and config TomoTV ships.
 
