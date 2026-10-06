@@ -85,9 +85,10 @@ describe("plugin appStore prop", () => {
       },
     });
     const recorded = plugin.buildResolveArgs(PROJECT_ROOT, {
-      appStore: { searchResults: { video: "./applestore/tour.mov" } },
+      appStore: { searchResults: { video: "./applestore/tour.mov" }, video: { audio: "./applestore/music.mp3", audioStart: 12, audioEnd: 40 } },
     });
     expect(recorded.overrides.appStore.searchResults).toEqual({ video: resolve(PROJECT_ROOT, "applestore/tour.mov") });
+    expect(recorded.overrides.appStore.video).toEqual({ audio: resolve(PROJECT_ROOT, "applestore/music.mp3"), audioStart: 12, audioEnd: 40 });
     const sourced = plugin.buildResolveArgs(PROJECT_ROOT, {
       appStore: {
         header: { source: "./store/header.svg", animate: { rows: 20 } },

@@ -66,7 +66,7 @@ async function loadLib() {
   return import("../dist/lib.js");
 }
 
-/** Plugin `appStore` props to config overrides; `video: { fps, codec }` sets how recordings are encoded. */
+/** Plugin `appStore` props to config overrides; `video: { fps, codec, audio }` sets how videos are encoded. */
 function appStoreOverrides(projectRoot, props) {
   const art = (source) => {
     const out = {};
@@ -91,6 +91,9 @@ function appStoreOverrides(projectRoot, props) {
     overrides.video = {};
     if (props.video.fps != null) overrides.video.fps = props.video.fps;
     if (props.video.codec != null) overrides.video.codec = props.video.codec;
+    if (props.video.audio) overrides.video.audio = resolveInput(projectRoot, props.video.audio);
+    if (props.video.audioStart != null) overrides.video.audioStart = props.video.audioStart;
+    if (props.video.audioEnd != null) overrides.video.audioEnd = props.video.audioEnd;
   }
   return overrides;
 }

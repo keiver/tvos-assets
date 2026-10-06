@@ -259,10 +259,13 @@
         "eventDetails": { "$ref": "#/$defs/appStorePlacement", "description": "In-App Event details page, 9:16 (event-details.png 2160x3840, event-details.mp4 15-30 s). Off by default; needs a source." },
         "video": {
           "type": "object",
-          "description": "How header.video and searchResults.video recordings are encoded, with ffmpeg (FFMPEG_PATH or PATH).",
+          "description": "How placement videos are encoded, with ffmpeg (FFMPEG_PATH or PATH).",
           "properties": {
             "fps": { "enum": [30, 60], "default": 30, "description": "Frame rate." },
-            "codec": { "enum": ["h264", "prores"], "default": "h264", "description": "h264 writes .mp4 (H.264 High, silent AAC); prores writes .mov (ProRes 422 HQ)." }
+            "codec": { "enum": ["h264", "prores"], "default": "h264", "description": "h264 writes .mp4 (H.264 High, AAC); prores writes .mov (ProRes 422 HQ, PCM)." },
+            "audio": { "type": "string", "description": "Music for every video (.mp3, .m4a, .aac, .wav, .aiff), looped: the last second of each video's stretch of music crossfades into its first. The stretch is picked between audioStart and audioEnd where the rhythm at its end best matches its start and the level never drops out. Without it, videos carry a silent stereo track." },
+            "audioStart": { "type": "number", "minimum": 0, "description": "Seconds into audio where a loop may start. Default: the first sound, past any silent lead-in." },
+            "audioEnd": { "type": "number", "minimum": 0, "description": "Seconds into audio where a loop must have ended. Default: the end of the track. audioEnd - audioStart equal to a video's length plus 1 s pins its loop exactly." }
           },
           "additionalProperties": false
         }

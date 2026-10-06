@@ -13,6 +13,7 @@ const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
   "inputs.iconTintedImage",
   "appStore.backgroundImage",
   "appStore.centerImage",
+  "appStore.video.audio",
   ...["header", "searchResults", "universal", "eventCard", "eventDetails"].flatMap((placement) =>
     ["backgroundImage", "centerImage", "video", "source"].map((key) => `appStore.${placement}.${key}`),
   ),
@@ -20,6 +21,9 @@ const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
     ["front", "middle", "back"].map((layer) => `brandAssets.${stack}.layers.${layer}.imagePath`),
   ),
 ]);
+
+/** Number keys with no default, so absent from the shape template. */
+const OPTIONAL_NUMBER_PATHS: ReadonlySet<string> = new Set(["appStore.video.audioStart", "appStore.video.audioEnd"]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -102,6 +106,9 @@ export function parseSetEntry(entry: string): ParsedSetEntry {
     if (!(segment in cursor)) {
       if (OPTIONAL_STRING_PATHS.has(rawPath)) {
         return { path, value: rawValue };
+      }
+      if (OPTIONAL_NUMBER_PATHS.has(rawPath)) {
+        return { path, value: coerceToTemplateType(rawValue, 0, rawPath) };
       }
       const known = Object.keys(cursor).join(", ");
       const at = walked ? `"${walked}"` : "the config root";

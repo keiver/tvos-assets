@@ -150,6 +150,12 @@ export type AppStoreVideoCodec = "h264" | "prores";
 export interface AppStoreVideoConfig {
   fps: 30 | 60;
   codec: AppStoreVideoCodec;
+  /** Music for every video (.mp3, .m4a, .aac, .wav, .aiff), looped with a crossfade. */
+  audio?: string;
+  /** Seconds into `audio` where the loop may start; the first sound by default. */
+  audioStart?: number;
+  /** Seconds into `audio` where the loop must have ended; the track's end by default. */
+  audioEnd?: number;
 }
 
 export interface AppStoreConfig {

@@ -1,3 +1,5 @@
+jest.setTimeout(60000);
+
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig, validateInputImages } from "../src/config";

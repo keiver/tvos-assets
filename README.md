@@ -359,7 +359,7 @@ Design it at 3840x1646 (the header canvas) and export it as SVG. Every rule is c
 | No `<text>`, and no `<image>` linking outside the file | Outline text and embed images, so every machine renders the same pixels. |
 | A shape may hold one `<animate attributeName values dur>`, whose `dur` divides the `animate.rows` loop | Videos play it frame by frame (a blinking dot, say) and stills show its first value. A `dur` that does not divide the loop fails, since the loop would jump. |
 
-Rows may stop at the canvas edge or run past it; they are re-tiled either way. Anything outside the `<mask>` (type, logos, a vignette) never moves. Texture that should travel with the cards, such as scan lines, goes in the cards' own fill: a `pattern` with `patternUnits="userSpaceOnUse"` moves with each card.
+Rows may stop at the canvas edge or run past it; they are re-tiled either way. What is drawn through the mask (type seen through the cards, the fill behind them) is the scene behind the cards and never moves. A shape drawn on top that fits inside one card belongs to it and rides with its row (a live dot on one channel, say); since a row moves one card per loop, it hands over to the next card in the last half second, so the loop closes. Everything else drawn on top (a vignette, a logo across several cards, anything in a transformed group) stays put. Texture that should travel with the cards, such as scan lines, goes in the cards' own fill: a `pattern` with `patternUnits="userSpaceOnUse"` moves with each card.
 
 [`examples/row-artwork/`](examples/row-artwork) holds six files that pass these rules, one per card shape: circles, rounded `rect`s, hexagon `polygon`s, `path` tiles drawn with relative commands, 16:9 `rect`s under a fixed vignette, and interlocking diamonds.
 
@@ -367,12 +367,20 @@ Rows may stop at the canvas edge or run past it; they are re-tiled either way. A
 
 ### Recordings
 
-App Store Connect also takes video for the header and search results. Point `header.video` or `searchResults.video` at a recording (`.mov`, `.mp4` or `.m4v`), such as a simulator capture from `xcrun simctl io <udid> recordVideo` of a tour that starts and ends on the same screen, and tvos-assets writes `header.mp4` or `search-results.mp4`: it fills the canvas (cover, centre crop), resamples to a constant frame rate (simulator captures only write frames when the screen changes), dissolves the last 0.5 s into the start so the loop has no cut, and caps it at 30 s. Encoding is H.264 High with a silent stereo AAC track, or ProRes 422 HQ in `.mov` with `video.codec: "prores"`. On a Mac it uses the VideoToolbox hardware encoder, elsewhere libx264 (or prores_ks). It needs ffmpeg on `PATH` or at `FFMPEG_PATH`.
+App Store Connect also takes video for the header and search results. Point `header.video` or `searchResults.video` at a recording (`.mov`, `.mp4` or `.m4v`), such as a simulator capture from `xcrun simctl io <udid> recordVideo` of a tour that starts and ends on the same screen, and tvos-assets writes `header.mp4` or `search-results.mp4`: it fills the canvas (cover, centre crop), resamples to a constant frame rate (simulator captures only write frames when the screen changes), dissolves the last 0.5 s into the start so the loop has no cut, and caps it at 30 s. Encoding is H.264 High with a silent stereo AAC track, or ProRes 422 HQ in `.mov` with `video.codec: "prores"`. H.264 is encoded with libx264, whose quality holds steady across keyframes, so the loop point does not hitch. ProRes uses the VideoToolbox hardware encoder on a Mac, prores_ks elsewhere. It needs ffmpeg on `PATH` or at `FFMPEG_PATH`.
 
-Row-motion loops render fast: only the cards move, so each frame is blended from the artwork drawn once with every card lit and once with none, through a card mask built from row strips drawn once, several frames at a time. A 20 s 4K header loop takes about 15 s on an M1 Max. Art the blend cannot reproduce exactly (rows that overlap, more than one element drawn through the mask, or a blend that differs from a full render) is drawn in full each frame instead.
+Row-motion loops render fast: only the cards move, so each frame is blended from the artwork drawn once with every card lit and once with none, through a card mask built from row strips drawn once, several frames at a time. A 20 s 4K header loop takes about 30 s on an M1 Max. Art the blend cannot reproduce exactly (rows that overlap, more than one element drawn through the mask, or a blend that differs from a full render) is drawn in full each frame instead.
 
 ```json
 "appStore": { "enabled": true, "searchResults": { "video": "./applestore/tour.mov" } }
+```
+
+### Music
+
+`video.audio` puts music (`.mp3`, `.m4a`, `.aac`, `.wav` or `.aiff`) on every video instead of the silent track, looped so it never cuts: each video takes a stretch of the track as long as itself plus one second, plays from that second on, and crossfades the stretch's last second into its first. The stretch is chosen between `video.audioStart` and `video.audioEnd` (seconds into the track; by default from the first sound, past any silent lead-in, to the end): where the beat a loop length later lines up with the beat at its start, and the level never drops below half the music's median. Set `audioEnd` to `audioStart` plus the video's length plus 1 s to pin the stretch exactly.
+
+```json
+"appStore": { "enabled": true, "video": { "audio": "./store/music.mp3", "audioStart": 30, "audioEnd": 90 } }
 ```
 
 `preview.html` outlines the safe area on each still and plays the videos in a loop. Upload them in App Store Connect under Header and Search Results, or in Asset Library. The Expo plugin writes them on every prebuild when its `appStore` prop is set.

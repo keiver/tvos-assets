@@ -231,6 +231,21 @@ function validateVideoPath(rawPath: string, label: string): string {
   return resolved;
 }
 
+const AUDIO_EXTENSIONS = new Set([".mp3", ".m4a", ".aac", ".wav", ".aif", ".aiff"]);
+
+function validateAudioPath(rawPath: string, label: string): string {
+  const resolved = resolve(rawPath);
+  if (!existsSync(resolved)) {
+    throw new Error(`${label} not found: ${resolved}`);
+  }
+  assertNotSymlink(resolved, label);
+  const ext = extname(resolved).toLowerCase();
+  if (!AUDIO_EXTENSIONS.has(ext)) {
+    throw new Error(`${label} must be a .mp3, .m4a, .aac, .wav or .aiff file (got "${ext}"): ${resolved}`);
+  }
+  return resolved;
+}
+
 const HEX_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 const SAFE_ASSET_NAME = /^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/;
@@ -518,6 +533,17 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   }
   if (video.codec !== "h264" && video.codec !== "prores") {
     throw new Error(`Invalid appStore.video.codec: "${String(video.codec)}". Use "h264" or "prores".`);
+  }
+  const rawAudio = (video.audio ?? "").trim();
+  video.audio = rawAudio ? validateAudioPath(rawAudio, "appStore.video.audio") : undefined;
+  for (const key of ["audioStart", "audioEnd"] as const) {
+    const value = video[key];
+    if (value !== undefined && (typeof value !== "number" || !Number.isFinite(value) || value < 0)) {
+      throw new Error(`Invalid appStore.video.${key}: "${String(value)}". Use seconds into the audio, 0 or more.`);
+    }
+  }
+  if (video.audioStart !== undefined && video.audioEnd !== undefined && video.audioEnd <= video.audioStart) {
+    throw new Error(`appStore.video.audioEnd (${video.audioEnd}) must come after audioStart (${video.audioStart}).`);
   }
 
   // With no icon input, assemble one from the parallax layer art. Assigned

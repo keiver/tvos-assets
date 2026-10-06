@@ -14,6 +14,8 @@
  *    machine renders the same pixels.
  * 7. A shape may hold one `<animate attributeName values dur>` (a blinking dot, say): videos play
  *    it, stills show its first value, and its `dur` must divide the loop.
+ * 8. What is drawn through the mask is the scene behind the cards and stays put. A shape drawn on
+ *    top that fits inside one card belongs to it and rides with its row; other shapes stay put.
  */
 
 export interface Box {
@@ -32,6 +34,8 @@ export interface RowArtwork {
   pitchY: number;
   /** Size of one card's bounding box. */
   card: { width: number; height: number };
+  /** Every source card's box, with the index of its row in `rows`. */
+  cards: (Box & { row: number })[];
   /** The card under the centre of the fixed layer (what is drawn outside the mask), if any. */
   anchor?: Box;
   source: string;
@@ -81,7 +85,7 @@ const num = (tag: string, name: string, fallback = 0): number => {
 };
 
 /** Bounding box of one card element, or a message saying why it cannot be a card. */
-function cardBox(tag: string): Box | string {
+export function cardBox(tag: string): Box | string {
   const name = tag.match(/^<(\w+)/)?.[1] ?? "";
   if (attr(tag, "transform")) return `a mask card has a transform; flatten transforms before exporting`;
   if (name === "path") return pathBox(attr(tag, "d") ?? "");
@@ -164,10 +168,53 @@ export function parseRowArtwork(svg: string): RowArtwork {
     if (!close(Math.min(d, pitchX - d), 0)) fail(`rows must repeat every two; the row at y=${rows[i].y.toFixed(1)} does not line up with the row at y=${rows[i - 2].y.toFixed(1)}`);
   }
 
-  return { width, height, rows, pitchX, pitchY, card: { width: w0, height: h0 }, anchor: anchorCard(svg, width, height, boxes), source: svg };
+  const cardBoxes = rowList.flatMap((list, row) => list.map((b) => ({ x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, row })));
+  return { width, height, rows, pitchX, pitchY, card: { width: w0, height: h0 }, cards: cardBoxes, anchor: anchorCard(svg, width, height, boxes), source: svg };
 }
 
 const SHAPE = /<(path|rect|circle|ellipse|polygon)\b[^>]*?(?:\/>|>[\s\S]*?<\/\1>)/g;
+
+/** Start and end of the element whose tag holds `at`, matching nested tags of the same name. */
+function elementSpan(svg: string, at: number): [number, number] {
+  const start = svg.lastIndexOf("<", at);
+  const name = svg.slice(start).match(/^<(\w+)/)?.[1] ?? "";
+  const open = svg.indexOf(">", at);
+  if (svg[open - 1] === "/") return [start, open + 1];
+  const tags = new RegExp(`<(/?)${name}\\b[^>]*?(/?)>`, "g");
+  tags.lastIndex = open + 1;
+  let depth = 1;
+  for (let m = tags.exec(svg); m; m = tags.exec(svg)) {
+    if (m[1]) depth--;
+    else if (!m[2]) depth++;
+    if (depth === 0) return [start, m.index + m[0].length];
+  }
+  return [start, svg.length];
+}
+
+/**
+ * Shapes drawn on top of the cards (outside the mask, the elements drawn through it, and defs)
+ * that fit inside one card: they belong to that card and ride with its row.
+ */
+export function riders(svg: string, cards: (Box & { row: number })[]): { tag: string; row: number }[] {
+  let rest = svg.replace(/<(mask|defs|clipPath)\b[\s\S]*?<\/\1>/g, "");
+  const id = svg.match(/<mask\b[^>]*\sid="([^"]*)"/)?.[1];
+  for (let i = id ? rest.indexOf(`url(#${id})`) : -1; i >= 0; i = rest.indexOf(`url(#${id})`)) {
+    const [s, e] = elementSpan(rest, i);
+    rest = rest.slice(0, s) + rest.slice(e);
+  }
+  // A transformed group's shapes are not where their own coordinates say, so they stay put.
+  const moved = [...rest.matchAll(/<g\b[^>]*\stransform="/g)].map((m) => elementSpan(rest, m.index as number));
+  const found: { tag: string; row: number }[] = [];
+  for (const m of rest.matchAll(SHAPE)) {
+    const tag = m[0], at = m.index as number;
+    if (moved.some(([s, e]) => at > s && at < e)) continue;
+    const b = cardBox(tag);
+    if (typeof b === "string") continue;
+    const card = cards.find((c) => b.x0 >= c.x0 - TOL && b.x1 <= c.x1 + TOL && b.y0 >= c.y0 - TOL && b.y1 <= c.y1 + TOL);
+    if (card) found.push({ tag, row: card.row });
+  }
+  return found;
+}
 
 /** The card whose box holds the centre of every non-full-canvas shape outside the mask and defs. */
 function anchorCard(svg: string, width: number, height: number, cards: Box[]): Box | undefined {
@@ -227,8 +274,9 @@ export function animateAt(svg: string, t: number): string {
  * The artwork on a `width` x `height` canvas: the original's centre placed at `centre` (default the
  * canvas centre), its full-canvas fills stretched to cover the canvas, its rows re-tiled across it
  * with the source's spacing and stagger, each row shifted horizontally by `offsets(k)` (row 0 is the
- * top source row; rows above and below repeat the stagger). `mask` "open" lets everything through
- * the mask and "shut" nothing, in place of the cards.
+ * top source row; rows above and below repeat the stagger). Shapes riding a card move with its row;
+ * during `seam` each also fades into a copy `seam.shift(row)` back, so a loop ends where it began.
+ * `mask` "open" lets everything through the mask and "shut" nothing, in place of the cards.
  */
 export function renderRows(
   art: RowArtwork,
@@ -237,6 +285,7 @@ export function renderRows(
   offsets: (row: number) => number = () => 0,
   centre: { x: number; y: number } = { x: width / 2, y: height / 2 },
   mask: "cards" | "open" | "shut" = "cards",
+  seam?: { weight: number; shift: (row: number) => number },
 ): string {
   const { width: W, height: H, pitchX, pitchY } = art;
   // The canvas in source coordinates runs from (-dx, -dy) to (width - dx, height - dy).
@@ -277,7 +326,17 @@ export function renderRows(
     return tag;
   };
 
-  const body = art.source
+  let source = art.source;
+  for (const { tag, row } of riders(art.source, art.cards)) {
+    const shift = offsets(row), w = seam?.weight ?? 0;
+    if (shift === 0 && w === 0) continue;
+    const moved = w > 0
+      ? `<g transform="translate(${shift} 0)" opacity="${1 - w}">${tag}</g><g transform="translate(${shift - (seam as { shift: (row: number) => number }).shift(row)} 0)" opacity="${w}">${tag}</g>`
+      : `<g transform="translate(${shift} 0)">${tag}</g>`;
+    source = source.split(tag).join(moved);
+  }
+
+  const body = source
     .replace(/^[\s\S]*?<svg\b[^>]*>/, "")
     .replace(/<\/svg>\s*$/, "")
     .replace(/<mask\b([^>]*)>[\s\S]*?<\/mask>/, (_m, attrs: string) => {

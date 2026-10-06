@@ -1,13 +1,21 @@
 import sharp from "sharp";
-import { animateAt, animationPeriods, renderRows } from "./svg-rows.js";
+import { animateAt, animationPeriods, cardBox, renderRows, riders } from "./svg-rows.js";
 import type { RowArtwork } from "./svg-rows.js";
 
-/** Sub-pixel positions each row strip is drawn at; a row lands within 1/32 px of its true place. */
+/** Sub-pixel positions strips and riders are drawn at; each lands within 1/32 px of its true place. */
 const PHASES = 16;
 /** Blank pixels above and below a card in its strip, for antialiasing. */
 const PAD = 4;
+/** Blank pixels around a rider, for antialiasing and soft edges. */
+const RIDER_PAD = 32;
 /** Mean difference per channel (0-255) the fast frames may show against a full render. */
 const TOLERANCE = 0.5;
+
+/** Where the rows are at one moment: each row's offset, and the loop seam's crossfade if in it. */
+export interface RowMotion {
+  offsets: (row: number) => number;
+  seam?: { weight: number; shift: (row: number) => number };
+}
 
 export interface RowFrames {
   /** True when frames are blended from pre-rendered layers, false when each is a full SVG render. */
@@ -32,22 +40,34 @@ function memo<T>(make: (key: string) => Promise<T>): (key: string) => Promise<T>
   };
 }
 
+/** Split a position into a whole pixel and one of `PHASES` sub-pixel steps. */
+function snap(x: number): [number, number] {
+  let whole = Math.floor(x), phase = Math.round((x - whole) * PHASES);
+  if (phase === PHASES) { phase = 0; whole += 1; }
+  return [whole, phase];
+}
+
 /**
- * Frames of row artwork in motion. Only the cards (the mask) move, and a single masked layer is
- * linear in its mask, so each frame is `shut + mask * (open - shut)`: the art with the mask fully
- * open and fully shut, rendered once per animation state, blended through a mask assembled from
- * row strips rendered once per sub-pixel phase. Art that breaks those assumptions, or whose blend
- * differs from a full render, gets full SVG renders instead.
+ * Frames of row artwork in motion. The cards (the mask) and the shapes riding them move; a single
+ * masked layer is linear in its mask, so each frame is `shut + mask * (open - shut)` with the
+ * riders on top: the art with the mask fully open and fully shut, rendered once per animation
+ * state, blended through a mask assembled from row strips rendered once per sub-pixel phase.
+ * Art that breaks those assumptions, or whose blend differs from a full render, gets full SVG
+ * renders instead.
  */
 export async function rowFrames(
   art: RowArtwork,
   width: number,
   height: number,
   centre: { x: number; y: number },
-  offsets: (row: number, t: number) => number,
+  motion: (t: number) => RowMotion,
+  /** Times checked against a full render before the fast path is trusted. */
+  checks: number[] = [0.37],
 ): Promise<RowFrames> {
-  const full = (t: number): Promise<Buffer> =>
-    rgb(renderRows({ ...art, source: animateAt(art.source, t) }, width, height, (k) => offsets(k, t), centre));
+  const full = (t: number): Promise<Buffer> => {
+    const m = motion(t);
+    return rgb(renderRows({ ...art, source: animateAt(art.source, t) }, width, height, m.offsets, centre, "cards", m.seam));
+  };
   const slow: RowFrames = { fast: false, frame: full };
 
   const maskElement = art.source.match(/<mask\b[^>]*>[\s\S]*?<\/mask>/)?.[0] ?? "";
@@ -62,9 +82,9 @@ export async function rowFrames(
   const bandHeight = Math.ceil(art.card.height) + 2 * PAD + 2;
   const margin = Math.ceil(pitchX) + 2;
   const stripWidth = width + margin + 2;
+  const defs = (art.source.match(/<defs\b[\s\S]*?<\/defs>/g) ?? []).join("");
 
   // The mask alone: a white canvas seen through the cards, so a strip's alpha is the mask.
-  const defs = (art.source.match(/<defs\b[\s\S]*?<\/defs>/g) ?? []).join("");
   const probe: RowArtwork = {
     ...art,
     source: `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">${maskElement}<rect x="0" y="0" width="${W}" height="${H}" fill="white" mask="url(#${id})"/>${defs}</svg>`,
@@ -78,13 +98,15 @@ export async function rowFrames(
     return alpha(renderRows(probe, stripWidth, bandHeight, () => 0, { x: sx + W / 2, y: sy + H / 2 }));
   });
 
+  // The art without its riders, mask fully open and fully shut, `open` with an alpha slot to fill.
   const layers = memo(async (state) => {
-    const animated = { ...art, source: state };
+    let still = state;
+    for (const { tag } of riders(state, art.cards)) still = still.split(tag).join("");
+    const animated = { ...art, source: still };
     const [open, shut] = await Promise.all([
       rgb(renderRows(animated, width, height, () => 0, centre, "open")),
       rgb(renderRows(animated, width, height, () => 0, centre, "shut")),
     ]);
-    // `open` with an alpha slot each frame fills from its mask.
     const overlay = Buffer.alloc(width * height * 4);
     for (let i = 0, j = 0; i < open.length; i += 3, j += 4) {
       overlay[j] = open[i]; overlay[j + 1] = open[i + 1]; overlay[j + 2] = open[i + 2];
@@ -92,8 +114,41 @@ export async function rowFrames(
     return { overlay, shut };
   });
 
+  // One rider drawn on its own, `RIDER_PAD` from its box's top left plus the sub-pixel offsets.
+  const sprite = memo(async (key) => {
+    const split = key.indexOf("|", key.indexOf("|") + 1);
+    const [phase, fy] = key.slice(0, split).split("|").map(Number);
+    const tag = key.slice(split + 1);
+    const b = cardBox(tag) as { x0: number; y0: number; x1: number; y1: number };
+    const w = Math.ceil(b.x1 - b.x0) + 2 * RIDER_PAD + 2, h = Math.ceil(b.y1 - b.y0) + 2 * RIDER_PAD + 2;
+    const svg = `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${defs}<g transform="translate(${RIDER_PAD + phase / PHASES - b.x0} ${RIDER_PAD + fy - b.y0})">${tag}</g></svg>`;
+    return { data: await sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer(), w, h };
+  });
+
+  /** A rider's sprite at canvas offset `shift`, faded to `opacity` and clipped to the canvas. */
+  const place = async (tag: string, shift: number, opacity: number): Promise<sharp.OverlayOptions | undefined> => {
+    const b = cardBox(tag) as { x0: number; y0: number };
+    const [ix, phase] = snap(b.x0 + dx + shift);
+    const iy = Math.floor(b.y0 + dy), fy = +(b.y0 + dy - iy).toFixed(4);
+    const s = await sprite(`${phase}|${fy}|${tag}`);
+    const left = ix - RIDER_PAD, top = iy - RIDER_PAD;
+    const x0 = Math.max(0, left), y0 = Math.max(0, top);
+    const x1 = Math.min(width, left + s.w), y1 = Math.min(height, top + s.h);
+    if (x1 <= x0 || y1 <= y0 || opacity <= 0) return undefined;
+    const cw = x1 - x0, ch = y1 - y0;
+    const data = Buffer.alloc(cw * ch * 4);
+    for (let r = 0; r < ch; r++) {
+      const from = ((y0 - top + r) * s.w + (x0 - left)) * 4;
+      s.data.copy(data, r * cw * 4, from, from + cw * 4);
+    }
+    if (opacity < 1) for (let i = 3; i < data.length; i += 4) data[i] = Math.round(data[i] * opacity);
+    return { input: data, raw: { width: cw, height: ch, channels: 4 }, left: x0, top: y0 };
+  };
+
   const blend = async (t: number): Promise<Buffer> => {
-    const { overlay, shut } = await layers(animateAt(art.source, t));
+    const m = motion(t);
+    const state = animateAt(art.source, t);
+    const { overlay, shut } = await layers(state);
     const out = Buffer.from(overlay);
     const kFirst = Math.floor((-dy - art.card.height - first.y) / pitchY);
     for (let k = kFirst; first.y + k * pitchY + dy - art.card.height / 2 < height; k++) {
@@ -102,10 +157,8 @@ export async function rowFrames(
       const yc = first.y + k * pitchY + dy;
       const top = Math.floor(yc - art.card.height / 2) - PAD;
       const fy = +(yc - top).toFixed(4);
-      const x = src.xs[0] + offsets(k, t) + dx;
-      const u = ((x % pitchX) + pitchX) % pitchX;
-      let whole = Math.floor(u), phase = Math.round((u - whole) * PHASES);
-      if (phase === PHASES) { phase = 0; whole += 1; }
+      const u = (((src.xs[0] + m.offsets(k) + dx) % pitchX) + pitchX) % pitchX;
+      const [whole, phase] = snap(u);
       const band = await strip(`${p}|${fy}|${phase}`);
       const from = margin - whole;
       for (let r = 0; r < bandHeight; r++) {
@@ -119,17 +172,22 @@ export async function rowFrames(
         }
       }
     }
-    return sharp(shut, { raw: { width, height, channels: 3 } })
-      .composite([{ input: out, raw: { width, height, channels: 4 } }])
-      .removeAlpha()
-      .raw()
-      .toBuffer();
+    const placed: sharp.OverlayOptions[] = [{ input: out, raw: { width, height, channels: 4 } }];
+    for (const { tag, row } of riders(state, art.cards)) {
+      const w = m.seam?.weight ?? 0;
+      for (const copy of [
+        await place(tag, m.offsets(row), 1 - w),
+        w > 0 ? await place(tag, m.offsets(row) - (m.seam as NonNullable<RowMotion["seam"]>).shift(row), w) : undefined,
+      ]) if (copy) placed.push(copy);
+    }
+    return sharp(shut, { raw: { width, height, channels: 3 } }).composite(placed).removeAlpha().raw().toBuffer();
   };
 
-  // A frame partway through, with rows off their source spacing, has to match a full render.
-  const probeTime = 0.37 * Math.max(1, ...animationPeriods(art.source));
-  const [a, b] = await Promise.all([full(probeTime), blend(probeTime)]);
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff += Math.abs(a[i] - b[i]);
-  return diff / a.length <= TOLERANCE ? { fast: true, frame: blend } : slow;
+  for (const t of checks) {
+    const [a, b] = await Promise.all([full(t), blend(t)]);
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) diff += Math.abs(a[i] - b[i]);
+    if (diff / a.length > TOLERANCE) return slow;
+  }
+  return { fast: true, frame: blend };
 }

@@ -3,10 +3,36 @@ jest.setTimeout(60000);
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
-import { animateAt, animationPeriods, parseRowArtwork, pathCentre, renderRows } from "../../src/utils/svg-rows";
+import { animateAt, animationPeriods, parseRowArtwork, pathCentre, renderRows, riders } from "../../src/utils/svg-rows";
 import { ROW_SVG } from "../fixtures/row-artwork";
 
 const EXAMPLES = join(__dirname, "../../examples/row-artwork");
+
+describe("riders", () => {
+  const MARK = '<rect x="190" y="90" width="20" height="20" fill="#FF0000"/>';
+
+  it("rides a shape drawn on top that fits inside one card, on that card's row", () => {
+    const art = parseRowArtwork(ROW_SVG);
+    expect(riders(art.source, art.cards)).toEqual([{ tag: MARK, row: 1 }]);
+  });
+
+  it("keeps shapes drawn through the mask, spanning cards, or in a transformed group in place", () => {
+    const through = ROW_SVG.replace(`<path d="M400 0H0V200H400V0Z" fill="#FFC312"/></g>\n${MARK}`, `<path d="M400 0H0V200H400V0Z" fill="#FFC312"/>${MARK}</g>`);
+    const spanning = ROW_SVG.replace(MARK, '<rect x="190" y="90" width="80" height="20" fill="#FF0000"/>');
+    const grouped = ROW_SVG.replace(MARK, `<g transform="translate(5 0)">${MARK}</g>`);
+    for (const svg of [through, spanning, grouped]) {
+      const art = parseRowArtwork(svg);
+      expect(riders(art.source, art.cards)).toEqual([]);
+    }
+  });
+
+  it("moves a rider with its row, and crossfades it into the copy one pitch back during the seam", () => {
+    const art = parseRowArtwork(ROW_SVG);
+    expect(renderRows(art, 400, 200, (k) => (k === 1 ? 30 : 0))).toContain(`<g transform="translate(30 0)">${MARK}</g>`);
+    const seam = renderRows(art, 400, 200, (k) => (k === 1 ? 90 : 0), undefined, "cards", { weight: 0.25, shift: () => 100 });
+    expect(seam).toContain(`<g transform="translate(90 0)" opacity="0.75">${MARK}</g><g transform="translate(-10 0)" opacity="0.25">${MARK}</g>`);
+  });
+});
 
 describe("pathCentre", () => {
   it("follows H and V, which take one number", () => {
