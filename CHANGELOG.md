@@ -1,6 +1,10 @@
 # Changelog
 
 ## [Unreleased]
+- docs(readme): rewritten in plainer language for iOS and the App Store art as well as Apple TV;
+  the options table now covers `appStore.video` (fps, codec, audio, audioStart, audioEnd).
+- chore(deps): `package-lock.json` records the optional `@expo/config-plugins` peer dependency
+  `package.json` already declares, so installs no longer rewrite it.
 
 ## [1.6.1] - 2026-10-06
 - fix(preview): keep appStore.video.audio relative in preview.html (#12)
