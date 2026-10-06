@@ -1,6 +1,8 @@
 # Changelog
 
 ## [Unreleased]
+- fix(preview): `appStore.video.audio` shows in preview.html's resolved config relative to the
+  page, like every other path, instead of as an absolute path under the home directory.
 
 ## [1.6.0] - 2026-10-06
 - feat(app-store): App Store creative assets: header, search results, universal and In-App Event media, from the icon or row artwork, with looping videos (#10)

@@ -129,6 +129,7 @@ function displayConfig(
   const store = copy.appStore;
   if (store.backgroundImage) store.backgroundImage = show(store.backgroundImage);
   if (store.centerImage) store.centerImage = show(store.centerImage);
+  if (store.video.audio) store.video.audio = show(store.video.audio);
   for (const placement of [store.header, store.searchResults, store.universal, store.eventCard, store.eventDetails]) {
     for (const key of ["backgroundImage", "centerImage", "source", "video"] as const) {
       const path = placement[key];

@@ -303,6 +303,8 @@ describe("preview.html", () => {
   it("keeps the home directory out of the App Store paths in the resolved config", async () => {
     const storeOut = join(TMP, "store-paths");
     mkdirSync(storeOut, { recursive: true });
+    const music = join(storeOut, "music.wav");
+    writeFileSync(music, "not decoded: no placement here makes a video");
     const config = resolveConfig({
       icon,
       background,
@@ -315,6 +317,7 @@ describe("preview.html", () => {
           centerImage: icon,
           header: { source: background },
           searchResults: { backgroundImage: background, centerImage: icon },
+          video: { audio: music },
         },
       },
     });
@@ -327,6 +330,7 @@ describe("preview.html", () => {
 
     const resolved = readFileSync(previewPath, "utf-8").match(/<summary>Show resolved config<\/summary>\s*<pre>([\s\S]*?)<\/pre>/)?.[1];
     expect(resolved).toContain("appStore");
+    expect(resolved).toContain("music.wav");
     expect(resolved).not.toContain(homedir());
   });
 
