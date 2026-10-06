@@ -1,15 +1,13 @@
 # tvos-assets
 
-**Apple TV asset generation, from three inputs.** Give it an icon, a background, and a hex color, and it builds the whole `Images.xcassets` catalog tvOS expects: layered parallax app icons for the home screen and the App Store, both Top Shelf banners, and the splash screen assets. Everything is named and nested exactly the way Xcode wants it.
+Generate app icons, Top Shelf images, splash screens and App Store listing art for Apple TV and iOS apps, from your icon art, a background and a color.
 
-The same artwork almost always ships an iOS companion app, so it **also** generates a matching `AppIcon.appiconset` with light, dark, and tinted (iOS 18+) variants, keeping both platforms in sync from one source of truth. Use `--platforms` to limit a run to either family.
+tvos-assets writes the `Images.xcassets` catalog Xcode expects: tvOS parallax app icons (home screen and App Store), both Top Shelf images, the iOS app icon with its dark and tinted variants, and the splash screen logo and color. With `--app-store` it also writes the iOS 27 and iPadOS 27 [App Store creative assets](#app-store-creative-assets): header, search results, universal and In-App Event images, plus looping videos.
 
-With `--app-store` it also writes the iOS 27 and iPadOS 27 [App Store creative assets](#app-store-creative-assets): the product page header, search results, universal and In-App Event images, and looping header and search-results videos, from your icon or from one SVG of artwork.
-
-Use it as a CLI, a programmatic API, or an Expo config plugin that regenerates everything on `expo prebuild`.
+Run it as a CLI, from Node, or as an [Expo config plugin](#expo-config-plugin) on every `expo prebuild`.
 
 <p align="center">
-  <img src="docs/preview-top-shelf.webp" alt="Apple TV home screen: the generated Top Shelf image filling the top of the screen, with the generated app icon focused in the dock below" width="100%">
+  <img src="docs/preview-tvos-assets.webp" alt="Apple TV Home Screen with an app focused: its generated Top Shelf image, a globe over a dark background with a yellow swoosh, fills the top of the screen above its generated parallax app icon" width="100%">
 </p>
 
 ## Quick start
@@ -18,25 +16,25 @@ Use it as a CLI, a programmatic API, or an Expo config plugin that regenerates e
 npx tvos-assets --icon ./icon.png --background ./bg.png --color "#F39C12"
 ```
 
-That writes a timestamped zip to your Desktop with three things in it:
+That writes a timestamped zip to your Desktop:
 
-| Artifact | Description |
+| File | What it is |
 |---|---|
-| `Images.xcassets/` | 42 files: tvOS brand assets, the iOS appiconset, splash logo and colorset |
-| `icon.png` | flattened 1024x1024 |
-| **`preview.html`** | **a contact sheet of everything generated, written on every run.** Open it first, see [preview.html](#previewhtml) |
+| `Images.xcassets/` | 42 files: tvOS brand assets, the iOS app icon, the splash logo and color |
+| `icon.png` | The flattened 1024x1024 icon |
+| `preview.html` | A contact sheet of everything generated. Open it first: see [preview.html](#previewhtml) |
 
-Each run produces a uniquely named zip, so nothing is ever overwritten.
+Each run gets its own zip, so nothing is overwritten.
 
 ## Install
 
 ```bash
-npm install -g tvos-assets     # global, adds tvos-assets to PATH
-npm install --save-dev tvos-assets   # project dependency, for build scripts or the Expo plugin
-npx tvos-assets --help         # no install
+npm install --save-dev tvos-assets   # in a project, for scripts or the Expo plugin
+npm install -g tvos-assets           # global CLI
+npx tvos-assets --help               # no install
 ```
 
-Requires Node.js >= 18 and the [sharp](https://sharp.pixelplumbing.com/install) native dependency (installed automatically). This is a command line tool; it does not run in the browser.
+Needs Node.js 18 or later. [sharp](https://sharp.pixelplumbing.com/install) installs with it. App Store videos also need [ffmpeg](https://ffmpeg.org) on `PATH` (or at `FFMPEG_PATH`).
 
 ## Usage
 
@@ -44,281 +42,213 @@ Requires Node.js >= 18 and the [sharp](https://sharp.pixelplumbing.com/install) 
 tvos-assets --icon <path> --background <path> --color <hex> [options]
 ```
 
-The three inputs can come from flags or from a config file. Once a config file supplies them, the whole command is just `tvos-assets`.
+Inputs can come from flags or from a config file. With a `tvos-assets.config.json` in the current directory, the command is just `tvos-assets`; `tvos-assets --init` writes a starter one.
 
-**Config file discovery.** When `--config` is omitted, the CLI looks for `tvos-assets.config.json` in the current directory and uses it if present. The banner says `(auto-detected)` when that happens. Run `tvos-assets --init` to scaffold a starter file.
-
-**Precedence**, lowest to highest:
+Later sources win:
 
 ```
 built-in defaults  ->  config file  ->  --set  ->  named flags  ->  --icon / --background / --color
 ```
 
-**Output.** By default a uniquely timestamped zip (for example `tvos-assets-20260805-083335.zip`) is written to `~/Desktop`, falling back to `~` if there is no Desktop folder. `--out-dir` writes `Images.xcassets/` and `icon.png` straight into a directory instead: asset folders owned by this tool are cleaned and rewritten, and every other entry in the catalog is left untouched.
+By default the output is a zip in `~/Desktop` (or `~` without a Desktop). `--out-dir` writes `Images.xcassets/` and `icon.png` straight into a folder instead; folders tvos-assets owns are rewritten and everything else in the catalog is left alone.
 
-SVG inputs are rasterized at whatever density each output size needs, so a small viewBox still produces a crisp 4K Top Shelf image.
+SVG inputs are rasterized at the density each size needs, so a small viewBox still makes a sharp 4K Top Shelf image.
 
 ## Options
 
-Every option, on every surface. **Config key** is the dotted path in `tvos-assets.config.json`, which is also the path `--set` takes. **Plugin** is the [Expo config plugin](#expo-config-plugin) prop; `via config` means the plugin reaches it through its `config` prop pointing at a JSON file.
+**Config key** is the path in `tvos-assets.config.json`, and the path `--set` takes. **Plugin** is the [Expo plugin](#expo-config-plugin) prop; "via `config`" means the plugin reaches it through its `config` prop, a path to a JSON config file.
 
 | Option | Config key | Plugin | Type | Default | Description |
 |---|---|---|---|---|---|
-| `--icon <path>` | `inputs.iconImage` | `icon` | path | **required\*** | Icon PNG or SVG with a transparent background. \*Optional when `--layer-front` and `--layer-middle` are both given: the icon is then assembled from them. See [Assembling the icon from layer art](#assembling-the-icon-from-layer-art). |
-| `--background <path>` | `inputs.backgroundImage` | `background` | path | **required** | Background PNG or SVG. |
-| `--color <hex>` | `inputs.backgroundColor` | `color` | `#RRGGBB` | **required** | Splash background color, light mode. |
-| `--dark-color <hex>` | `inputs.darkBackgroundColor` | `darkColor` | `#RRGGBB` | auto | Dark mode splash background. Auto-darkened from `--color` (50% HSL lightness reduction). |
-| `--icon-dark <path>` | `inputs.iconDarkImage` | `iconDark` | path | auto | iOS dark-appearance icon override. Derived from the icon on transparency. |
-| `--icon-tinted <path>` | `inputs.iconTintedImage` | `iconTinted` | path | auto | iOS tinted-appearance icon override. Grayscale of the icon. |
-| `--icon-border-radius <px>` | `inputs.iconBorderRadius` | `iconBorderRadius` | number | `0` | Icon corner radius. `0` is square, a value at or above half the icon width gives a circle. Not applied to custom layer art. |
-| `--output <path>` | `output.directory` | fixed | path | `~/Desktop` | Where the zip is written. In `dir` mode, where the catalog is written. |
-| `--out-dir <path>` | `output.directory` | fixed | path | none | Write `Images.xcassets/` and `icon.png` into this directory instead of a zip. Implies `--mode dir`. |
-| `--mode <zip\|dir>` | `output.mode` | always `dir` | `zip` \| `dir` | `zip` | Output mode. `--out-dir` sets this for you. |
-| `--platforms <list>` | not a config key | `EXPO_TV=1` | `tvos`, `ios` | both | Icon families to generate. `tvos` produces the brandassets, `ios` the appiconset. Splash assets are generated either way. |
-| `--preview` / `--no-preview` | not a config key | not written | boolean | on | Write `preview.html` alongside the output. |
-| `--brand-name <name>` | `brandAssets.name` | via `config` | string | `AppIcon` | Name of the `.brandassets` bundle. Must match `ASSETCATALOG_COMPILER_APPICON_NAME` on the tvOS target. |
-| `--set brandAssets.appIconSmall.enabled=` | `brandAssets.appIconSmall.enabled` | via `config` | boolean | `true` | Home screen parallax imagestack on/off. |
+| `--icon <path>` | `inputs.iconImage` | `icon` | path | required\* | Icon PNG or SVG on transparency. \*Not needed when `--layer-front` and `--layer-middle` are both given: the icon is [assembled from them](#assembling-the-icon-from-layer-art). |
+| `--background <path>` | `inputs.backgroundImage` | `background` | path | required | Background PNG or SVG. |
+| `--color <hex>` | `inputs.backgroundColor` | `color` | `#RRGGBB` | required | Splash background, light mode. |
+| `--dark-color <hex>` | `inputs.darkBackgroundColor` | `darkColor` | `#RRGGBB` | derived | Splash background, dark mode. Derived from `--color` at half the HSL lightness. |
+| `--icon-dark <path>` | `inputs.iconDarkImage` | `iconDark` | path | derived | iOS dark-appearance icon. |
+| `--icon-tinted <path>` | `inputs.iconTintedImage` | `iconTinted` | path | derived | iOS tinted-appearance icon. |
+| `--icon-border-radius <px>` | `inputs.iconBorderRadius` | `iconBorderRadius` | number | `0` | Icon corner radius; half the icon width or more makes a circle. Not applied to custom layer art. |
+| `--output <path>` | `output.directory` | fixed | path | `~/Desktop` | Where the zip goes, or the catalog in `dir` mode. |
+| `--out-dir <path>` | `output.directory` | fixed | path | none | Write into this folder instead of a zip. Implies `--mode dir`. |
+| `--mode <zip\|dir>` | `output.mode` | always `dir` | `zip` \| `dir` | `zip` | Output mode. |
+| `--platforms <list>` | not a config key | `EXPO_TV=1` | `tvos`, `ios` | both | Icon families to write. Splash assets are written either way. |
+| `--preview` / `--no-preview` | not a config key | not written | boolean | on | Write `preview.html`. |
+| `--brand-name <name>` | `brandAssets.name` | via `config` | string | `AppIcon` | The `.brandassets` name. Must match `ASSETCATALOG_COMPILER_APPICON_NAME` on the tvOS target. |
+| `--set brandAssets.appIconSmall.enabled=` | `brandAssets.appIconSmall.enabled` | via `config` | boolean | `true` | Home screen imagestack on or off. |
 | `--set brandAssets.appIconSmall.name=` | `brandAssets.appIconSmall.name` | via `config` | string | `App Icon` | Folder name. Must match `CFBundleIcons` > `CFBundlePrimaryIcon`. |
-| `--set brandAssets.appIconSmall.size.width=` | `brandAssets.appIconSmall.size` | via `config` | `{width,height}` | `400x240` | Base size in points, multiplied by each scale. |
-| `--set brandAssets.appIconSmall.scales=` | `brandAssets.appIconSmall.scales` | via `config` | string[] | `1x,2x` | Scale factors to generate. |
-| `--set brandAssets.appIconLarge.*=` | `brandAssets.appIconLarge.*` | via `config` | same four keys | `App Icon - App Store`, `1280x768`, `1x` | App Store imagestack. Same structure as `appIconSmall`. |
-| `--ios-icon-scale <0-1>` | `iosIcon.iconScale` | `iosIconScale` | number | `0.8` | How much of the 1024 canvas the mark covers. Apple's icon grid centres the primary shape at about 80%. See [Sizing the mark](#sizing-the-mark). |
-| `--tv-icon-scale <0-1>` | `brandAssets.iconScale` | `tvIconScale` | number | `0.75` | How much of the shorter tvOS side the mark covers, on both imagestacks and both Top Shelf images. Apple asks for a 10-15% safe margin per layer. |
-| `--layer-front`, `--layer-middle`, `--layer-back` | `brandAssets.<stack>.layers.<layer>.imagePath` | `layers` | path | icon, icon, background | Custom parallax art per layer. The CLI flags apply to both imagestacks. See [Per-layer parallax art](#per-layer-parallax-art). |
-| `--set brandAssets.<stack>.layers.<layer>.source=` | `brandAssets.<stack>.layers.<layer>.source` | via `config` | `icon` \| `background` | front/middle `icon`, back `background` | How the layer renders: `icon` is centered on transparency, `background` is an opaque cover fill. |
-| `--no-top-shelf` | `brandAssets.topShelfImage(Wide).enabled` | via `config` | boolean | `true` | Both Top Shelf imagesets on/off. |
-| `--set brandAssets.topShelfImage.name=` | `brandAssets.topShelfImage(Wide).name` | via `config` | string | `Top Shelf Image` / `… Wide` | Folder name. Must match the `TVTopShelfImage` `Info.plist` keys. |
-| `--set brandAssets.topShelfImage.size.width=` | `brandAssets.topShelfImage(Wide).size` | via `config` | `{width,height}` | `1920x720` / `2320x720` | Base size in points. |
-| `--set brandAssets.topShelfImage.scales=` | `brandAssets.topShelfImage(Wide).scales` | via `config` | string[] | `1x,2x` | Scale factors. |
-| `--set brandAssets.topShelfImage.filePrefix=` | `brandAssets.topShelfImage(Wide).filePrefix` | via `config` | string | `top` / `wide` | Output filename prefix. |
-| `--no-ios-icon` | `iosIcon.enabled` | via `config` | boolean | `true` | iOS `AppIcon.appiconset` on/off. |
-| `--ios-icon-name <name>` | `iosIcon.name` | via `config` | string | `AppIcon` | Name of the `.appiconset`. Must match `ASSETCATALOG_COMPILER_APPICON_NAME` on the iOS target. |
-| `--no-splash` | `splashScreen.logo.enabled`, `splashScreen.background.enabled` | via `config` | boolean | `true` | Splash logo imageset and background colorset on/off. |
-| `--app-store` | `appStore.enabled` | `appStore` | boolean | `false` | App Store creative assets into `AppStore/` (plugin: `appStore.outDir`). See [App Store creative assets](#app-store-creative-assets). |
-| `--app-store-background <path>` | `appStore.backgroundImage` | `appStore.background` | path | `--background` | Backdrop for the creative assets. |
-| `--app-store-center <path>` | `appStore.centerImage` | `appStore.centerImage` | path | the icon | Centre art, such as a wordmark, contain-fit in each safe area. |
-| `--set appStore.header.source=` | `appStore.<placement>.source` | same keys | path | none | Finished artwork (SVG or PNG) for that placement; row artwork is re-tiled to each canvas. See [From finished artwork](#from-finished-artwork). Required by `eventCard` and `eventDetails`. |
-| `--set appStore.header.animate.rows=20` | `appStore.<placement>.animate` | same keys | `{ rows: seconds }` | none | Row-motion loop video from row artwork `source`, 5-30 s (15-30 s for In-App Events). Not for `universal`. |
-| `--set appStore.searchResults.video=` | `appStore.<placement>.video` | same keys | path | none | A recording cut into that placement's looping video (needs ffmpeg). Not for `universal`. `appStore.video` sets `fps` (30/60) and `codec` (`h264`/`prores`). |
-| `--set appStore.universal.enabled=false` | `appStore.<placement>.enabled` | same keys | boolean | on, In-App Event placements off | Write that placement or skip it. Placements: `header`, `searchResults`, `universal`, `eventCard`, `eventDetails`. |
-| `--set appStore.iconScale=` | `appStore.iconScale` | `appStore.iconScale` | number | `0.8` | How much of each art safe area the centre item covers, per side. |
-| `--set appStore.searchResults.center=false` | `appStore.<placement>` | same keys | object | `center: true` | Per-placement `backgroundImage`, `centerImage`, and `center` (false writes the backdrop alone). |
-| `--splash-logo-name <name>` | `splashScreen.logo.name` | via `config` | string | `SplashScreenLogo` | Imageset folder name. Must match your LaunchScreen storyboard. |
-| `--splash-logo-size <px>` | `splashScreen.logo.baseSize` | via `config` | number | `200` | Base logo size in px, multiplied by each scale. |
-| `--set splashScreen.logo.filePrefix=` | `splashScreen.logo.filePrefix` | via `config` | string | `200-icon` | Output filename prefix. |
-| `--set splashScreen.logo.universal.scales=` | `splashScreen.logo.universal.scales` | via `config` | string[] | `1x,2x,3x` | Splash logo scales for non-TV devices. |
-| `--set splashScreen.logo.tv.scales=` | `splashScreen.logo.tv.scales` | via `config` | string[] | `1x,2x` | Splash logo scales for Apple TV. |
-| `--splash-background-name <name>` | `splashScreen.background.name` | via `config` | string | `SplashScreenBackground` | Colorset folder name. Must match your LaunchScreen storyboard. |
-| `--set splashScreen.background.tv.dark=` | `splashScreen.background.{universal,tv}.{light,dark}` | via `config` | `#RRGGBB` | from `--color` / `--dark-color` | Per-idiom, per-appearance splash background colors. |
-| `--set xcassetsMeta.author=` | `xcassetsMeta.author` | via `config` | string | `xcode` | `author` field written into every Contents.json. |
-| `--set xcassetsMeta.version=` | `xcassetsMeta.version` | via `config` | integer | `1` | `version` field written into every Contents.json. |
-| `--config <path>` | n/a | `config` | path | `./tvos-assets.config.json` if present | Config JSON file. |
-| `--set <path=value>` | n/a | n/a | repeatable | none | Override any config key by dotted path. See below. |
-| `--dry-run` | n/a | n/a | flag | off | Report the asset directories and file counts that would be written, then exit without touching disk. |
-| `--print-config` | n/a | n/a | flag | off | Print the fully merged config as JSON and exit. The tool for debugging precedence. |
-| `--init [path]` | n/a | n/a | flag | off | Write a starter config with `$schema` wired up, and exit. Refuses to overwrite. See [About `$schema`](#about-schema). |
-| `--quiet` | n/a | n/a | flag | off | Print only errors and the final output path. For CI and npm scripts. |
-| `--version`, `--help` | n/a | n/a | flag | off | Version, and help with a `--set` cheatsheet and examples. |
+| `--set brandAssets.appIconSmall.size.width=` | `brandAssets.appIconSmall.size` | via `config` | `{width,height}` | `400x240` | Size in points, multiplied by each scale. |
+| `--set brandAssets.appIconSmall.scales=` | `brandAssets.appIconSmall.scales` | via `config` | string[] | `1x,2x` | Scales to write. |
+| `--set brandAssets.appIconLarge.*=` | `brandAssets.appIconLarge.*` | via `config` | same keys | `App Icon - App Store`, `1280x768`, `1x` | The App Store imagestack, same keys as `appIconSmall`. |
+| `--ios-icon-scale <0-1>` | `iosIcon.iconScale` | `iosIconScale` | number | `0.8` | How much of the iOS icon the mark covers. See [Sizing the mark](#sizing-the-mark). |
+| `--tv-icon-scale <0-1>` | `brandAssets.iconScale` | `tvIconScale` | number | `0.75` | How much of the shorter tvOS side the mark covers, on every imagestack and Top Shelf image. |
+| `--layer-front`, `--layer-middle`, `--layer-back` | `brandAssets.<stack>.layers.<layer>.imagePath` | `layers` | path | icon, icon, background | Art per parallax layer; the flags apply to both imagestacks. See [Parallax layers](#parallax-layers). |
+| `--set brandAssets.<stack>.layers.<layer>.source=` | `brandAssets.<stack>.layers.<layer>.source` | via `config` | `icon` \| `background` | front/middle `icon`, back `background` | `icon` is centred on transparency, `background` fills the layer. |
+| `--no-top-shelf` | `brandAssets.topShelfImage(Wide).enabled` | via `config` | boolean | `true` | Both Top Shelf images on or off. |
+| `--set brandAssets.topShelfImage.name=` | `brandAssets.topShelfImage(Wide).name` | via `config` | string | `Top Shelf Image` / `Top Shelf Image Wide` | Folder name. Must match the `TVTopShelfImage` keys in `Info.plist`. |
+| `--set brandAssets.topShelfImage.size.width=` | `brandAssets.topShelfImage(Wide).size` | via `config` | `{width,height}` | `1920x720` / `2320x720` | Size in points. |
+| `--set brandAssets.topShelfImage.scales=` | `brandAssets.topShelfImage(Wide).scales` | via `config` | string[] | `1x,2x` | Scales to write. |
+| `--set brandAssets.topShelfImage.filePrefix=` | `brandAssets.topShelfImage(Wide).filePrefix` | via `config` | string | `top` / `wide` | File name prefix. |
+| `--no-ios-icon` | `iosIcon.enabled` | via `config` | boolean | `true` | iOS `AppIcon.appiconset` on or off. |
+| `--ios-icon-name <name>` | `iosIcon.name` | via `config` | string | `AppIcon` | The `.appiconset` name. Must match `ASSETCATALOG_COMPILER_APPICON_NAME` on the iOS target. |
+| `--no-splash` | `splashScreen.logo.enabled`, `splashScreen.background.enabled` | via `config` | boolean | `true` | Splash logo and color on or off. |
+| `--splash-logo-name <name>` | `splashScreen.logo.name` | via `config` | string | `SplashScreenLogo` | Imageset name. Must match your launch screen. |
+| `--splash-logo-size <px>` | `splashScreen.logo.baseSize` | via `config` | number | `200` | Logo size in px, multiplied by each scale. |
+| `--set splashScreen.logo.filePrefix=` | `splashScreen.logo.filePrefix` | via `config` | string | `200-icon` | File name prefix. |
+| `--set splashScreen.logo.universal.scales=` | `splashScreen.logo.universal.scales` | via `config` | string[] | `1x,2x,3x` | Logo scales for iPhone and iPad. |
+| `--set splashScreen.logo.tv.scales=` | `splashScreen.logo.tv.scales` | via `config` | string[] | `1x,2x` | Logo scales for Apple TV. |
+| `--splash-background-name <name>` | `splashScreen.background.name` | via `config` | string | `SplashScreenBackground` | Colorset name. Must match your launch screen. |
+| `--set splashScreen.background.tv.dark=` | `splashScreen.background.{universal,tv}.{light,dark}` | via `config` | `#RRGGBB` | `--color` / `--dark-color` | Splash colors per device and appearance. |
+| `--app-store` | `appStore.enabled` | `appStore` | boolean | `false` | Write the [App Store creative assets](#app-store-creative-assets) into `AppStore/` (plugin: `appStore.outDir`). |
+| `--app-store-background <path>` | `appStore.backgroundImage` | `appStore.background` | path | `--background` | Backdrop for the App Store images. |
+| `--app-store-center <path>` | `appStore.centerImage` | `appStore.centerImage` | path | the icon | Art centred in each safe area, such as a wordmark. |
+| `--set appStore.iconScale=` | `appStore.iconScale` | `appStore.iconScale` | number | `0.8` | How much of each safe area the centred art covers. |
+| `--set appStore.header.source=` | `appStore.<placement>.source` | same keys | path | none | Finished art (SVG or PNG) for a placement. Required for `eventCard` and `eventDetails`. See [Row artwork](#row-artwork). |
+| `--set appStore.header.animate.rows=20` | `appStore.<placement>.animate` | same keys | `{ rows: seconds }` | none | A looping video from row artwork: 5-30 s, or 15-30 s for In-App Events. Not for `universal`. |
+| `--set appStore.searchResults.video=` | `appStore.<placement>.video` | same keys | path | none | A [recording](#recordings) cut into the placement's looping video. Not for `universal`. |
+| `--set appStore.universal.enabled=false` | `appStore.<placement>.enabled` | same keys | boolean | on; In-App Events off | Write a placement or skip it: `header`, `searchResults`, `universal`, `eventCard`, `eventDetails`. |
+| `--set appStore.searchResults.center=false` | `appStore.<placement>.{backgroundImage,centerImage,center}` | same keys | per placement | `center: true` | Per-placement backdrop and centred art; `center: false` writes the backdrop alone. |
+| `--set appStore.video.fps=60` | `appStore.video.fps`, `appStore.video.codec` | same keys | `30`\|`60`, `h264`\|`prores` | `30`, `h264` | Video frame rate and codec. |
+| `--set appStore.video.audio=` | `appStore.video.audio` | same key | path | none | [Music](#music) on every video, looped with a 1 s crossfade. Silent without it. |
+| `--set appStore.video.audioStart=` | `appStore.video.audioStart`, `appStore.video.audioEnd` | same keys | seconds | first sound, end of track | The part of the track the loop is picked from. |
+| `--set xcassetsMeta.author=` | `xcassetsMeta.author`, `xcassetsMeta.version` | via `config` | string, integer | `xcode`, `1` | Written into every `Contents.json`. |
+| `--config <path>` | n/a | `config` | path | `./tvos-assets.config.json` if present | Config file. |
+| `--set <path=value>` | n/a | n/a | repeatable | none | Set any config key. See below. |
+| `--dry-run` | n/a | n/a | flag | off | List what would be written, then exit. |
+| `--print-config` | n/a | n/a | flag | off | Print the merged config as JSON, then exit. |
+| `--init [path]` | n/a | n/a | flag | off | Write a starter config with `$schema` set, then exit. Never overwrites. |
+| `--quiet` | n/a | n/a | flag | off | Print only errors and the output path. |
+| `--version`, `--help` | n/a | n/a | flag | off | Version; help with a `--set` cheatsheet. |
 
-### Overriding any config key with `--set`
+### Setting any key with `--set`
 
-Every key above is reachable from the CLI with `--set key.path=value`, repeatable, with values coerced to whatever type that key expects (`true`/`false` for booleans, comma-separated for arrays):
+Every config key is reachable from the command line. Values take the key's type (`true`/`false`, numbers, comma-separated lists):
 
 ```bash
 tvos-assets --icon icon.svg --background bg.png --color "#1C1C1E" \
   --set brandAssets.appIconSmall.size.width=500 \
-  --set brandAssets.topShelfImage.scales=1x,2x \
   --set brandAssets.appIconLarge.enabled=false \
   --set splashScreen.background.tv.dark=#000000
 ```
 
-Paths are validated against the real config shape, so a typo fails with the valid keys at that level instead of being silently ignored. Use `--print-config` to confirm what a combination of config file, `--set`, and flags actually resolved to.
-
-<details>
-<summary><strong>Option parity: CLI, config file, plugin</strong></summary>
-
-Every capability, and how to reach it from each surface. "via `config`" means the plugin takes it through its `config` prop pointing at a JSON file.
-
-| Capability | CLI | Config key | Plugin prop |
-|---|---|---|---|
-| Icon | `--icon` | `inputs.iconImage` | `icon` |
-| Background | `--background` | `inputs.backgroundImage` | `background` |
-| Splash color (light) | `--color` | `inputs.backgroundColor` | `color` |
-| Splash color (dark) | `--dark-color` | `inputs.darkBackgroundColor` | `darkColor` |
-| Icon corner radius | `--icon-border-radius` | `inputs.iconBorderRadius` | `iconBorderRadius` |
-| iOS dark icon | `--icon-dark` | `inputs.iconDarkImage` | `iconDark` |
-| iOS tinted icon | `--icon-tinted` | `inputs.iconTintedImage` | `iconTinted` |
-| Output directory | `--output`, `--out-dir` | `output.directory` | fixed to the app's catalog |
-| Output mode | `--mode`, `--out-dir` | `output.mode` | always `dir` |
-| Brandassets bundle name | `--brand-name` | `brandAssets.name` | via `config` |
-| Home screen icon on/off | `--set brandAssets.appIconSmall.enabled=` | `brandAssets.appIconSmall.enabled` | via `config` |
-| Home screen icon name | `--set brandAssets.appIconSmall.name=` | `brandAssets.appIconSmall.name` | via `config` |
-| Home screen icon size | `--set brandAssets.appIconSmall.size.width=` | `brandAssets.appIconSmall.size` | via `config` |
-| Home screen icon scales | `--set brandAssets.appIconSmall.scales=` | `brandAssets.appIconSmall.scales` | via `config` |
-| App Store icon (all of the above) | `--set brandAssets.appIconLarge.*=` | `brandAssets.appIconLarge.*` | via `config` |
-| Mark size on iOS | `--ios-icon-scale` | `iosIcon.iconScale` | `iosIconScale` |
-| Mark size on tvOS | `--tv-icon-scale` | `brandAssets.iconScale` | `tvIconScale` |
-| Per-layer parallax art | `--layer-front`, `--layer-middle`, `--layer-back` | `brandAssets.*.layers.*.imagePath` | `layers` |
-| Per-layer source | `--set brandAssets.*.layers.*.source=` | `brandAssets.*.layers.*.source` | via `config` |
-| Top Shelf on/off | `--no-top-shelf` | `brandAssets.topShelfImage(Wide).enabled` | via `config` |
-| Top Shelf name, size, scales, prefix | `--set brandAssets.topShelfImage.*=` | `brandAssets.topShelfImage.*` | via `config` |
-| iOS appiconset on/off | `--no-ios-icon` | `iosIcon.enabled` | via `config` |
-| iOS appiconset name | `--ios-icon-name` | `iosIcon.name` | via `config` |
-| Splash logo on/off | `--no-splash` | `splashScreen.logo.enabled` | via `config` |
-| Splash logo name | `--splash-logo-name` | `splashScreen.logo.name` | via `config` |
-| Splash logo base size | `--splash-logo-size` | `splashScreen.logo.baseSize` | via `config` |
-| Splash logo scales | `--set splashScreen.logo.universal.scales=` | `splashScreen.logo.universal.scales`, `.tv.scales` | via `config` |
-| Splash logo file prefix | `--set splashScreen.logo.filePrefix=` | `splashScreen.logo.filePrefix` | via `config` |
-| Splash background on/off | `--no-splash` | `splashScreen.background.enabled` | via `config` |
-| Splash background name | `--splash-background-name` | `splashScreen.background.name` | via `config` |
-| Per-idiom splash colors | `--set splashScreen.background.tv.dark=` | `splashScreen.background.{universal,tv}.{light,dark}` | via `config` |
-| Contents.json metadata | `--set xcassetsMeta.author=` | `xcassetsMeta.author`, `.version` | via `config` |
-| Platform selection | `--platforms` | not a config key | `EXPO_TV=1` environment variable |
-| preview.html | `--preview`, `--no-preview` | not a config key | not written |
-
-</details>
+A misspelled path fails and lists the keys that exist at that level. `--print-config` shows what a mix of config file, `--set` and flags resolves to.
 
 ## preview.html
 
-> **Every run writes a `preview.html` next to your assets.** No flag needed. Open it to check the whole catalog in a browser before you touch Xcode.
+Every run writes a `preview.html` beside your assets. Open it to check the whole catalog in a browser before you touch Xcode.
 
 <p align="center">
   <img src="docs/preview-full.webp" alt="preview.html showing the run inputs, the command, and the generated asset catalog" width="100%">
 </p>
 
-It is one self-contained file. Every image is embedded, so it works offline, opens straight from the zip, and can be handed to a designer as-is. It shows:
+It's one file with every image embedded, so it works offline and can go straight to a designer. It shows:
 
-- **Provenance**, so the file explains itself: a thumbnail of every source file with its role, the exact command that produced the run, and the fully merged config. Paths are relative to the output or have your home directory collapsed to `~`, so a page you commit or share never carries an absolute path from your machine.
-- **Every generated asset**, grouped by the directory it was written to, with the real filename and true pixel dimensions. Transparent assets sit on a checkerboard so you can see exactly where the alpha is, and the splash colorset renders as light and dark swatches with their hex values.
-- **The parallax, moving.** Both imagestacks are live: point at one and the Front, Middle and Back layers separate the way tvOS moves them when the icon takes focus. This is the one property a flat thumbnail cannot show you, and the fastest way to tell whether your per-layer art actually reads as depth.
-- **Click any image to open the real file** on disk in a new tab. The thumbnails are downscaled, so this is how you inspect a 4640x1440 Top Shelf at full size.
-- **The App Store creative assets**, when `--app-store` is on: each still with its art safe area outlined, and the header and search-results videos playing in a loop. Videos are too large to embed, so they play from the files beside the page.
+- **Where everything came from**: each input with its role, the exact command, and the merged config. Paths are relative or start with `~`, so a shared page never exposes your machine's paths.
+- **Every generated file** with its real name and pixel size, transparency on a checkerboard, and the splash colors as light and dark swatches. Click a thumbnail to open the full-size file.
+- **Live parallax**: point at an imagestack and its layers separate the way tvOS moves them on focus.
+- **The App Store assets** with `--app-store`: each image with its safe area outlined, and the videos playing (they're too big to embed, so they play from the files beside the page).
 
-[`examples/tomotv/output/preview.html`](examples/tomotv/output/preview.html) is a real one, from the art and config TomoTV ships.
+[`examples/tomotv/output/preview.html`](examples/tomotv/output/preview.html) is a real one, from the TomoTV app.
 
-Under `--out-dir` it lands **beside** `Images.xcassets` rather than inside it, so Xcode never compiles it into the catalog. Pass `--no-preview` to skip it in CI or when a script consumes the output positionally.
+With `--out-dir` it's written beside `Images.xcassets`, so Xcode never compiles it in. `--no-preview` skips it.
 
 ## Expo config plugin
 
-Regenerate all assets automatically on every `expo prebuild`, for both tvOS (`EXPO_TV=1`) and iOS builds:
+Regenerate everything on each `expo prebuild`, for tvOS (`EXPO_TV=1`) and iOS:
 
 ```json
 "plugins": [
   ["tvos-assets/plugin", {
     "background": "./assets/brand/background.png",
     "color": "#1C1C1E",
-    "iconBorderRadius": 0,
     "layers": { "front": "./assets/brand/layer-front.svg", "middle": "./assets/brand/layer-middle.svg" }
   }]
 ]
 ```
 
-No `icon` prop above: with art for both icon layers, the plugin assembles one. Props are the **Plugin** column of the [options table](#options); all paths resolve relative to the project root. Anything without a dedicated prop is reachable through `config`, a path to a full JSON config file deep-merged under the props above.
+There's no `icon` prop here: with art for both layers, the plugin assembles the icon. Props are the **Plugin** column of the [options table](#options), with paths relative to the project root. Anything else goes through `config`, a JSON config file merged under the props.
 
-Install as a devDependency (`npm i -D tvos-assets`) and list the plugin **after** `expo-splash-screen` (and any TV config plugin, such as `@react-native-tvos/config-tv`) so the generated splash imagesets overwrite their single-icon output.
+Install it as a dev dependency (`npm i -D tvos-assets`) and list it **after** `expo-splash-screen` and any TV config plugin (such as `@react-native-tvos/config-tv`), so its splash assets win.
 
-The plugin registers an iOS dangerous mod, so it executes inside every `expo prebuild`. There is no separate command to run, and nothing needs to be committed under `ios/`:
+- `EXPO_TV=1 expo prebuild` writes `AppIcon.brandassets` (both imagestacks and both Top Shelf images) into `ios/<project>/Images.xcassets/` and sets the tvOS `Info.plist` icon and Top Shelf keys.
+- `expo prebuild` writes the iOS `AppIcon.appiconset` with its light, dark and tinted icons.
+- Both write the splash logo and color.
+- With an `appStore` prop, both also write the App Store assets into its `outDir` (default `./AppStore`), outside `ios/`, so prebuild never wipes them. Only files whose inputs changed are rendered again.
 
-- **`EXPO_TV=1 expo prebuild`** writes the parallax `AppIcon.brandassets` (home and App Store imagestacks, Top Shelf standard and wide) into `ios/<project>/Images.xcassets/`, and sets the tvOS `Info.plist` keys `CFBundleIcons.CFBundlePrimaryIcon` and `TVTopShelfImage.TVTopShelfPrimaryImage(-Wide)`.
-- **`expo prebuild`** (no `EXPO_TV`) writes `AppIcon.appiconset` with light, dark, and tinted 1024x1024 variants, replacing the Expo-generated single-size icon.
-- **Both** write the splash screen logo imageset and background colorset.
-- **With an `appStore` prop**, both also write the [App Store creative assets](#app-store-creative-assets) into its `outDir` (default `./AppStore`), outside `ios/` so prebuild never wipes them. Unchanged files are skipped, so the videos only render again after their artwork or settings change. For example: `"appStore": { "outDir": "./AppStore", "header": { "source": "./store/artwork.svg", "animate": { "rows": 20 } }, "searchResults": { "source": "./store/artwork.svg", "animate": { "rows": 20 } }, "universal": { "source": "./store/artwork.svg" } }`.
+```json
+"appStore": {
+  "outDir": "./AppStore",
+  "header": { "source": "./store/artwork.svg", "animate": { "rows": 20 } },
+  "searchResults": { "source": "./store/artwork.svg", "animate": { "rows": 20 } },
+  "universal": { "source": "./store/artwork.svg" },
+  "video": { "audio": "./store/music.mp3" }
+}
+```
 
-Asset directories owned by the plugin (`AppIcon.brandassets`, `AppIcon.appiconset`, `SplashScreenLogo.imageset`, `SplashScreenBackground.colorset`) are cleaned and rewritten on each run. Everything else in the catalog is left untouched. Changing your app icon becomes: replace the input files, run prebuild.
+Each prebuild rewrites the folders it owns (`AppIcon.brandassets`, `AppIcon.appiconset`, `SplashScreenLogo.imageset`, `SplashScreenBackground.colorset`) and leaves the rest of the catalog alone. To change your icon, replace the source files and run prebuild.
 
-`@expo/config-plugins` is an optional peer dependency. The plugin uses the copy already present in your app, so no extra install is needed. This also works when `tvos-assets` is linked locally via `file:` or `link:`.
+`@expo/config-plugins` is an optional peer dependency; the plugin uses your app's copy, and works when tvos-assets is linked with `file:` or `link:`.
 
-## iOS app icon variants (iOS 18+)
+## App icons
 
-The generated `AppIcon.appiconset` contains three 1024x1024 entries, matching how iOS 18 renders home screen appearances:
+### iOS light, dark and tinted (iOS 18+)
 
-- **Light**: icon composited on the background image, opaque.
-- **Dark**: icon on a transparent canvas (`iconDark`, or auto-derived), Apple supplies the dark gradient behind it.
-- **Tinted**: grayscale icon on a transparent canvas (`iconTinted`, or auto-derived), Apple applies the user's tint color.
+`AppIcon.appiconset` holds three 1024x1024 icons:
 
-The auto-derived variants are good defaults for most marks. Provide overrides when the main icon loses contrast in grayscale, or when you want a brighter rework for dark mode.
+- **Light**: the icon on the background, opaque.
+- **Dark**: the icon on transparency (`--icon-dark`, or derived); iOS draws the dark backdrop.
+- **Tinted**: a grayscale icon on transparency (`--icon-tinted`, or derived); iOS applies the user's tint.
 
-## Per-layer parallax art
+The derived ones suit most marks. Supply your own when the icon loses contrast in grayscale or needs a brighter dark version.
 
-By default the Front and Middle imagestack layers both render the whole icon, and Back renders the background. For true parallax depth, supply separate art per layer:
+### Parallax layers
+
+By default the Front and Middle layers of each tvOS imagestack both show the whole icon, and Back shows the background. For real depth, give each layer its own art:
 
 ```bash
 tvos-assets --icon icon.svg --background bg.png --color "#1C1C1E" \
   --layer-front ./layer-front.svg --layer-middle ./layer-middle.svg
 ```
 
-Or per stack in a config file (`brandAssets.<stack>.layers.<layer>.imagePath`), or with the plugin's `layers` prop.
+Or per stack in the config file (`brandAssets.<stack>.layers.<layer>.imagePath`), or with the plugin's `layers` prop. Export every layer from the **same square artboard** as the icon and they stay aligned: every layer gets the same placement and scale. A common split is highlights on Front, the main shape on Middle, and the background on Back. Point at the imagestack in `preview.html` to check the depth before you build.
 
-Registration matters. Icon-sourced layers are all placed identically (one content box and one scale for every layer, see [Sizing the mark](#sizing-the-mark)), so export every layer from the **same square artboard** as the full icon and they stay perfectly aligned in the stack. A typical split puts highlights and foreground detail on Front, the main shape on Middle, and the background image on Back. `iconBorderRadius` is not applied to custom layer art.
+### Sizing the mark
 
-Open the generated `preview.html` and point at the imagestack to check your layer separation before building.
-
-## Sizing the mark
-
-Scale alone does not place a mark, because it sizes the *artboard* and your own
-transparent margin then shrinks the mark inside it. Tomo TV's art fills 67.6% of
-its 1024 artboard, so an 0.8 scale drew it at 54% of the icon.
-
-So the icon is first normalised to the square its visible artwork occupies, and
-the scale is applied to that. `--ios-icon-scale 0.8` means the mark covers 80% of
-the icon, whatever padding your file carries:
+The scale applies to your visible artwork, not to the artboard around it. tvos-assets first trims the icon to the square its artwork fills, so `--ios-icon-scale 0.8` means the mark covers 80% of the icon whatever padding your file has.
 
 | | Default | Why |
 | --- | --- | --- |
-| `--ios-icon-scale` | `0.8` | Apple's icon grid centres the primary shape at roughly 80% of the canvas, leaving about a 10% margin. |
-| `--tv-icon-scale` | `0.75` | tvOS wants 10-15% of safe margin on every parallax layer: a focused icon scales up ~1.05-1.1x and its layers slide against each other, so content near an edge clips. 0.75 leaves 12.5% a side. |
+| `--ios-icon-scale` | `0.8` | Apple's icon grid puts the main shape at about 80% of the canvas. |
+| `--tv-icon-scale` | `0.75` | tvOS wants a 10-15% safe margin on each layer, because a focused icon grows and its layers shift. 0.75 leaves 12.5% a side. |
 
-One box is measured per run, from the flat icon, and applied to every surface
-*and* every parallax layer. Sharing one transform is what keeps the layers
-registered: normalising each layer to its own bounds would slide the front layer
-off the middle one.
+One trim box is measured per run and used for every size and every layer, which keeps the layers registered. The splash logo isn't affected.
 
-The splash screen logo is not affected. It already fills its own square.
+### Assembling the icon from layer art
 
-## Assembling the icon from layer art
-
-Because every icon-sourced layer sits on that same square artboard, the flat icon
-is just those layers stacked. Supplying it separately means keeping a third file
-in sync with two you already ship, so when you give art for **every** icon layer,
-`--icon` becomes optional:
+When both the Front and Middle layers have their own art, `--icon` is optional: the icon is built from those layers, back to front, and used everywhere a flat icon is needed (iOS icon, Top Shelf, splash logo, `icon.png`).
 
 ```bash
 tvos-assets --background bg.png --color "#1C1C1E" \
   --layer-front ./layer-front.svg --layer-middle ./layer-middle.svg
 ```
 
-The icon is composited back to front from that art (the Back layer is the
-background, so it is left out) and used everywhere a flat icon is needed: the iOS
-`AppIcon.appiconset`, both Top Shelf images, the splash screen logo, and
-`icon.png`. The imagestacks keep reading your layer files directly, so vector art
-stays vector there.
-
-Details worth knowing:
-
-- **Every** icon layer needs art. With only `--layer-front`, the Middle layer
-  would still fall back to the icon being derived, so `--icon` stays required.
-- When the two imagestacks carry different art, the icon is assembled from
-  `appIconLarge`.
-- `iconBorderRadius` applies to the assembled icon, in the units of your layer
-  artboard, exactly as it would to a supplied one.
-- `preview.html` lists the assembled icon after the layers it came from, so you
-  can check the composite against its parts.
+- Both layers need art; with only `--layer-front`, `--icon` is still required.
+- When the two imagestacks have different art, the App Store one (`appIconLarge`) is used.
+- `iconBorderRadius` applies to the assembled icon.
 
 ## App Store creative assets
 
-`--app-store` also writes the iOS 27 and iPadOS 27 creative assets into `AppStore/`, beside `Images.xcassets`. Every placement App Store Connect takes is covered:
+With `--app-store`, tvos-assets also writes the creative assets App Store Connect takes for iOS 27 and iPadOS 27 apps into `AppStore/`:
 
 | Placement | Image | Video | Default |
 |---|---|---|---|
 | Product page header | `header.png` 3840x1646 | `header.mp4`, 5-30 s | on |
 | Search results | `search-results.png` 3840x2560 | `search-results.mp4`, 5-30 s | on |
-| Universal (header and search results in one) | `universal.png` 5244x2950 | none: PNG only | on |
+| Universal (header and search results in one) | `universal.png` 5244x2950 | none | on |
 | In-App Event card | `event-card.png` 3840x2160 | `event-card.mp4`, 15-30 s | off, needs `source` |
-| In-App Event details page | `event-details.png` 2160x3840 | `event-details.mp4`, 15-30 s | off, needs `source` |
+| In-App Event details | `event-details.png` 2160x3840 | `event-details.mp4`, 15-30 s | off, needs `source` |
 
-Videos are written when a placement has `animate` or a recording (below). Apple publishes no safe area for In-App Event media, so those two are drawn only from finished artwork.
+Each placement in App Store Connect takes one image or one video. Images are opaque PNGs. Videos are written when a placement has `animate` or a recording.
 
-Each image is an opaque PNG: the backdrop (`--app-store-background`, else `--background`) cover-filled, with a centre item in the art safe area from Apple's creative asset templates. The centre item is `--app-store-center` (a wordmark, say) or the icon. Apple's own samples pair a full-bleed scene with a wordmark, and its guidance asks search results to show the interface, so every placement can take its own art:
+Out of the box, each image is your backdrop (`--app-store-background`, else `--background`) with the icon, or `--app-store-center` art such as a wordmark, centred in the safe area from Apple's templates. Each placement can have its own:
 
 ```json
 "appStore": {
@@ -329,61 +259,70 @@ Each image is an opaque PNG: the backdrop (`--app-store-background`, else `--bac
 }
 ```
 
-### From finished artwork
+Apple publishes no safe area for In-App Event media, so those two need a `source`.
 
-Give a placement its own `source` (SVG or PNG) to use finished artwork instead of the generated backdrop and centre item, and `enabled: false` to skip a placement. Row artwork is an SVG whose `<mask>` holds rows of one repeated shape over full-canvas fills (a Figma or Sketch export of a wall of cards, say), with anything fixed drawn on top. One such file serves every placement: it is re-tiled to each canvas with its own row and column spacing, its fills stretched, and its centre placed on the placement's art safe-area centre (the canvas centre for In-App Event media). When the card under the fixed layer would not fit a safe area whole, the artwork moves until it does and the next card shows by one gap. `animate: { rows: <seconds> }` turns it into the placement's video: the rows slide one card per loop, alternating direction, while the fixed layer stays put, so the last frame runs into the first.
+### Row artwork
+
+Give a placement a `source` (SVG or PNG) to use finished art instead. A **row artwork** SVG goes further: a wall of repeated cards (a Figma or Sketch export, say) that tvos-assets re-tiles to every canvas, so one file serves every placement, and that `animate` turns into a looping video where the rows slide one card per loop in alternating directions.
 
 ```json
 "appStore": {
   "enabled": true,
-  "header": { "source": "./store/header.svg", "animate": { "rows": 20 } },
-  "searchResults": { "source": "./store/header.svg", "animate": { "rows": 20 } },
-  "universal": { "source": "./store/header.svg" }
+  "header": { "source": "./store/artwork.svg", "animate": { "rows": 20 } },
+  "searchResults": { "source": "./store/artwork.svg", "animate": { "rows": 20 } },
+  "universal": { "source": "./store/artwork.svg" }
 }
 ```
 
-That writes `header.png` and `header.mp4` (3840x1646), `search-results.png` and `search-results.mp4` (3840x2560) and `universal.png` (5244x2950). Files whose inputs have not changed since the last run are left as they are (`.tvos-assets-store.json` in the output directory keeps the record), so a prebuild only renders the videos after the artwork changes.
+That writes `header.png` and `header.mp4`, `search-results.png` and `search-results.mp4`, and `universal.png`. The art is centred in each safe area; if the card under your logo wouldn't fit one whole, the art shifts until it does. A record in `.tvos-assets-store.json` skips files whose inputs haven't changed, so videos only render again when the art or settings change.
 
-#### What row artwork must be
+What moves and what stays:
 
-Design it at 3840x1646 (the header canvas) and export it as SVG. Every rule is checked, and a file that breaks one fails with a message naming it.
+- **Drawn through the mask** (the fill behind the cards, type seen through them): stays put while the cards slide over it.
+- **Drawn on top, inside one card** (a live dot, say): rides with that card. A row moves one card per loop, so in the last half second it hands over to the next card and the loop closes.
+- **Everything else drawn on top** (a vignette, a logo across cards, anything in a transformed group): stays put.
+- **Texture that should move with the cards**, such as scan lines: put it in the cards' fill as a `pattern` with `patternUnits="userSpaceOnUse"`.
+
+Design at 3840x1646 (the header) and export SVG. Each rule is checked, and a file that breaks one fails with a message naming it:
 
 | Rule | Why |
 |---|---|
-| `<svg>` has numeric `width` and `height` in px | The canvas the rows and the fixed layer are measured against. |
-| Exactly one `<mask>`, and the fill behind the cards uses it (`mask="url(#id)"`) | The mask's children are the cards; whatever is masked shows through them. |
-| The cards are `path`, `rect`, `circle`, `ellipse` or `polygon`, at least two, all the same size, none with a `transform` | Each row is re-drawn from one card; flatten transforms before exporting. |
-| Cards in a row are evenly spaced, with one spacing for every row | The spacing is how far a row slides per loop. |
-| Rows are evenly spaced, and repeat every two (row 3 lines up with row 1) | New rows above and below continue the stagger on a taller canvas. |
-| Fills meant to cover everything cover exactly 0,0 to width,height (`rect`, or a rectangular `path`) | Those stretch to a bigger canvas; anything else keeps its place, centred. |
-| No `<text>`, and no `<image>` linking outside the file | Outline text and embed images, so every machine renders the same pixels. |
-| A shape may hold one `<animate attributeName values dur>`, whose `dur` divides the `animate.rows` loop | Videos play it frame by frame (a blinking dot, say) and stills show its first value. A `dur` that does not divide the loop fails, since the loop would jump. |
+| `<svg>` has numeric `width` and `height` in px | Everything is measured against them. |
+| Exactly one `<mask>`, used by the fill behind the cards (`mask="url(#id)"`) | The mask's children are the cards. |
+| Cards are `path`, `rect`, `circle`, `ellipse` or `polygon`: at least two, all one size, no `transform` | Each row is redrawn from one card; flatten transforms before export. |
+| Cards in a row are evenly spaced, the same spacing in every row | That spacing is how far a row slides per loop. |
+| Rows are evenly spaced and repeat every two (row 3 lines up with row 1) | Extra rows on taller canvases continue the pattern. |
+| Full-canvas fills cover exactly 0,0 to width,height | Those stretch to bigger canvases; everything else stays centred. |
+| No `<text>`, and no `<image>` linking outside the file | Outline text and embed images so every machine renders the same. |
+| A shape may hold one `<animate attributeName values dur>` whose `dur` divides the loop | Videos play it; stills show its first value. |
 
-Rows may stop at the canvas edge or run past it; they are re-tiled either way. What is drawn through the mask (type seen through the cards, the fill behind them) is the scene behind the cards and never moves. A shape drawn on top that fits inside one card belongs to it and rides with its row (a live dot on one channel, say); since a row moves one card per loop, it hands over to the next card in the last half second, so the loop closes. Everything else drawn on top (a vignette, a logo across several cards, anything in a transformed group) stays put. Texture that should travel with the cards, such as scan lines, goes in the cards' own fill: a `pattern` with `patternUnits="userSpaceOnUse"` moves with each card.
-
-[`examples/row-artwork/`](examples/row-artwork) holds six files that pass these rules, one per card shape: circles, rounded `rect`s, hexagon `polygon`s, `path` tiles drawn with relative commands, 16:9 `rect`s under a fixed vignette, and interlocking diamonds.
+[`examples/row-artwork/`](examples/row-artwork) has six files that pass, one per card shape: circles, rounded rects, hexagons, path tiles, 16:9 screens under a vignette, and diamonds.
 
 <img src="docs/row-artwork.webp" alt="The six example row artwork files rendered as 21:9 headers: dots, pills, honeycomb, tiles, screens and diamonds" width="100%">
 
+Row-motion videos are fast: only the cards move, so each frame is blended from layers drawn once, several frames at a time. A 20 s 4K header takes about 30 s on an M1 Max. Art the blend can't reproduce exactly is drawn in full each frame instead.
+
 ### Recordings
 
-App Store Connect also takes video for the header and search results. Point `header.video` or `searchResults.video` at a recording (`.mov`, `.mp4` or `.m4v`), such as a simulator capture from `xcrun simctl io <udid> recordVideo` of a tour that starts and ends on the same screen, and tvos-assets writes `header.mp4` or `search-results.mp4`: it fills the canvas (cover, centre crop), resamples to a constant frame rate (simulator captures only write frames when the screen changes), dissolves the last 0.5 s into the start so the loop has no cut, and caps it at 30 s. Encoding is H.264 High with a silent stereo AAC track, or ProRes 422 HQ in `.mov` with `video.codec: "prores"`. H.264 is encoded with libx264, whose quality holds steady across keyframes, so the loop point does not hitch. ProRes uses the VideoToolbox hardware encoder on a Mac, prores_ks elsewhere. It needs ffmpeg on `PATH` or at `FFMPEG_PATH`.
-
-Row-motion loops render fast: only the cards move, so each frame is blended from the artwork drawn once with every card lit and once with none, through a card mask built from row strips drawn once, several frames at a time. A 20 s 4K header loop takes about 30 s on an M1 Max. Art the blend cannot reproduce exactly (rows that overlap, more than one element drawn through the mask, or a blend that differs from a full render) is drawn in full each frame instead.
+Point `header.video` or `searchResults.video` at a recording (`.mov`, `.mp4` or `.m4v`), such as a simulator capture (`xcrun simctl io <udid> recordVideo`) of a tour that ends where it starts. tvos-assets fits it to the canvas, keeps a constant frame rate, blends the last 0.5 s into the start so the loop has no cut, and caps it at 30 s.
 
 ```json
-"appStore": { "enabled": true, "searchResults": { "video": "./applestore/tour.mov" } }
+"appStore": { "enabled": true, "searchResults": { "video": "./store/tour.mov" } }
 ```
+
+Videos are H.264 High (libx264, steady quality across the loop point) with AAC audio, or ProRes 422 HQ in `.mov` with `video.codec: "prores"` (VideoToolbox on a Mac).
 
 ### Music
 
-`video.audio` puts music (`.mp3`, `.m4a`, `.aac`, `.wav` or `.aiff`) on every video instead of the silent track, looped so it never cuts: each video takes a stretch of the track as long as itself plus one second, plays from that second on, and crossfades the stretch's last second into its first. The stretch is chosen between `video.audioStart` and `video.audioEnd` (seconds into the track; by default from the first sound, past any silent lead-in, to the end): where the beat a loop length later lines up with the beat at its start, and the level never drops below half the music's median. Set `audioEnd` to `audioStart` plus the video's length plus 1 s to pin the stretch exactly.
+`video.audio` adds music (`.mp3`, `.m4a`, `.aac`, `.wav` or `.aiff`) to every video, looped so it never cuts: the last second crossfades into the first. The loop is picked from the part of the track between `video.audioStart` and `video.audioEnd` (by default from the first sound to the end), where the beat lines up across the loop and the level never drops out.
 
 ```json
 "appStore": { "enabled": true, "video": { "audio": "./store/music.mp3", "audioStart": 30, "audioEnd": 90 } }
 ```
 
-`preview.html` outlines the safe area on each still and plays the videos in a loop. Upload them in App Store Connect under Header and Search Results, or in Asset Library. The Expo plugin writes them on every prebuild when its `appStore` prop is set.
+App Store videos play muted; people can unmute the product page header, but not search results.
+
+Upload the files in App Store Connect under Header and Search Results, or to the Asset Library.
 
 ## Programmatic API
 
@@ -391,87 +330,82 @@ Row-motion loops render fast: only the cards move, so each frame is blended from
 import { resolveConfig, generateAssets, planAssets } from "tvos-assets";
 
 const config = resolveConfig({
-  icon: "./icon.svg",             // same inputs as the CLI flags
+  icon: "./icon.svg",              // the same inputs as the CLI flags
   background: "./bg.png",
   color: "#1C1C1E",
-  darkColor: "#0E0E10",           // optional, like --dark-color
-  config: "./assets.config.json", // optional config file, like --config
-  overrides: {                    // optional deep-merged config overrides, like --set
-    iosIcon: { enabled: true, name: "AppIcon" },
-  },
+  config: "./assets.config.json",  // optional, like --config
+  overrides: { appStore: { enabled: true } }, // optional, like --set
 });
 
 // Count what a run would write, without writing it.
-const plan = planAssets(config, { platforms: ["ios"], standaloneIcon: true });
+const plan = planAssets(config, { platforms: ["ios"] });
 console.log(plan.total, plan.directories);
 
 const { warnings } = await generateAssets(config, "./out/Images.xcassets", {
-  platforms: ["tvos", "ios"],                // which icon families; default both
-  standaloneIconPath: "./out/icon.png",      // optional flattened 1024x1024 icon
-  previewPath: "./out/preview.html",         // optional self-contained contact sheet
-  toolVersion: "1.4.0",                      // stamped into the preview header
-  onStep: (message) => console.log(message), // progress callback per phase
+  platforms: ["tvos", "ios"],             // default: both
+  standaloneIconPath: "./out/icon.png",   // optional flat icon
+  previewPath: "./out/preview.html",      // optional contact sheet
+  appStoreDir: "./out/AppStore",          // where App Store assets go
+  onStep: (message) => console.log(message),
 });
 ```
 
-`generateAssets(config, xcassetsDir, options)` writes the catalog directly into `xcassetsDir` (created if missing, existing owned asset dirs cleaned first) and resolves to `{ warnings, xcassetsDir }`. `resolveConfig` throws on invalid inputs (missing files, bad hex colors, wrong image formats), so wrap it in try/catch for user-facing tooling.
-
-Also exported: `discoverConfigPath(cwd)`, `configShapeTemplate()`, `CONFIG_FILENAME`, and `validateInputImages(config)`.
+`generateAssets` writes into the catalog folder (creating it if needed) and resolves to `{ warnings, xcassetsDir }`. `resolveConfig` throws on bad input (missing files, bad colors, wrong formats). Also exported: `discoverConfigPath`, `configShapeTemplate`, `CONFIG_FILENAME` and `validateInputImages`.
 
 ## Examples
 
 ```bash
-# Explicit dark mode color and a circular icon
+# A dark mode color and a circular icon
 tvos-assets --icon ./icon.png --background ./bg.png --color "#F39C12" \
   --dark-color "#7A4E09" --icon-border-radius 512
 
-# Write straight into an Xcode project, tvOS assets only
+# Straight into an Xcode project, tvOS only
 tvos-assets --icon ./icon.svg --background ./bg.png --color "#1C1C1E" \
   --out-dir ios/MyApp --platforms tvos --brand-name AppIconTV
 
-# Scaffold a config, then run with no flags at all
+# Start a config file, then run with no flags
 tvos-assets --init && tvos-assets
 
-# Check what a run would produce before committing to it
+# See what a run would do
 tvos-assets --config ./brand.json --dry-run
 tvos-assets --config ./brand.json --print-config
 ```
 
+[`examples/tomotv`](examples/tomotv) is a complete real project: TomoTV's art and config, with everything it generates committed.
+
 ## Input requirements
 
-- **Icon**: PNG or SVG with a transparent background. Centered and scaled to 60% of the shorter output dimension. Raster minimum **1024x1024**, which already covers every output size; below that is an error.
-- **Background**: any PNG or SVG. Resized with cover-fit and center-cropped. Raster minimum **2320x720**, recommended **4640x1440** (exactly what Top Shelf @2x needs); below the recommendation is a warning, since anything smaller gets upscaled.
-- **Color**: hex `#RRGGBB`. When `--dark-color` is omitted, a darkened variant is generated automatically (50% HSL lightness reduction).
+- **Icon**: PNG or SVG on transparency, at least 1024x1024 if raster. Its size on each output is set by `--ios-icon-scale` and `--tv-icon-scale`.
+- **Background**: PNG or SVG, cover-fit and centre-cropped. At least 2320x720 if raster; 4640x1440 (Top Shelf @2x) avoids upscaling, and anything smaller gets a warning.
+- **Color**: `#RRGGBB`.
 
-Minimums apply to raster inputs only; SVGs are vector and exempt. The tool also warns when an input exceeds 50MB (memory pressure), exceeds 8192px in any dimension, or is not square (the icon will be letterboxed onto a square canvas).
+SVGs are exempt from the minimums. You also get a warning for inputs over 50 MB, over 8192 px on a side, or a non-square icon.
 
 ## Wiring the assets up in Xcode
 
-The generated names have to match what your project references. Defaults are chosen so that a stock Expo or React Native tvOS project works untouched, but if you rename anything, update it in both places.
+Generated names have to match what your project references. The defaults fit a stock Expo or React Native tvOS project; if you rename something, change it in both places.
 
-| Generated asset | Where the name is referenced | Default |
+| Generated | Referenced by | Default |
 |---|---|---|
-| `<name>.brandassets` | `ASSETCATALOG_COMPILER_APPICON_NAME` build setting on the **tvOS** target | `AppIcon` |
-| `<name>.appiconset` | `ASSETCATALOG_COMPILER_APPICON_NAME` build setting on the **iOS** target | `AppIcon` |
+| `<name>.brandassets` | `ASSETCATALOG_COMPILER_APPICON_NAME` on the tvOS target | `AppIcon` |
+| `<name>.appiconset` | `ASSETCATALOG_COMPILER_APPICON_NAME` on the iOS target | `AppIcon` |
 | App Icon imagestack | `CFBundleIcons` > `CFBundlePrimaryIcon` in the tvOS `Info.plist` | `App Icon` |
-| Top Shelf Image | `TVTopShelfImage` > `TVTopShelfPrimaryImage` in `Info.plist` | `Top Shelf Image` |
-| Top Shelf Image Wide | `TVTopShelfImage` > `TVTopShelfPrimaryImageWide` in `Info.plist` | `Top Shelf Image Wide` |
-| `<name>.imageset` (splash logo) | Image view in your LaunchScreen storyboard | `SplashScreenLogo` |
-| `<name>.colorset` (splash background) | Background color in your LaunchScreen storyboard | `SplashScreenBackground` |
+| Top Shelf Image | `TVTopShelfImage` > `TVTopShelfPrimaryImage` | `Top Shelf Image` |
+| Top Shelf Image Wide | `TVTopShelfImage` > `TVTopShelfPrimaryImageWide` | `Top Shelf Image Wide` |
+| Splash logo imageset | Your launch screen's image view | `SplashScreenLogo` |
+| Splash colorset | Your launch screen's background color | `SplashScreenBackground` |
 
-The Expo config plugin sets the four `Info.plist` keys for you from whatever names the resolved config carries. For a plain Xcode project, set them yourself.
-
-Drop the generated `Images.xcassets` into your target (or use `--out-dir` to write into the existing one), and make sure it is a member of the right target in the File Inspector.
+The Expo plugin sets the `Info.plist` keys for you. In a plain Xcode project, set them yourself, add the generated `Images.xcassets` to your target (or write into the existing one with `--out-dir`), and check its target membership.
 
 <details>
 <summary><strong>Generated files</strong> (44 in a default run)</summary>
 
-21 `Contents.json` + 21 PNGs + `icon.png` + `preview.html`.
+21 `Contents.json`, 21 PNGs, `icon.png` and `preview.html`:
 
 ```
 tvos-assets-YYYYMMDD-HHmmss.zip
 ├── icon.png                                     (1024x1024, icon on background)
-├── preview.html                                 (self-contained contact sheet)
+├── preview.html                                 (contact sheet)
 └── Images.xcassets/
     ├── Contents.json
     ├── AppIcon.brandassets/
@@ -522,18 +456,16 @@ tvos-assets-YYYYMMDD-HHmmss.zip
     │   ├── 200-icon-tv@1x.png                   (200px, tv)
     │   └── 200-icon-tv@2x.png                   (400px, tv)
     └── SplashScreenBackground.colorset/
-        └── Contents.json                        (light/dark color definitions)
+        └── Contents.json                        (light and dark colors)
 ```
 
-The tvOS app icon layers are what produce the depth effect when the user moves the Siri Remote: Front and Middle are the icon on a transparent canvas (PNG with alpha), Back is the background image only (opaque, no alpha). Top Shelf images are composited (icon centered on background) and written as opaque RGB PNGs as tvOS requires.
-
-`--platforms ios` drops the `AppIcon.brandassets` tree, `--platforms tvos` drops `AppIcon.appiconset`, and `--no-splash` drops `SplashScreenLogo.imageset` and `SplashScreenBackground.colorset`. `--dry-run` prints the exact set for your options.
+Front and Middle are the icon on transparency; Back and the Top Shelf images are opaque, as tvOS requires. `--platforms ios` drops `AppIcon.brandassets`, `--platforms tvos` drops `AppIcon.appiconset`, and `--no-splash` drops the splash assets. `--dry-run` lists the exact set.
 
 </details>
 
 ## Configuration file
 
-Every section is optional, omitted values use built-in defaults. Name it `tvos-assets.config.json` in your project root and the CLI finds it with no flags. Keys, types and defaults are in the [options table](#options); a complete annotated example lives in [`examples/tvos-assets.config.json`](examples/tvos-assets.config.json).
+Every section is optional. Name the file `tvos-assets.config.json` in your project root and the CLI finds it. Keys and defaults are in the [options table](#options); [`examples/tvos-assets.config.json`](examples/tvos-assets.config.json) is a complete annotated example.
 
 ```json
 {
@@ -546,10 +478,10 @@ Every section is optional, omitted values use built-in defaults. Name it `tvos-a
 }
 ```
 
-The quickest start is `tvos-assets --init`, which writes exactly that with `$schema` already wired up for editor autocompletion and inline validation.
+`tvos-assets --init` writes this for you, with `$schema` set for autocompletion and validation in your editor.
 
 <details>
-<summary><strong>Full config</strong>, every key set explicitly</summary>
+<summary><strong>Every key</strong></summary>
 
 ```json
 {
@@ -638,7 +570,7 @@ The quickest start is `tvos-assets --init`, which writes exactly that with `$sch
     "universal": { "enabled": true, "center": true },
     "eventCard": { "enabled": false, "center": true },
     "eventDetails": { "enabled": false, "center": true },
-    "video": { "fps": 30, "codec": "h264" }
+    "video": { "fps": 30, "codec": "h264", "audio": "./music.mp3", "audioStart": 30, "audioEnd": 90 }
   },
   "xcassetsMeta": {
     "author": "xcode",
@@ -651,18 +583,18 @@ The quickest start is `tvos-assets --init`, which writes exactly that with `$sch
 
 ### About `$schema`
 
-`schema.json` ships inside the package, so the reference is always a local path. It never points at a URL: a remote schema is not guaranteed to be reachable, and it would describe whatever sits on the default branch rather than the version you actually installed. `--init` picks the right local path for how the tool is installed:
+`schema.json` ships in the package, so `$schema` always points at a local file: it matches the version you installed and works offline. `--init` picks the path for how you installed tvos-assets:
 
-| Installed as | `$schema` written | Why |
+| Installed as | `$schema` | Why |
 |---|---|---|
-| Project dependency (`npm i -D tvos-assets`) | `./node_modules/tvos-assets/schema.json` | Stays valid for teammates who clone the repo, and tracks the package across upgrades. Hoisted monorepo layouts are found by walking up, giving something like `../../node_modules/...`. |
-| Global (`npm i -g`) or `npx` | `./tvos-assets.schema.json` | There is no local copy to point at, and the real path is either machine-specific or a temporary npx cache. `--init` copies the schema next to your config instead and tells you it did. |
+| Project dependency | `./node_modules/tvos-assets/schema.json` | Works for everyone who clones the repo and follows upgrades. In a monorepo it walks up to find it. |
+| Global or `npx` | `./tvos-assets.schema.json` | There's no stable local copy, so `--init` copies the schema next to your config. |
 
-The copied schema is a plain file you can commit or delete. Nothing in the tool reads `$schema`; it exists purely for your editor.
+The tool itself never reads `$schema`; it's for your editor.
 
-## Using it in CI and build scripts
+## CI and build scripts
 
-`--quiet` prints only errors and the final output path, so it composes cleanly:
+`--quiet` prints only errors and the output path:
 
 ```json
 "scripts": {
@@ -670,37 +602,39 @@ The copied schema is a plain file you can commit or delete. Nothing in the tool 
 }
 ```
 
-With a `tvos-assets.config.json` in the repo root, that script needs no flags for the inputs. Commit the config and the source art, not the generated catalog.
+With a config file in the repo, the script needs no input flags. Commit the config and the source art, not the generated catalog.
 
-To fail a build when the config drifts from what you expect, resolve it without writing anything:
+To check a config without writing anything:
 
 ```bash
-tvos-assets --print-config > /dev/null   # non-zero exit on any invalid config
-tvos-assets --dry-run                    # human-readable manifest, writes nothing
+tvos-assets --print-config > /dev/null   # fails on an invalid config
+tvos-assets --dry-run                    # lists what would be written
 ```
 
-For Expo projects, prefer the [config plugin](#expo-config-plugin) over a script: it runs inside `expo prebuild` automatically and handles the `Info.plist` keys.
+In Expo projects, use the [config plugin](#expo-config-plugin) instead: it runs inside `expo prebuild` and sets the `Info.plist` keys.
 
 <details>
 <summary><strong>Troubleshooting</strong></summary>
 
-**"Icon image is too small (…)."** Raster icons must be at least 1024x1024. Either export a larger PNG or switch to SVG, which is exempt because it rasterizes at whatever density each output needs.
+**"Icon image is too small."** Raster icons need 1024x1024. Export a bigger PNG or use an SVG.
 
-**Top Shelf images look soft or upscaled.** The @2x Top Shelf Wide output is 4640x1440. A background smaller than that gets upscaled. Use a larger background or an SVG.
+**Top Shelf looks soft.** Top Shelf Wide @2x is 4640x1440; a smaller background gets upscaled. Use a bigger background or an SVG.
 
-**A config file value seems to be ignored.** Run `tvos-assets --print-config` to see the fully merged result. Remember the order: config file loses to `--set`, which loses to named flags, which lose to `--icon`/`--background`/`--color`.
+**A config value seems ignored.** Run `tvos-assets --print-config`. The config file loses to `--set`, which loses to named flags, which lose to `--icon`, `--background` and `--color`.
 
-**A `--set` path is rejected.** The error names the valid keys at that level. Paths are checked against the real config shape, so a rejection means the key does not exist, not that the value is wrong.
+**A `--set` path is rejected.** The path doesn't exist; the error lists the keys that do.
 
-**Xcode does not show the icon.** The bundle name has to match `ASSETCATALOG_COMPILER_APPICON_NAME` on that target, and the catalog has to be a member of the target. See [Wiring the assets up in Xcode](#wiring-the-assets-up-in-xcode).
+**Xcode doesn't show the icon.** The bundle name must match `ASSETCATALOG_COMPILER_APPICON_NAME` on that target, and the catalog must be in the target. See [Wiring the assets up in Xcode](#wiring-the-assets-up-in-xcode).
 
-**Expo prebuild overwrites the splash assets.** List `tvos-assets/plugin` **after** `expo-splash-screen` and after any TV config plugin in your `plugins` array. Plugins run in order and the last one wins.
+**Prebuild overwrites the splash assets.** List `tvos-assets/plugin` after `expo-splash-screen` and any TV config plugin; the last plugin wins.
 
-**The plugin generated iOS icons when you wanted tvOS ones.** The plugin branches on `EXPO_TV`. Run `EXPO_TV=1 expo prebuild` for the tvOS brandassets.
+**The plugin made iOS icons instead of tvOS ones.** Run `EXPO_TV=1 expo prebuild`.
 
-**sharp fails to install.** See the [sharp installation guide](https://sharp.pixelplumbing.com/install) for your platform and architecture. It is a native dependency and needs a prebuilt binary or a working build toolchain.
+**App Store videos fail.** Install ffmpeg (`brew install ffmpeg`) or set `FFMPEG_PATH`.
 
-**The output directory is not writable.** The path is validated before any work starts, walking up to the nearest existing ancestor. Check permissions on that ancestor.
+**sharp fails to install.** See the [sharp installation guide](https://sharp.pixelplumbing.com/install).
+
+**The output folder isn't writable.** It's checked before any work starts; check the permissions of its nearest existing parent.
 
 </details>
 
@@ -710,40 +644,34 @@ For Expo projects, prefer the [config plugin](#expo-config-plugin) over a script
 git clone https://github.com/keiver/tvos-assets.git && cd tvos-assets && npm install
 ```
 
-| Script | Description |
+| Script | What it does |
 |---|---|
-| `npm run dev` | Run directly from TypeScript source (`tsx src/index.ts`) |
-| `npm run build` | Compile to JavaScript in `dist/` |
+| `npm run dev` | Run from the TypeScript source |
+| `npm run build` | Compile to `dist/` |
 | `npm start` | Run the compiled build |
-| `npm test` | Run tests |
-| `npm run test:coverage` | Run tests with a coverage report |
+| `npm test` | Run the tests |
+| `npm run test:coverage` | Tests with coverage |
 
-`dist/` is generated, not committed. A `prepare` script builds it automatically on `npm install`, before publishing, and when the package is installed as a git dependency (`npm i github:keiver/tvos-assets`).
+`dist/` isn't committed; `prepare` builds it on install, before publishing, and for git installs (`npm i github:keiver/tvos-assets`).
 
 <details>
-<summary>Verifying a change the way a consumer sees it</summary>
+<summary>Testing a change the way users get it</summary>
 
-Install the packed tarball into a scratch project. This exercises `files`, `exports`, and `bin`, which running from source does not:
+Install the packed tarball into a scratch project, which checks `files`, `exports` and `bin`:
 
 ```bash
 npm pack --pack-destination /tmp/consumer
 cd /tmp/consumer && npm init -y && npm i ./tvos-assets-*.tgz
 
-npx tvos-assets --version                                            # bin entry
+npx tvos-assets --version                                            # bin
 node -e 'import("tvos-assets").then(m => console.log(Object.keys(m)))' # ESM library
-node -e 'console.log(typeof require("tvos-assets/plugin"))'           # CJS plugin entry
+node -e 'console.log(typeof require("tvos-assets/plugin"))'           # CJS plugin
 ```
 
-Note that `file:` and `link:` installs do not run `prepare`, so build first when testing the Expo plugin against a linked checkout.
+`file:` and `link:` installs don't run `prepare`, so build first when testing the plugin from a linked checkout.
 
 </details>
 
-## Demo assets
-
-The icons and backgrounds in these screenshots came from the [poster generator on keiver.dev](https://keiver.dev/lab/poster-generator).
-
 ## License
 
-MIT
-
-<img src="docs/parallax.gif" alt="The three imagestack layers separating to show parallax depth" width="420">
+MIT. The demo icons and backgrounds in the screenshots come from the [poster generator on keiver.dev](https://keiver.dev/lab/poster-generator).
