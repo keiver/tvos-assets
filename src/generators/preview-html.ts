@@ -172,8 +172,7 @@ figure { margin: 0; min-width: 0; }
 .row.wide { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
 .frame.fitted { height: auto; position: relative; background-size: 100% 100%; }
 .safe-area { position: absolute; outline: 1px dashed var(--accent); pointer-events: none; }
-.files { list-style: none; margin: 18px 0 0; padding: 0; display: grid; gap: 6px; }
-.files a { color: var(--accent); }
+video.frame { display: block; background: #000; object-fit: cover; }
 /* Thumbnails are downscaled WebP; the link opens the real file on disk. */
 a.open { display: block; text-decoration: none; color: inherit; position: relative; }
 a.open:hover .frame, a.open:focus-visible .frame { outline-color: var(--accent); outline-width: 2px; }
@@ -427,16 +426,22 @@ function renderGroup(group: PreviewGroup, index: number): string {
     parts.push(`  <div class="row${wide}">\n    ${figures}\n  </div>`);
   }
 
-  if (group.files && group.files.length > 0) {
-    const items = group.files
-      .map((file) => {
-        const name = file.href
-          ? `<a href="${esc(file.href)}" target="_blank" rel="noopener">${esc(file.filename)}</a>`
-          : esc(file.filename);
-        return `<li><span class="name">${name}</span> <span class="dims">${esc(file.note)}</span></li>`;
+  if (group.videos && group.videos.length > 0) {
+    const figures = group.videos
+      .map((video) => {
+        const player = video.href
+          ? `<video class="frame fitted" style="aspect-ratio:${aspectRatio(video.width, video.height)}" src="${esc(video.href)}"
+        autoplay loop muted playsinline preload="metadata" aria-label="${esc(video.filename)}"></video>`
+          : "";
+        return `<figure>
+      ${player}
+      <figcaption><span class="name">${esc(video.filename)}</span>
+        <span class="dims">${video.width} x ${video.height} <span class="note">${esc(video.note)}</span></span>
+      </figcaption>
+    </figure>`;
       })
       .join("\n    ");
-    parts.push(`  <ul class="files">\n    ${items}\n  </ul>`);
+    parts.push(`  <div class="row wide">\n    ${figures}\n  </div>`);
   }
 
   parts.push("</section>");

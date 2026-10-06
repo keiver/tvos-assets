@@ -49,8 +49,8 @@ export interface PreviewGroup {
   assets: PreviewAsset[];
   parallax?: PreviewParallax;
   swatches?: PreviewSwatch[];
-  /** Files linked by name only, such as videos too large to embed. */
-  files?: { filename: string; href?: string; note: string }[];
+  /** Videos played from their files on disk, too large to embed. */
+  videos?: { filename: string; href?: string; width: number; height: number; note: string }[];
 }
 
 export interface PreviewData {
@@ -123,6 +123,16 @@ function displayConfig(
     for (const layer of ["front", "middle", "back"] as const) {
       const art = stack.layers[layer];
       if (art.imagePath) art.imagePath = show(art.imagePath);
+    }
+  }
+
+  const store = copy.appStore;
+  if (store.backgroundImage) store.backgroundImage = show(store.backgroundImage);
+  if (store.centerImage) store.centerImage = show(store.centerImage);
+  for (const placement of [store.header, store.searchResults, store.universal, store.eventCard, store.eventDetails]) {
+    for (const key of ["backgroundImage", "centerImage", "source", "video"] as const) {
+      const path = placement[key];
+      if (path) placement[key] = show(path);
     }
   }
 
@@ -547,7 +557,7 @@ export async function generatePreview(options: GeneratePreviewOptions): Promise<
       },
     });
   }
-  const storeVideos: NonNullable<PreviewGroup["files"]> = [];
+  const storeVideos: NonNullable<PreviewGroup["videos"]> = [];
   for (const asset of options.appStoreDir ? APP_STORE_ASSETS : []) {
     for (const extension of [".mp4", ".mov"]) {
       const path = join(options.appStoreDir as string, `${asset.video}${extension}`);
@@ -556,7 +566,9 @@ export async function generatePreview(options: GeneratePreviewOptions): Promise<
       storeVideos.push({
         filename: basename(path),
         href: fileHref(path, previewDir, outside),
-        note: `${asset.title}, ${asset.width} x ${asset.height}, ${megabytes} MB`,
+        width: asset.width,
+        height: asset.height,
+        note: `${asset.title}, ${megabytes} MB`,
       });
     }
   }
@@ -565,7 +577,7 @@ export async function generatePreview(options: GeneratePreviewOptions): Promise<
       title: "App Store creative assets",
       location: `${basename(options.appStoreDir as string)}/ alongside Images.xcassets`,
       assets: storeAssets,
-      files: storeVideos,
+      videos: storeVideos,
     });
   }
 
