@@ -249,6 +249,110 @@ export async function compositeIconOnBackground(
   }
 }
 
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * What sits in the middle of a creative asset. `square` art is the icon (or its
+ * layers), sized like it everywhere else; anything else is contain-fit.
+ */
+export interface CenterItem {
+  path: string;
+  /** Fraction of the rect, per side, the item may fill. */
+  scale: number;
+  square: boolean;
+  content?: ContentBox;
+  borderRadius?: number;
+  sourceIconSize?: number;
+}
+
+export interface PlacedImage {
+  buffer: Buffer;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/** Render a centre item and the position that centres it in `rect`. */
+export async function placeCenterItem(item: CenterItem, rect: Rect): Promise<PlacedImage> {
+  const boxWidth = Math.max(1, Math.round(rect.width * item.scale));
+  const boxHeight = Math.max(1, Math.round(rect.height * item.scale));
+
+  try {
+    let buffer: Buffer;
+    let width: number;
+    let height: number;
+
+    if (item.square) {
+      const size = Math.min(boxWidth, boxHeight);
+      buffer = await iconAtSize(item.path, size, item.content);
+      const radius = item.borderRadius ?? 0;
+      if (radius > 0 && item.sourceIconSize) {
+        buffer = await applyBorderRadius(buffer, size, Math.round((radius / item.sourceIconSize) * size));
+      }
+      width = size;
+      height = size;
+    } else {
+      const { data, info } = await (await inputImage(item.path, boxWidth, boxHeight))
+        .resize(boxWidth, boxHeight, { fit: "inside" })
+        .ensureAlpha()
+        .png()
+        .toBuffer({ resolveWithObject: true });
+      buffer = data;
+      width = info.width;
+      height = info.height;
+    }
+
+    return {
+      buffer,
+      width,
+      height,
+      left: Math.round(rect.x + (rect.width - width) / 2),
+      top: Math.round(rect.y + (rect.height - height) / 2),
+    };
+  } catch (err) {
+    wrapSharpError(err, `placing ${item.path} in a ${rect.width}x${rect.height} area`);
+  }
+}
+
+/** Cover-fill a background to exactly `width` x `height`, alpha kept. */
+export async function coverBackground(bgPath: string, width: number, height: number): Promise<Buffer> {
+  try {
+    return await (await inputImage(bgPath, width, height))
+      .resize(width, height, { fit: "cover", position: "center" })
+      .png()
+      .toBuffer();
+  } catch (err) {
+    wrapSharpError(err, `filling ${bgPath} to ${width}x${height}`);
+  }
+}
+
+/** Opaque background with an optional centre item centred in `rect` rather than the canvas. */
+export async function compositeCenterInRect(
+  bgPath: string,
+  width: number,
+  height: number,
+  rect: Rect,
+  item?: CenterItem,
+): Promise<Buffer> {
+  try {
+    const layers = item ? [await placeCenterItem(item, rect)] : [];
+    return await sharp(await coverBackground(bgPath, width, height))
+      .composite(layers.map(({ buffer, left, top }) => ({ input: buffer, left, top })))
+      .flatten({ background: { r: 0, g: 0, b: 0 } })
+      .removeAlpha()
+      .png()
+      .toBuffer();
+  } catch (err) {
+    wrapSharpError(err, `compositing into ${rect.width}x${rect.height} area at ${width}x${height}`);
+  }
+}
+
 export async function renderIconOnTransparent(
   iconPath: string,
   size: number,

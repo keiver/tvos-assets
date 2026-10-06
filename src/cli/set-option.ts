@@ -11,6 +11,11 @@ const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
   "inputs.iconDarkImage",
   "inputs.iconTintedImage",
+  "appStore.backgroundImage",
+  "appStore.centerImage",
+  ...["header", "searchResults", "universal", "eventCard", "eventDetails"].flatMap((placement) =>
+    ["backgroundImage", "centerImage", "video", "source"].map((key) => `appStore.${placement}.${key}`),
+  ),
   ...["appIconSmall", "appIconLarge"].flatMap((stack) =>
     ["front", "middle", "back"].map((layer) => `brandAssets.${stack}.layers.${layer}.imagePath`),
   ),

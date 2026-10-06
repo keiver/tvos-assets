@@ -15,6 +15,8 @@ import { generateAppIconSet } from "./generators/appiconset.js";
 import { generateSplashLogoImageSet } from "./generators/imageset.js";
 import { generateColorSet } from "./generators/colorset.js";
 import { generateIcon } from "./generators/icon.js";
+import { enabledAssets, generateAppStoreAssets } from "./generators/app-store.js";
+import { generateAppStoreVideos, videoAssets } from "./generators/app-store-video.js";
 import { generatePreview } from "./generators/preview.js";
 import type { OutsideLinkStyle } from "./generators/preview.js";
 import type { TvOSImageCreatorConfig } from "./types.js";
@@ -30,6 +32,8 @@ export interface GenerateOptions {
   standaloneIconPath?: string;
   /** Also write a self-contained preview.html contact sheet to this absolute path. */
   previewPath?: string;
+  /** Directory for the App Store creative assets; written only when appStore.enabled. */
+  appStoreDir?: string;
   /** Tool version stamped into the preview page header. */
   toolVersion?: string;
   /** Command line that produced this run, shown verbatim on the preview page. */
@@ -74,7 +78,9 @@ export interface AssetPlan {
   pngs: number;
   standaloneIcon: boolean;
   preview: boolean;
-  /** Every file written: Contents.json + catalog PNGs + icon.png + preview.html. */
+  /** App Store creative asset stills and videos, written outside the catalog. */
+  appStore: number;
+  /** Every file written: Contents.json + catalog PNGs + icon.png + preview.html + App Store assets. */
   total: number;
 }
 
@@ -125,6 +131,8 @@ export function planAssets(config: TvOSImageCreatorConfig, options: PlanOptions 
 
   const standaloneIcon = options.standaloneIcon ?? false;
   const preview = options.preview ?? false;
+  const stills = enabledAssets(config).length;
+  const appStore = stills + videoAssets(config).length;
 
   return {
     directories,
@@ -132,7 +140,8 @@ export function planAssets(config: TvOSImageCreatorConfig, options: PlanOptions 
     pngs,
     standaloneIcon,
     preview,
-    total: contentsJson + pngs + (standaloneIcon ? 1 : 0) + (preview ? 1 : 0),
+    appStore,
+    total: contentsJson + pngs + (standaloneIcon ? 1 : 0) + (preview ? 1 : 0) + appStore,
   };
 }
 
@@ -217,6 +226,15 @@ async function generateResolved(
     await generateIcon(config, options.standaloneIconPath, iconSourceSize, content);
   }
 
+  if (options.appStoreDir && config.appStore.enabled) {
+    step("Generating App Store creative assets...");
+    await generateAppStoreAssets(options.appStoreDir, config, iconSourceSize, content);
+    if (videoAssets(config).length > 0) {
+      step("Cutting App Store header and search-results recordings...");
+      await generateAppStoreVideos(options.appStoreDir, config);
+    }
+  }
+
   if (options.previewPath) {
     step("Generating preview.html...");
     await generatePreview({
@@ -225,6 +243,7 @@ async function generateResolved(
       config,
       platforms,
       standaloneIconPath: options.standaloneIconPath,
+      appStoreDir: config.appStore.enabled ? options.appStoreDir : undefined,
       toolVersion: options.toolVersion,
       command: options.command,
       configPath: options.configPath,

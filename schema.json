@@ -228,6 +228,47 @@
       },
       "additionalProperties": false
     },
+    "appStore": {
+      "type": "object",
+      "description": "App Store creative assets for iOS 27 and iPadOS 27 product pages: header (3840x1646), search results (3840x2560) and universal (5244x2950), written as opaque PNGs into AppStore/ beside Images.xcassets, plus optional looping videos for the header and search results. The centre item sits in the art safe area of Apple's templates.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Generate the creative assets. Off by default; --app-store turns it on."
+        },
+        "iconScale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "default": 0.8,
+          "description": "How much of each art safe area the centre item covers, per side, contain-fit. The icon is measured after it is normalized to its own artwork."
+        },
+        "backgroundImage": {
+          "type": "string",
+          "description": "Backdrop PNG or SVG for every placement, cover-filled. Defaults to inputs.backgroundImage."
+        },
+        "centerImage": {
+          "type": "string",
+          "description": "Centre item PNG or SVG for every placement, such as a wordmark. Defaults to the icon."
+        },
+        "header": { "$ref": "#/$defs/appStorePlacement" },
+        "searchResults": { "$ref": "#/$defs/appStorePlacement" },
+        "universal": { "$ref": "#/$defs/appStorePlacement" },
+        "eventCard": { "$ref": "#/$defs/appStorePlacement", "description": "In-App Event card, 16:9 (event-card.png 3840x2160, event-card.mp4 15-30 s). Off by default; needs a source." },
+        "eventDetails": { "$ref": "#/$defs/appStorePlacement", "description": "In-App Event details page, 9:16 (event-details.png 2160x3840, event-details.mp4 15-30 s). Off by default; needs a source." },
+        "video": {
+          "type": "object",
+          "description": "How header.video and searchResults.video recordings are encoded, with ffmpeg (FFMPEG_PATH or PATH).",
+          "properties": {
+            "fps": { "enum": [30, 60], "default": 30, "description": "Frame rate." },
+            "codec": { "enum": ["h264", "prores"], "default": "h264", "description": "h264 writes .mp4 (H.264 High, silent AAC); prores writes .mov (ProRes 422 HQ)." }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "xcassetsMeta": {
       "type": "object",
       "description": "Metadata written into every Contents.json file. Xcode expects author \"xcode\" and version 1. Only change this if you know what you are doing.",
@@ -426,6 +467,26 @@
         "light",
         "dark"
       ],
+      "additionalProperties": false
+    },
+    "appStorePlacement": {
+      "type": "object",
+      "description": "Overrides for one creative asset placement.",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true, "description": "Write this placement at all." },
+        "source": { "type": "string", "description": "Finished artwork (SVG or PNG) for this placement, replacing the backdrop and centre item. Row artwork, an SVG whose <mask> holds rows of one repeated shape over full-canvas fills, is re-tiled to the canvas, so one design serves the 21:9 header and the 3:2 search results." },
+        "animate": {
+          "type": "object",
+          "description": "Video of row-artwork source: rows slide one card per loop, alternating direction, everything outside the mask fixed. header and searchResults only.",
+          "properties": { "rows": { "type": "number", "minimum": 5, "maximum": 30, "description": "Loop length in seconds." } },
+          "required": ["rows"],
+          "additionalProperties": false
+        },
+        "center": { "type": "boolean", "default": true, "description": "Draw the centre item. false writes the backdrop alone, such as a UI capture for search results." },
+        "backgroundImage": { "type": "string", "description": "Backdrop for this placement." },
+        "centerImage": { "type": "string", "description": "Centre item for this placement." },
+        "video": { "type": "string", "description": "A recording (.mov, .mp4, .m4v) cut into this placement's looping video: fitted to the canvas at a constant frame rate, its last 0.5 s dissolved into its start, capped at 30 s. header and searchResults only." }
+      },
       "additionalProperties": false
     }
   }

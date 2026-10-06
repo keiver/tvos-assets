@@ -126,6 +126,49 @@ export interface IosIconConfig {
   iconScale: number;
 }
 
+export interface AppStorePlacementConfig {
+  /** Write this placement at all. */
+  enabled: boolean;
+  /** Draw the centre item; false leaves the backdrop alone (a UI capture, say). */
+  center: boolean;
+  backgroundImage?: string;
+  centerImage?: string;
+  /**
+   * Finished artwork (SVG or PNG) for this placement, replacing the backdrop and centre item.
+   * Row artwork (an SVG whose <mask> holds rows of one repeated shape) re-tiles to the canvas.
+   */
+  source?: string;
+  /** Loop length in seconds of a video sliding the rows of row-artwork `source`; 5-30. */
+  animate?: { rows: number };
+  /** A recording (.mov, .mp4, .m4v) to cut into this placement's looping video. */
+  video?: string;
+}
+
+export type AppStoreVideoCodec = "h264" | "prores";
+
+/** How placement videos are encoded. */
+export interface AppStoreVideoConfig {
+  fps: 30 | 60;
+  codec: AppStoreVideoCodec;
+}
+
+export interface AppStoreConfig {
+  enabled: boolean;
+  /** How much of each art safe area the centre item covers (contain-fit). */
+  iconScale: number;
+  /** Optional backdrop for the creative assets; falls back to inputs.backgroundImage. */
+  backgroundImage?: string;
+  /** Optional centre item (a wordmark, say); falls back to the icon. */
+  centerImage?: string;
+  header: AppStorePlacementConfig;
+  searchResults: AppStorePlacementConfig;
+  universal: AppStorePlacementConfig;
+  /** In-App Event card (16:9) and details page (9:16): off by default, drawn only from a `source`. */
+  eventCard: AppStorePlacementConfig;
+  eventDetails: AppStorePlacementConfig;
+  video: AppStoreVideoConfig;
+}
+
 export interface XcassetsMetaConfig {
   author: string;
   version: number;
@@ -137,6 +180,7 @@ export interface TvOSImageCreatorConfig {
   brandAssets: BrandAssetsConfig;
   iosIcon: IosIconConfig;
   splashScreen: SplashScreenConfig;
+  appStore: AppStoreConfig;
   xcassetsMeta: XcassetsMetaConfig;
 }
 

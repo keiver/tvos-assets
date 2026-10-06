@@ -15,6 +15,8 @@ import pc from "picocolors";
 import { resolveConfig, discoverConfigPath, CONFIG_FILENAME } from "./config.js";
 import type { DeepPartial } from "./config.js";
 import { generateAssets, planAssets } from "./lib.js";
+import { enabledAssets } from "./generators/app-store.js";
+import { videoAssets } from "./generators/app-store-video.js";
 import type { TargetPlatform } from "./lib.js";
 import type { TvOSImageCreatorConfig } from "./types.js";
 import { buildOverridesFromSet, collectSet, setDeep } from "./cli/set-option.js";
@@ -27,6 +29,8 @@ import { createZip, generateZipFilename } from "./utils/zip.js";
 const program = new Command();
 
 const PLATFORMS: TargetPlatform[] = ["tvos", "ios"];
+
+const APP_STORE_DIRNAME = "AppStore";
 
 function parsePlatforms(raw: string | undefined): TargetPlatform[] | undefined {
   if (!raw) return undefined;
@@ -58,6 +62,9 @@ interface NamedFlagOptions {
   iosIcon?: boolean;
   topShelf?: boolean;
   splash?: boolean;
+  appStore?: boolean;
+  appStoreBackground?: string;
+  appStoreCenter?: string;
 }
 
 /**
@@ -109,6 +116,9 @@ function buildOverrides(
     assign("splashScreen.logo.enabled", false);
     assign("splashScreen.background.enabled", false);
   }
+  if (flags.appStore) assign("appStore.enabled", true);
+  if (flags.appStoreBackground) assign("appStore.backgroundImage", flags.appStoreBackground);
+  if (flags.appStoreCenter) assign("appStore.centerImage", flags.appStoreCenter);
 
   return Object.keys(overrides).length > 0 ? (overrides as DeepPartial<TvOSImageCreatorConfig>) : undefined;
 }
@@ -150,6 +160,9 @@ program
   .option("--no-ios-icon", "Skip the iOS AppIcon.appiconset")
   .option("--no-top-shelf", "Skip both Top Shelf imagesets")
   .option("--no-splash", "Skip the splash screen logo and colorset")
+  .option("--app-store", "Also write the App Store creative assets (header, search results, universal) into AppStore/")
+  .option("--app-store-background <path>", "Backdrop for the App Store creative assets (default: --background)")
+  .option("--app-store-center <path>", "Centre art for the App Store creative assets, e.g. a wordmark (default: the icon)")
   // Advanced
   .option(
     "--set <path=value>",
@@ -294,6 +307,11 @@ Examples:
         }
         log(`    icon.png`);
         if (wantsPreview) log(`    preview.html`);
+        if (config.appStore.enabled) {
+          const videoExt = config.appStore.video.codec === "prores" ? ".mov" : ".mp4";
+          for (const asset of enabledAssets(config)) log(`    ${APP_STORE_DIRNAME}/${asset.filename}`);
+          for (const asset of videoAssets(config)) log(`    ${APP_STORE_DIRNAME}/${asset.video}${videoExt}`);
+        }
         if (!isDirMode) log(`    ${pc.dim("(packed into")} tvos-assets-<timestamp>.zip${pc.dim(")")}`);
         log();
         log(`  ${pc.dim("Files:")}  ${describePlan(plan)}`);
@@ -315,6 +333,7 @@ Examples:
       const xcassetsDir = join(generationRoot, "Images.xcassets");
       const iconOutputPath = join(generationRoot, "icon.png");
       const previewOutputPath = join(generationRoot, "preview.html");
+      const appStoreDir = join(generationRoot, APP_STORE_DIRNAME);
 
       // Mirrors the step() calls in generateAssets, plus the zip step below.
       const active = platforms ?? PLATFORMS;
@@ -323,6 +342,8 @@ Examples:
         + (active.includes("ios") && config.iosIcon.enabled ? 1 : 0)
         + (config.splashScreen.logo.enabled ? 1 : 0)
         + (config.splashScreen.background.enabled ? 1 : 0)
+        + (config.appStore.enabled ? 1 : 0)
+        + (videoAssets(config).length > 0 ? 1 : 0)
         + (wantsPreview ? 1 : 0)
         + (isDirMode ? 0 : 1);
       let currentStep = 0;
@@ -335,6 +356,7 @@ Examples:
         platforms,
         standaloneIconPath: iconOutputPath,
         previewPath: wantsPreview ? previewOutputPath : undefined,
+        appStoreDir,
         toolVersion: version,
         command: formatCommand(process.argv.slice(2)),
         configPath,
@@ -361,6 +383,9 @@ Examples:
         ];
         if (wantsPreview) {
           zipEntries.push({ sourcePath: previewOutputPath, zipName: "preview.html", type: "file" as const });
+        }
+        if (config.appStore.enabled) {
+          zipEntries.push({ sourcePath: appStoreDir, zipName: APP_STORE_DIRNAME, type: "directory" as const });
         }
         await createZip(zipEntries, tempZipPath);
 
@@ -407,6 +432,7 @@ function describePlan(plan: ReturnType<typeof planAssets>): string {
   const parts = [`${plan.contentsJson} Contents.json`, `${plan.pngs} PNGs`];
   if (plan.standaloneIcon) parts.push("icon.png");
   if (plan.preview) parts.push("preview.html");
+  if (plan.appStore > 0) parts.push(`${plan.appStore} App Store assets`);
   return `${plan.total} files (${parts.join(" + ")})`;
 }
 

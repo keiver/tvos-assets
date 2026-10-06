@@ -121,6 +121,16 @@ function getDefaultConfig(
         },
       },
     },
+    appStore: {
+      enabled: false,
+      iconScale: APP_STORE_ICON_SCALE,
+      header: { enabled: true, center: true },
+      searchResults: { enabled: true, center: true },
+      universal: { enabled: true, center: true },
+      eventCard: { enabled: false, center: true },
+      eventDetails: { enabled: false, center: true },
+      video: { fps: 30, codec: "h264" },
+    },
     xcassetsMeta: {
       author: "xcode",
       version: 1,
@@ -206,6 +216,21 @@ function validateImagePath(rawPath: string, label: string): string {
   return resolved;
 }
 
+const VIDEO_EXTENSIONS = new Set([".mov", ".mp4", ".m4v"]);
+
+function validateVideoPath(rawPath: string, label: string): string {
+  const resolved = resolve(rawPath);
+  if (!existsSync(resolved)) {
+    throw new Error(`${label} not found: ${resolved}`);
+  }
+  assertNotSymlink(resolved, label);
+  const ext = extname(resolved).toLowerCase();
+  if (!VIDEO_EXTENSIONS.has(ext)) {
+    throw new Error(`${label} must be a .mov, .mp4 or .m4v file (got "${ext}"): ${resolved}`);
+  }
+  return resolved;
+}
+
 const HEX_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 const SAFE_ASSET_NAME = /^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/;
@@ -266,6 +291,8 @@ function assemblyLayers(stack: ImageStackAssetConfig): string[] | undefined {
  */
 const IOS_ICON_SCALE = 0.8;
 const TV_ICON_SCALE = 0.75;
+/** Fraction of the art safe area's shorter side; the margin keeps the mark off the safe-area edge. */
+const APP_STORE_ICON_SCALE = 0.8;
 
 function resolveIconScale(raw: unknown, label: string, fallback: number): number {
   if (raw === undefined || raw === null || raw === "") return fallback;
@@ -448,6 +475,50 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     "brandAssets.iconScale",
     TV_ICON_SCALE,
   );
+  merged.appStore.iconScale = resolveIconScale(
+    merged.appStore.iconScale,
+    "appStore.iconScale",
+    APP_STORE_ICON_SCALE,
+  );
+  const optionalImage = (raw: string | undefined, label: string): string | undefined => {
+    const trimmed = (raw ?? "").trim();
+    return trimmed ? validateImagePath(trimmed, label) : undefined;
+  };
+  merged.appStore.backgroundImage = optionalImage(merged.appStore.backgroundImage, "appStore.backgroundImage");
+  merged.appStore.centerImage = optionalImage(merged.appStore.centerImage, "appStore.centerImage");
+  // App Store Connect: universal is an image only; In-App Event videos run 15-30 s, the others 5-30 s.
+  const NO_VIDEO = "App Store Connect takes no video for the universal asset";
+  for (const key of ["header", "searchResults", "universal", "eventCard", "eventDetails"] as const) {
+    const placement = merged.appStore[key];
+    const event = key === "eventCard" || key === "eventDetails";
+    placement.backgroundImage = optionalImage(placement.backgroundImage, `appStore.${key}.backgroundImage`);
+    placement.centerImage = optionalImage(placement.centerImage, `appStore.${key}.centerImage`);
+    const rawVideo = (placement.video ?? "").trim();
+    if (rawVideo && key === "universal") throw new Error(`appStore.universal.video is not supported: ${NO_VIDEO}.`);
+    placement.video = rawVideo ? validateVideoPath(rawVideo, `appStore.${key}.video`) : undefined;
+    placement.source = optionalImage(placement.source, `appStore.${key}.source`);
+    if (event && placement.enabled && merged.appStore.enabled && !placement.source) {
+      throw new Error(`appStore.${key} needs a source: Apple publishes no safe area for In-App Event media to place the icon in.`);
+    }
+    if (placement.animate) {
+      const seconds = placement.animate.rows;
+      const min = event ? 15 : 5;
+      if (key === "universal") throw new Error(`appStore.universal.animate is not supported: ${NO_VIDEO}.`);
+      if (!placement.source || !isSvgPath(placement.source)) {
+        throw new Error(`appStore.${key}.animate needs an SVG appStore.${key}.source with its cards in a <mask>.`);
+      }
+      if (!Number.isFinite(seconds) || seconds < min || seconds > 30) {
+        throw new Error(`Invalid appStore.${key}.animate.rows: "${String(seconds)}". Use ${min} to 30 seconds.`);
+      }
+    }
+  }
+  const video = merged.appStore.video;
+  if (video.fps !== 30 && video.fps !== 60) {
+    throw new Error(`Invalid appStore.video.fps: "${String(video.fps)}". Use 30 or 60.`);
+  }
+  if (video.codec !== "h264" && video.codec !== "prores") {
+    throw new Error(`Invalid appStore.video.codec: "${String(video.codec)}". Use "h264" or "prores".`);
+  }
 
   // With no icon input, assemble one from the parallax layer art. Assigned
   // unconditionally so a config file cannot inject a derived value.

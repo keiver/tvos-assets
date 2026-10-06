@@ -1,6 +1,14 @@
 # Changelog
 
 ## [Unreleased]
+- feat(app-store): App Store creative assets for iOS 27 and iPadOS 27 (`--app-store`, config
+  `appStore`, plugin prop `appStore`): `header.png` (3840x1646), `search-results.png`
+  (3840x2560) and `universal.png` (5244x2950), opaque, art in Apple's template safe areas, plus
+  opt-in In-App Event media (`event-card.png` 3840x2160, `event-details.png` 2160x3840).
+  Per placement: finished artwork (`source`), row artwork re-tiled to each canvas, a row-motion
+  loop video (`animate`), or a recording cut into a seamless loop (`video`); `enabled` skips a
+  placement. Videos are H.264 High with a silent stereo track (or ProRes 422 HQ) via ffmpeg.
+  Unchanged outputs are skipped. `preview.html` outlines the safe areas and links the videos.
 - feat(icons): the mark is sized to Apple's proportions instead of a hardcoded
   0.6 of the shorter side. The icon is normalized to the square its visible
   artwork occupies before scaling, so the number means "the mark covers N% of

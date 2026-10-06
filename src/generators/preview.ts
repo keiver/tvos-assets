@@ -1,10 +1,11 @@
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { join, basename, extname, relative, dirname, sep } from "node:path";
 import sharp from "sharp";
 import type { TvOSImageCreatorConfig } from "../types.js";
 import { safeWriteFile } from "../utils/fs.js";
 import { displayPath, isUpward, tildify } from "../utils/paths.js";
 import { renderPreviewHtml } from "./preview-html.js";
+import { APP_STORE_ASSETS } from "./app-store.js";
 
 /** Long edge of the embedded thumbnails, in CSS pixels before device scaling. */
 const THUMB_MAX_EDGE = 640;
@@ -23,6 +24,8 @@ export interface PreviewAsset {
   note?: string;
   /** Link to the real file on disk, so a thumbnail can open the full-size original. */
   href?: string;
+  /** Art safe area as fractions of the image, drawn as an outline over the thumbnail. */
+  safeArea?: { left: number; top: number; width: number; height: number };
 }
 
 export interface PreviewParallax {
@@ -46,6 +49,8 @@ export interface PreviewGroup {
   assets: PreviewAsset[];
   parallax?: PreviewParallax;
   swatches?: PreviewSwatch[];
+  /** Files linked by name only, such as videos too large to embed. */
+  files?: { filename: string; href?: string; note: string }[];
 }
 
 export interface PreviewData {
@@ -473,6 +478,8 @@ export interface GeneratePreviewOptions {
   config: TvOSImageCreatorConfig;
   platforms: string[];
   standaloneIconPath?: string;
+  /** Directory holding the App Store creative assets, when the run wrote them. */
+  appStoreDir?: string;
   toolVersion?: string;
   /** The command line that produced this run, shown verbatim on the page. */
   command?: string;
@@ -519,8 +526,55 @@ export async function generatePreview(options: GeneratePreviewOptions): Promise<
     });
   }
 
+  const storeAssets: PreviewAsset[] = [];
+  for (const asset of options.appStoreDir ? APP_STORE_ASSETS : []) {
+    const path = join(options.appStoreDir as string, asset.filename);
+    if (!existsSync(path)) continue;
+    const { key, width, height, hasAlpha } = await table.add(path);
+    storeAssets.push({
+      filename: asset.filename,
+      width,
+      height,
+      imageKey: key,
+      hasAlpha,
+      note: asset.title,
+      href: fileHref(path, previewDir, outside),
+      safeArea: asset.safeArea && {
+        left: asset.safeArea.x / asset.width,
+        top: asset.safeArea.y / asset.height,
+        width: asset.safeArea.width / asset.width,
+        height: asset.safeArea.height / asset.height,
+      },
+    });
+  }
+  const storeVideos: NonNullable<PreviewGroup["files"]> = [];
+  for (const asset of options.appStoreDir ? APP_STORE_ASSETS : []) {
+    for (const extension of [".mp4", ".mov"]) {
+      const path = join(options.appStoreDir as string, `${asset.video}${extension}`);
+      if (!asset.video || !existsSync(path)) continue;
+      const megabytes = (statSync(path).size / (1024 * 1024)).toFixed(1);
+      storeVideos.push({
+        filename: basename(path),
+        href: fileHref(path, previewDir, outside),
+        note: `${asset.title}, ${asset.width} x ${asset.height}, ${megabytes} MB`,
+      });
+    }
+  }
+  if (storeAssets.length > 0) {
+    groups.push({
+      title: "App Store creative assets",
+      location: `${basename(options.appStoreDir as string)}/ alongside Images.xcassets`,
+      assets: storeAssets,
+      files: storeVideos,
+    });
+  }
+
   const catalogFiles = countFiles(options.xcassetsDir);
-  const extras = (options.standaloneIconPath && existsSync(options.standaloneIconPath) ? 1 : 0) + 1; // + preview.html
+  const extras =
+    (options.standaloneIconPath && existsSync(options.standaloneIconPath) ? 1 : 0) +
+    storeAssets.length +
+    storeVideos.length +
+    1; // + preview.html
 
   const html = renderPreviewHtml({
     groups,
