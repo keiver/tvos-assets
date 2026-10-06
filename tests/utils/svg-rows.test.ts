@@ -1,8 +1,12 @@
 jest.setTimeout(60000);
 
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import sharp from "sharp";
 import { parseRowArtwork, pathCentre, renderRows } from "../../src/utils/svg-rows";
 import { ROW_SVG } from "../fixtures/row-artwork";
+
+const EXAMPLES = join(__dirname, "../../examples/row-artwork");
 
 describe("pathCentre", () => {
   it("follows H and V, which take one number", () => {
@@ -18,6 +22,11 @@ describe("parseRowArtwork", () => {
     expect(art.rows.map((r) => r.xs[0])).toEqual([50, 0, 50]);
     expect(art.pitchX).toBe(100);
     expect(art.pitchY).toBe(80);
+  });
+
+  it.each(readdirSync(EXAMPLES))("accepts examples/row-artwork/%s", (file) => {
+    const art = parseRowArtwork(readFileSync(join(EXAMPLES, file), "utf8"));
+    expect(art.rows.length).toBeGreaterThan(1);
   });
 
   it("says what is missing from an SVG that is not row artwork", () => {
