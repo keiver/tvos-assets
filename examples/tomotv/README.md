@@ -13,6 +13,7 @@ brand/                       source art (inputs)
   background-appstore.png    back layer of the App Store imagestack
   artwork.svg                row artwork for the App Store creative assets
   event-live-tv.svg          row artwork for the Live TV In-App Event, no text
+  music.mp3                  not in the repo (licensed track): supply your own to regenerate the videos
 tvos-assets.config.json      the config below
 output/                      generated, committed so you can inspect it without running anything
   Images.xcassets/
@@ -108,7 +109,8 @@ parts that matter:
 | `iosIcon.iconScale` | `0.68` | The plugin's `iosIconScale`: the mark covers 68% of the iOS icon. |
 | `appStore.{header,searchResults}` | `source` + `animate: { rows: 20 }` | Row artwork re-tiled to each canvas, plus a 20 s loop where the rows slide and TOMO TV stays put. |
 | `appStore.universal` | `source` | Same artwork; universal takes no video. |
-| `appStore.{eventCard,eventDetails}` | `enabled` + `source` + `animate: { rows: 20 }` | Media for a Live TV In-App Event (badge: Major Update). Its own artwork, with no text: Apple asks event media to leave out the app and event name, which the App Store draws over the card. Every card carries scan lines in its fill, so they slide with it; a red live dot stays fixed on the centre card and blinks once a second (an SVG `<animate>`). |
+| `appStore.{eventCard,eventDetails}` | `enabled` + `source` + `animate: { rows: 20 }` | Media for a Live TV In-App Event (badge: Major Update). Its own artwork, with no text: Apple asks event media to leave out the app and event name, which the App Store draws over the card. Every card carries scan lines in its fill, so they slide with it; the red live dot is drawn on top inside one card, so it rides that card. |
+| `appStore.video.audio` | `./brand/music.mp3` | Music on every video, looped from a stretch the lib picks where the beat lines up and the level holds. The track is licensed, so it is not in the repo. |
 | `output.mode` | `"dir"` | Writes the catalog straight into `output/` instead of a timestamped zip. |
 
 ## Why the layers line up

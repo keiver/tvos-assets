@@ -82,7 +82,8 @@
     "searchResults": { "source": "./brand/artwork.svg", "animate": { "rows": 20 } },
     "universal": { "source": "./brand/artwork.svg" },
     "eventCard": { "enabled": true, "source": "./brand/event-live-tv.svg", "animate": { "rows": 20 } },
-    "eventDetails": { "enabled": true, "source": "./brand/event-live-tv.svg", "animate": { "rows": 20 } }
+    "eventDetails": { "enabled": true, "source": "./brand/event-live-tv.svg", "animate": { "rows": 20 } },
+    "video": { "fps": 30, "codec": "h264", "audio": "./brand/music.mp3" }
   },
   "xcassetsMeta": {
     "author": "xcode",
