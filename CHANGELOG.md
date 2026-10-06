@@ -10,6 +10,10 @@
   placement. Videos are H.264 High with a silent stereo track (or ProRes 422 HQ) via ffmpeg.
   Unchanged outputs are skipped. `preview.html` outlines the safe areas and plays the videos.
   Six example row artwork files in `examples/row-artwork/`.
+
+## [1.5.0] - 2026-09-07
+- feat(icons): size the mark to Apple's proportions, assemble it from layer art (#9)
+
 - feat(icons): the mark is sized to Apple's proportions instead of a hardcoded
   0.6 of the shorter side. The icon is normalized to the square its visible
   artwork occupies before scaling, so the number means "the mark covers N% of
@@ -22,6 +26,10 @@
   The flat icon is assembled from that art back to front and used for the iOS
   appiconset, Top Shelf images, splash logo, and `icon.png`, so a project with
   parallax layers no longer maintains a hand-flattened third copy of them.
+
+## [1.4.1] - 2026-08-05
+- fix(preview): keep the home directory out of preview.html paths (#8)
+
 
 ## [1.4.0] - 2026-08-05
 - feat(cli): full config parity, preview.html, and DX pass (#7)
