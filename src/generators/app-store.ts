@@ -6,7 +6,8 @@ import type { AppStorePlacementConfig, TvOSImageCreatorConfig } from "../types.j
 import { ensureDir, safeWriteFile } from "../utils/fs.js";
 import { compositeCenterInRect } from "../utils/image-processing.js";
 import type { CenterItem, ContentBox, Rect } from "../utils/image-processing.js";
-import { animateAt, parseRowArtwork, renderRows } from "../utils/svg-rows.js";
+import { rowStill } from "../utils/rise-frames.js";
+import { animateAt, filterReach, parseRowArtwork } from "../utils/svg-rows.js";
 import type { RowArtwork } from "../utils/svg-rows.js";
 import { StoreCache, inputKey } from "../utils/store-cache.js";
 
@@ -161,7 +162,7 @@ export async function renderSource(
     const svg = readFileSync(source, "utf8");
     const art = readRowArtwork(source);
     image = art
-      ? sharp(Buffer.from(renderRows({ ...art, source: animateAt(art.source, 0) }, width, height, undefined, centre)))
+      ? rowStill({ ...art, source: animateAt(art.source, 0) }, width, height, centre)
       : sharp(Buffer.from(svg)).resize(width, height, { fit: "cover" });
   } else {
     image = sharp(source).resize(width, height, { fit: "cover" });
@@ -184,8 +185,11 @@ export async function generateAppStoreAssets(
   for (const asset of assets) {
     const placement = config.appStore[asset.placement];
     if (placement.source) {
-      const centre = designCentre(asset, readRowArtwork(placement.source));
-      const key = inputKey([placement.source], ["still", asset.width, asset.height, centre]);
+      const art = readRowArtwork(placement.source);
+      const centre = designCentre(asset, art);
+      // The bleed is part of the key: it decides what filtered art draws at the canvas edges.
+      const bleed = art ? filterReach(art.source) : 0;
+      const key = inputKey([placement.source], ["still", asset.width, asset.height, centre, ...(bleed ? [bleed] : [])]);
       if (cache.fresh(asset.filename, key)) continue;
       safeWriteFile(join(outDir, asset.filename), await renderSource(placement.source, asset.width, asset.height, centre));
       cache.record(asset.filename, key);

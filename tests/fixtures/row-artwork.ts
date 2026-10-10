@@ -16,3 +16,10 @@ ${rowAt(20, 50)}${rowAt(100, 0)}${rowAt(180, 50)}
 </g>
 <defs><clipPath id="c"><rect width="400" height="200" fill="white"/></clipPath></defs>
 </svg>`;
+
+// The same wall with each card casting a grey shadow down and right, from a filter on a group
+// around the masked fill.
+export const RAISED_SVG = ROW_SVG
+  .replace('<g mask="url(#m)">', '<g filter="url(#lift)"><g mask="url(#m)">')
+  .replace('fill="#FFC312"/></g>', 'fill="#FFC312"/></g></g>')
+  .replace("<defs>", '<defs><filter id="lift" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feGaussianBlur in="SourceAlpha" stdDeviation="2" result="b"/><feOffset in="b" dx="5" dy="5" result="o"/><feFlood flood-color="#808080"/><feComposite in2="o" operator="in" result="s"/><feMerge><feMergeNode in="s"/><feMergeNode in="SourceGraphic"/></feMerge></filter>');

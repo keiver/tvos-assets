@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+- feat(app-store): `animate: { rise: seconds }` beside `animate: { rows: seconds }`. Row artwork's
+  cards come up out of an empty surface and sink back a few at a time, in a loop that closes. The
+  look is the SVG's own: what is drawn through the mask fades in with its card, and the file's
+  filters (`feOffset`, `feDropShadow`, `feGaussianBlur`) grow with the card's height, so a drop
+  shadow lengthens as the card lifts. Cards that draw the same share their frames: a 20 s 4K
+  header takes about 40 s on an M1 Max. `animate.rows` is unchanged.
+- fix(app-store): stills of row artwork with filters are drawn past the canvas and cropped, so
+  the shadow of a card cut by the canvas edge matches every other card's. Stills of art without
+  filters are byte for byte what they were, and are not redrawn.
+- fix(cli): `--set appStore.<placement>.animate.rows=20`, as the README shows it, is accepted; it
+  failed with `Unknown --set path`.
+
 ## [1.6.2] - 2026-10-06
 - docs(readme): rewrite in plainer language, App Store video options; lockfile peer dependency (#13)
 

@@ -138,8 +138,11 @@ export interface AppStorePlacementConfig {
    * Row artwork (an SVG whose <mask> holds rows of one repeated shape) re-tiles to the canvas.
    */
   source?: string;
-  /** Loop length in seconds of a video sliding the rows of row-artwork `source`; 5-30. */
-  animate?: { rows: number };
+  /**
+   * Loop length in seconds (5-30) of a video of row-artwork `source`: `rows` slides its rows,
+   * `rise` lifts its cards out of the surface and back, a few at a time.
+   */
+  animate?: { rows: number } | { rise: number };
   /** A recording (.mov, .mp4, .m4v) to cut into this placement's looping video. */
   video?: string;
 }

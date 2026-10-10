@@ -102,7 +102,7 @@ SVG inputs are rasterized at the density each size needs, so a small viewBox sti
 | `--app-store-center <path>` | `appStore.centerImage` | `appStore.centerImage` | path | the icon | Art centred in each safe area, such as a wordmark. |
 | `--set appStore.iconScale=` | `appStore.iconScale` | `appStore.iconScale` | number | `0.8` | How much of each safe area the centred art covers. |
 | `--set appStore.header.source=` | `appStore.<placement>.source` | same keys | path | none | Finished art (SVG or PNG) for a placement. Required for `eventCard` and `eventDetails`. See [Row artwork](#row-artwork). |
-| `--set appStore.header.animate.rows=20` | `appStore.<placement>.animate` | same keys | `{ rows: seconds }` | none | A looping video from row artwork: 5-30 s, or 15-30 s for In-App Events. Not for `universal`. |
+| `--set appStore.header.animate.rows=20` | `appStore.<placement>.animate` | same keys | `{ rows: seconds }` or `{ rise: seconds }` | none | A looping video from row artwork, its rows sliding or its [cards rising](#cards-that-rise): 5-30 s, or 15-30 s for In-App Events. Not for `universal`. |
 | `--set appStore.searchResults.video=` | `appStore.<placement>.video` | same keys | path | none | A [recording](#recordings) cut into the placement's looping video. Not for `universal`. |
 | `--set appStore.universal.enabled=false` | `appStore.<placement>.enabled` | same keys | boolean | on; In-App Events off | Write a placement or skip it: `header`, `searchResults`, `universal`, `eventCard`, `eventDetails`. |
 | `--set appStore.searchResults.center=false` | `appStore.<placement>.{backgroundImage,centerImage,center}` | same keys | per placement | `center: true` | Per-placement backdrop and centred art; `center: false` writes the backdrop alone. |
@@ -301,6 +301,45 @@ Design at 3840x1646 (the header) and export SVG. Each rule is checked, and a fil
 <img src="docs/row-artwork.webp" alt="The six example row artwork files rendered as 21:9 headers: dots, pills, honeycomb, tiles, screens and diamonds" width="100%">
 
 Row-motion videos are fast: only the cards move, so each frame is blended from layers drawn once, several frames at a time. A 20 s 4K header takes about 30 s on an M1 Max. Art the blend can't reproduce exactly is drawn in full each frame instead.
+
+### Cards that rise
+
+`animate` with `rise` in place of `rows` makes the other video row artwork can become. The rows stay where they are. The surface is empty, and cards come up out of it and sink back a few at a time, so the only cards on screen are the ones on their way in or out. The still shows every card up.
+
+```json
+"appStore": {
+  "enabled": true,
+  "header": { "source": "./store/artwork.svg", "animate": { "rise": 20 } },
+  "searchResults": { "source": "./store/artwork.svg", "animate": { "rise": 20 } }
+}
+```
+
+How a card rises comes from your SVG:
+
+- **What is drawn through the mask** fades in with its card, after a moment as a faint relief.
+- **Filters** grow with the card: `feOffset` and `feDropShadow` offsets from zero, blurs from a fifth of their size. Put a drop shadow on a group around the masked art and it lengthens as the card lifts.
+- **Drawn on top, inside one card**: comes up with that card.
+- **Everything else**: the surface, which stays put.
+
+```svg
+<rect width="3840" height="1646" fill="#FFC312"/>
+<mask id="cards">…the cards…</mask>
+<g filter="url(#lift)">
+  <g mask="url(#cards)">…what each card shows…</g>
+</g>
+```
+
+A card comes up every 10 s in a 20 or 30 s loop (once per loop in shorter ones), and cards next to each other come up at different moments. `rise` adds three rules:
+
+| Rule | Why |
+|---|---|
+| One element draws through the mask; wrap several in one `<g mask="url(#id)">` | That element is the card. |
+| No `<animate>` | The rise is the motion. |
+| A card's shadows stay clear of the next card | Each card is drawn by itself; with every card up, the frame has to match the still. |
+
+To put the same art on every card (a logo pressed into each one, say), fill a full-canvas shape with a `pattern` whose tile is one card spacing wide and two rows tall.
+
+Cards that draw the same share their frames, so this is fast too: a 20 s 4K header takes about 40 s on an M1 Max.
 
 ### Recordings
 

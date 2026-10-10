@@ -516,14 +516,19 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
       throw new Error(`appStore.${key} needs a source: Apple publishes no safe area for In-App Event media to place the icon in.`);
     }
     if (placement.animate) {
-      const seconds = placement.animate.rows;
+      const kinds = Object.keys(placement.animate);
+      if (kinds.length !== 1 || (kinds[0] !== "rows" && kinds[0] !== "rise")) {
+        throw new Error(`appStore.${key}.animate takes one of rows or rise, got: ${kinds.join(", ") || "neither"}.`);
+      }
+      const kind = kinds[0];
+      const seconds = (placement.animate as Record<string, number>)[kind];
       const min = event ? 15 : 5;
       if (key === "universal") throw new Error(`appStore.universal.animate is not supported: ${NO_VIDEO}.`);
       if (!placement.source || !isSvgPath(placement.source)) {
         throw new Error(`appStore.${key}.animate needs an SVG appStore.${key}.source with its cards in a <mask>.`);
       }
       if (!Number.isFinite(seconds) || seconds < min || seconds > 30) {
-        throw new Error(`Invalid appStore.${key}.animate.rows: "${String(seconds)}". Use ${min} to 30 seconds.`);
+        throw new Error(`Invalid appStore.${key}.animate.${kind}: "${String(seconds)}". Use ${min} to 30 seconds.`);
       }
     }
   }

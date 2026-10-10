@@ -23,7 +23,13 @@ const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
 ]);
 
 /** Number keys with no default, so absent from the shape template. */
-const OPTIONAL_NUMBER_PATHS: ReadonlySet<string> = new Set(["appStore.video.audioStart", "appStore.video.audioEnd"]);
+const OPTIONAL_NUMBER_PATHS: ReadonlySet<string> = new Set([
+  "appStore.video.audioStart",
+  "appStore.video.audioEnd",
+  ...["header", "searchResults", "universal", "eventCard", "eventDetails"].flatMap((placement) =>
+    ["rows", "rise"].map((kind) => `appStore.${placement}.animate.${kind}`),
+  ),
+]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

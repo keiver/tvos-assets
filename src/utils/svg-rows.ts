@@ -16,6 +16,8 @@
  *    it, stills show its first value, and its `dur` must divide the loop.
  * 8. What is drawn through the mask is the scene behind the cards and stays put. A shape drawn on
  *    top that fits inside one card belongs to it and rides with its row; other shapes stay put.
+ * 9. For cards that rise (`animate.rise`), one element draws through the mask (a `<g mask>` around
+ *    several is one), no shape holds an `<animate>`, and a card's shadows stay clear of the next card.
  */
 
 export interface Box {
@@ -270,13 +272,59 @@ export function animateAt(svg: string, t: number): string {
   });
 }
 
+/** How far the SVG's filters carry an edge, in px: the largest offset plus three of the largest blur. */
+export function filterReach(svg: string): number {
+  let offset = 0, blur = 0;
+  for (const [tag] of svg.matchAll(/<fe(?:Offset|GaussianBlur|DropShadow)\b[^>]*>/g)) {
+    offset = Math.max(offset, Math.abs(num(tag, "dx")), Math.abs(num(tag, "dy")));
+    for (const v of (attr(tag, "stdDeviation") ?? "0").trim().split(/[\s,]+/)) blur = Math.max(blur, Number(v) || 0);
+  }
+  return Math.ceil(offset + 3 * blur);
+}
+
+/**
+ * The SVG with its filters as a card `h` of the way up casts them (0 flat, 1 as drawn): offsets
+ * grow with the height, blurs from a fifth of their size.
+ */
+export function liftFilters(svg: string, h: number): string {
+  const scale = (tag: string, name: string, by: number): string =>
+    tag.replace(new RegExp(`(\\s${name}=")([^"]*)"`), (_m, head: string, v: string) =>
+      `${head}${v.trim().split(/[\s,]+/).map((n) => +(Number(n) * by).toFixed(4)).join(" ")}"`);
+  return svg.replace(/<fe(?:Offset|GaussianBlur|DropShadow)\b[^>]*>/g, (tag) =>
+    scale(scale(scale(tag, "dx", h), "dy", h), "stdDeviation", 0.2 + 0.8 * h));
+}
+
+/**
+ * The SVG cut down to what one card is made of, `h` of the way up: the element drawn through the
+ * mask inside the groups that hold it (their filters and clips apply), then `onTop`, with the
+ * filters of that height. Undefined when nothing draws through the mask.
+ */
+export function risenCard(svg: string, h: number, onTop = ""): string | undefined {
+  const mask = svg.match(/<mask\b[^>]*>[\s\S]*?<\/mask>/)?.[0];
+  const id = mask?.match(/\sid="([^"]*)"/)?.[1];
+  const at = id ? svg.indexOf(`mask="url(#${id})"`) : -1;
+  if (!mask || at < 0) return undefined;
+  const [start, end] = elementSpan(svg, at);
+  const open: string[] = [];
+  const before = svg.slice(0, start).replace(/<(mask|defs|clipPath)\b[\s\S]*?<\/\1>/g, "");
+  for (const m of before.matchAll(/<g\b[^>]*?(\/?)>|<\/g>/g)) {
+    if (m[0] === "</g>") open.pop();
+    else if (!m[1]) open.push(m[0]);
+  }
+  const defs = (svg.match(/<defs\b[\s\S]*?<\/defs>/g) ?? []).join("");
+  const root = svg.match(/<svg\b[^>]*>/)?.[0] ?? "<svg>";
+  const card = `${open.join("")}${svg.slice(start, end)}${"</g>".repeat(open.length)}${onTop}`;
+  return liftFilters(`${root}${mask}${card}${defs}</svg>`, h);
+}
+
 /**
  * The artwork on a `width` x `height` canvas: the original's centre placed at `centre` (default the
  * canvas centre), its full-canvas fills stretched to cover the canvas, its rows re-tiled across it
  * with the source's spacing and stagger, each row shifted horizontally by `offsets(k)` (row 0 is the
  * top source row; rows above and below repeat the stagger). Shapes riding a card move with its row;
  * during `seam` each also fades into a copy `seam.shift(row)` back, so a loop ends where it began.
- * `mask` "open" lets everything through the mask and "shut" nothing, in place of the cards.
+ * `mask` "open" lets everything through the mask and "shut" nothing, in place of the cards; a row
+ * `k` and column `n` (0 is the row's first source card) leaves that one card.
  */
 export function renderRows(
   art: RowArtwork,
@@ -284,7 +332,7 @@ export function renderRows(
   height: number,
   offsets: (row: number) => number = () => 0,
   centre: { x: number; y: number } = { x: width / 2, y: height / 2 },
-  mask: "cards" | "open" | "shut" = "cards",
+  mask: "cards" | "open" | "shut" | { k: number; n: number } = "cards",
   seam?: { weight: number; shift: (row: number) => number },
 ): string {
   const { width: W, height: H, pitchX, pitchY } = art;
@@ -301,6 +349,7 @@ export function renderRows(
     const origin = src.xs[0] + offsets(k);
     const start = origin + Math.floor((left - origin) / pitchX) * pitchX;
     for (let x = start; x < right; x += pitchX) {
+      if (typeof mask === "object" && (k !== mask.k || Math.round((x - origin) / pitchX) !== mask.n)) continue;
       cells.push(`<g transform="translate(${(x - src.cx).toFixed(3)} ${(y - src.cy).toFixed(3)})">${src.template}</g>`);
     }
   }
@@ -340,8 +389,9 @@ export function renderRows(
     .replace(/^[\s\S]*?<svg\b[^>]*>/, "")
     .replace(/<\/svg>\s*$/, "")
     .replace(/<mask\b([^>]*)>[\s\S]*?<\/mask>/, (_m, attrs: string) => {
-      const region = attrs.replace(/\s(x|y|width|height)="[^"]*"/g, "");
-      const content = mask === "cards" ? cells.join("")
+      // The region is in canvas px whatever units the source's mask used.
+      const region = `${attrs.replace(/\s(x|y|width|height|maskUnits)="[^"]*"/g, "")} maskUnits="userSpaceOnUse"`;
+      const content = mask === "cards" || typeof mask === "object" ? cells.join("")
         : mask === "open" ? `<rect x="${left}" y="${top}" width="${right - left}" height="${bottom - top}" fill="white"/>`
         : "";
       return `<mask${region} x="${left}" y="${top}" width="${right - left}" height="${bottom - top}">${content}</mask>`;
