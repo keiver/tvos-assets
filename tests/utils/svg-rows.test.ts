@@ -3,8 +3,8 @@ jest.setTimeout(60000);
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
-import { animateAt, animationPeriods, parseRowArtwork, pathCentre, renderRows, riders } from "../../src/utils/svg-rows";
-import { ROW_SVG } from "../fixtures/row-artwork";
+import { animateAt, animationPeriods, filterReach, liftFilters, parseRowArtwork, pathCentre, renderRows, riders, risenCard } from "../../src/utils/svg-rows";
+import { RAISED_SVG, ROW_SVG } from "../fixtures/row-artwork";
 
 const EXAMPLES = join(__dirname, "../../examples/row-artwork");
 
@@ -106,6 +106,49 @@ describe("renderRows", () => {
     const svg = renderRows(art, 400, 200, (k) => (k === 1 ? 50 : 0));
     // Row 1 (y 100) moves half a pitch: its gap at x 50 becomes a card, its card at x 100 a gap.
     expect(await goldAt(svg, [[50, 100], [100, 100], [50, 20]])).toEqual([true, false, true]);
+  });
+
+  it("leaves one card when given its row and column", async () => {
+    const art = parseRowArtwork(ROW_SVG);
+    // Row 1 (y 100) starts at x 0: column 2 is the card at x 200.
+    const svg = renderRows(art, 400, 200, undefined, undefined, { k: 1, n: 2 });
+    expect(await goldAt(svg, [[180, 100], [100, 100], [300, 100], [150, 20]])).toEqual([true, false, false, false]);
+  });
+});
+
+describe("filters of a rising card", () => {
+  const shadow = '<filter id="f"><feGaussianBlur in="SourceAlpha" stdDeviation="10 4"/><feOffset dx="18" dy="-6"/><feDropShadow dx="2" dy="2" stdDeviation="5"/><feFlood flood-opacity="0.4"/></filter>';
+
+  it("measures how far they carry an edge", () => {
+    expect(filterReach(shadow)).toBe(18 + 3 * 10);
+    expect(filterReach(ROW_SVG)).toBe(0);
+    expect(filterReach(RAISED_SVG)).toBe(5 + 3 * 2);
+  });
+
+  it("grows offsets with the height and blurs from a fifth, and touches nothing else", () => {
+    expect(liftFilters(shadow, 1)).toBe(shadow);
+    expect(liftFilters(shadow, 0.5)).toBe(
+      '<filter id="f"><feGaussianBlur in="SourceAlpha" stdDeviation="6 2.4"/><feOffset dx="9" dy="-3"/><feDropShadow dx="1" dy="1" stdDeviation="3"/><feFlood flood-opacity="0.4"/></filter>',
+    );
+    expect(liftFilters(shadow, 0)).toContain('<feOffset dx="0" dy="0"/>');
+    expect(liftFilters(shadow, 0)).toContain('stdDeviation="2 0.8"');
+  });
+});
+
+describe("risenCard", () => {
+  it("keeps what is drawn through the mask, inside the groups that hold it, and drops the rest", () => {
+    const card = risenCard(RAISED_SVG, 0.5, "<circle/>") as string;
+    expect(card).toContain('<g clip-path="url(#c)"><g filter="url(#lift)"><g mask="url(#m)"><path d="M400 0H0V200H400V0Z" fill="#FFC312"/></g></g></g><circle/>');
+    expect(card).toContain('<mask id="m"');
+    expect(card).toContain('<clipPath id="c">');
+    expect(card).toContain('<feOffset in="b" dx="2.5" dy="2.5" result="o"/>');
+    expect(card).not.toContain('fill="#000000"'); // the surface
+    expect(card).not.toContain('fill="#FF0000"'); // the mark riding a card
+    expect(() => parseRowArtwork(card)).not.toThrow();
+  });
+
+  it("is undefined when nothing draws through the mask", () => {
+    expect(risenCard(ROW_SVG.replace(' mask="url(#m)"', ""), 1)).toBeUndefined();
   });
 });
 

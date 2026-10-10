@@ -480,9 +480,13 @@
         "source": { "type": "string", "description": "Finished artwork (SVG or PNG) for this placement, replacing the backdrop and centre item. Row artwork, an SVG whose <mask> holds rows of one repeated shape over full-canvas fills, is re-tiled to the canvas, so one design serves the 21:9 header and the 3:2 search results." },
         "animate": {
           "type": "object",
-          "description": "Video of row-artwork source: rows slide one card per loop, alternating direction, everything outside the mask fixed. header and searchResults only.",
-          "properties": { "rows": { "type": "number", "minimum": 5, "maximum": 30, "description": "Loop length in seconds." } },
-          "required": ["rows"],
+          "description": "Video of row-artwork source, one of rows or rise. Not for universal.",
+          "properties": {
+            "rows": { "type": "number", "minimum": 5, "maximum": 30, "description": "Loop length in seconds. Rows slide one card per loop, alternating direction, everything outside the mask fixed." },
+            "rise": { "type": "number", "minimum": 5, "maximum": 30, "description": "Loop length in seconds. Cards rise out of the surface and sink back a few at a time, their shadows growing with them; the surface is empty in between." }
+          },
+          "minProperties": 1,
+          "maxProperties": 1,
           "additionalProperties": false
         },
         "center": { "type": "boolean", "default": true, "description": "Draw the centre item. false writes the backdrop alone, such as a UI capture for search results." },

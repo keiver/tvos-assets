@@ -8,6 +8,7 @@ import { resolveConfig } from "../../src/config";
 import {
   audioLoopFilter,
   bestLoopStart,
+  encodeRise,
   encodeRows,
   encoderPreference,
   ffmpegPath,
@@ -17,7 +18,8 @@ import {
   rowOffset,
   videoAssets,
 } from "../../src/generators/app-store-video";
-import { ROW_SVG } from "../fixtures/row-artwork";
+import { risePhase, riseTiming } from "../../src/utils/rise-frames";
+import { RAISED_SVG, ROW_SVG } from "../fixtures/row-artwork";
 
 const TMP = join(__dirname, "../../.test-tmp-app-store-video");
 
@@ -122,6 +124,21 @@ describe("row motion", () => {
       resolveConfig({ icon, background, color: "#000000", overrides: { appStore: { header: { source: art, animate: { rows: 2 } } } } }),
     ).toThrow(/5 to 30 seconds/);
   });
+
+  it("takes rise in place of rows, with the same limits, and never both", async () => {
+    const icon = await writeImage("icon.png", 1280, 4);
+    const background = await writeImage("bg.png", 2000, 3);
+    const art = join(TMP, "wall.svg");
+    writeFileSync(art, ROW_SVG);
+    const header = (animate: object) => resolveConfig({ icon, background, color: "#000000", overrides: { appStore: { enabled: true, header: { source: art, animate } } } } as never);
+    expect(videoAssets(header({ rise: 20 })).map((asset) => asset.video)).toEqual(["header"]);
+    expect(() => header({ rise: 31 })).toThrow(/Invalid appStore\.header\.animate\.rise: "31"\. Use 5 to 30 seconds/);
+    expect(() => header({ rows: 20, rise: 20 })).toThrow(/animate takes one of rows or rise, got: rows, rise/);
+    expect(() => header({ fade: 20 })).toThrow(/animate takes one of rows or rise, got: fade/);
+    expect(() =>
+      resolveConfig({ icon, background, color: "#000000", overrides: { appStore: { eventCard: { enabled: true, source: art, animate: { rise: 10 } } } } }),
+    ).toThrow(/animate\.rise: "10"\. Use 15 to 30 seconds/);
+  });
 });
 
 describe("audioLoopFilter", () => {
@@ -174,6 +191,65 @@ describe("encoderPreference", () => {
 
 const hasFfmpeg = spawnSync(ffmpegPath(), ["-version"]).status === 0;
 const describeWithFfmpeg = hasFfmpeg ? describe : describe.skip;
+
+describeWithFfmpeg("encodeRise (ffmpeg)", () => {
+  it("lifts cards out of an empty surface and back, in a loop that closes", async () => {
+    const source = join(TMP, "raised.svg");
+    writeFileSync(source, RAISED_SVG);
+    const output = join(TMP, "rise.mp4");
+    const ffmpeg = ffmpegPath();
+    await encodeRise({ ffmpeg, encoder: await pickEncoder(ffmpeg, "h264"), source, output, width: 400, height: 200, fps: 30, seconds: 5, codec: "h264" });
+
+    const probe = JSON.parse(
+      execFileSync("ffprobe", ["-v", "error", "-show_streams", "-of", "json", output], { encoding: "utf-8" }),
+    ) as { streams: Record<string, string | number>[] };
+    const video = probe.streams.find((stream) => stream.codec_type === "video");
+    expect(video).toMatchObject({ codec_name: "h264", width: 400, height: 200, r_frame_rate: "30/1" });
+    expect(Number(video?.nb_frames)).toBe(150);
+
+    const frames = execFileSync("ffmpeg", ["-v", "error", "-i", output, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], {
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    const size = 400 * 200 * 3;
+    const frame = (n: number) => frames.subarray(n * size, (n + 1) * size);
+    const diff = (a: Buffer, b: Buffer) => { let d = 0; for (let i = 0; i < a.length; i++) d += Math.abs(a[i] - b[i]); return d / a.length; };
+    let biggest = 0;
+    for (let n = 0; n < 149; n++) biggest = Math.max(biggest, diff(frame(n), frame(n + 1)));
+    expect(biggest).toBeGreaterThan(0); // cards move
+    expect(diff(frame(149), frame(0))).toBeLessThanOrEqual(biggest); // the loop closes like any other step
+
+    // The card at (200, 100), row 1 column 2: gold at the top of its rise, the black surface as it starts.
+    const start = risePhase(2, 1, 5), { life } = riseTiming(5);
+    const at = (t: number) => { const p = (100 * 400 + 180) * 3, f = frame(Math.round((t % 5) * 30) % 150); return [f[p], f[p + 1], f[p + 2]]; };
+    expect(at(start + life / 2)[0]).toBeGreaterThan(200);
+    expect(at(start + life / 2)[2]).toBeLessThan(80);
+    expect(at(start)[0]).toBeLessThan(40);
+  });
+
+  it("writes a placement's video from animate.rise", async () => {
+    const icon = await writeImage("icon.png", 1280, 4);
+    const background = await writeImage("bg.png", 2000, 3);
+    // Cards far apart, so the 4K canvas holds a couple of dozen and little of it moves.
+    const cards = [[500, 250], [1500, 250], [0, 750], [1000, 750], [2000, 750]]
+      .map(([x, y]) => `<rect x="${x - 100}" y="${y - 60}" width="200" height="120" rx="30" fill="white"/>`).join("");
+    const art = join(TMP, "big.svg");
+    writeFileSync(art, `<svg width="2000" height="1000" xmlns="http://www.w3.org/2000/svg"><rect width="2000" height="1000" fill="#101010"/><mask id="m">${cards}</mask><rect width="2000" height="1000" fill="#FFC312" mask="url(#m)"/></svg>`);
+    const config = resolveConfig({
+      icon,
+      background,
+      color: "#000000",
+      overrides: { appStore: { enabled: true, header: { source: art, animate: { rise: 5 } } } },
+    } as never);
+    const written = await generateAppStoreVideos(join(TMP, "AppStore"), config);
+    expect(written.map((path) => path.split("/").at(-1))).toEqual(["header.mp4"]);
+    const probe = JSON.parse(
+      execFileSync("ffprobe", ["-v", "error", "-show_streams", "-of", "json", written[0]], { encoding: "utf-8" }),
+    ) as { streams: Record<string, string | number>[] };
+    expect(probe.streams.find((stream) => stream.codec_type === "video")).toMatchObject({ width: 3840, height: 1646, nb_frames: "150" });
+    // Unchanged inputs: nothing is redrawn.
+    expect(await generateAppStoreVideos(join(TMP, "AppStore"), config)).toEqual([]);
+  });
+});
 
 describeWithFfmpeg("encodeRows (ffmpeg)", () => {
   it("slides the rows in a seamless loop, the mark riding its card", async () => {

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import type { AppStoreVideoCodec, TvOSImageCreatorConfig } from "../types.js";
 import { ensureDir } from "../utils/fs.js";
+import { riseFrames } from "../utils/rise-frames.js";
 import { rowFrames } from "../utils/row-frames.js";
 import type { RowMotion } from "../utils/row-frames.js";
 import { animationPeriods, parseRowArtwork } from "../utils/svg-rows.js";
@@ -262,12 +263,7 @@ export function rowOffset(k: number, t: number, period: number, pitch: number): 
 /** Frames rendered ahead of the one ffmpeg is waiting for. */
 const IN_FLIGHT = Math.min(8, Math.max(2, os.availableParallelism?.() ?? os.cpus().length));
 
-/**
- * Slide the rows of row artwork one pitch per loop, so the last frame runs into the first;
- * everything outside the mask stays put. Frames are rendered several at a time and piped to
- * ffmpeg in order.
- */
-export async function encodeRows(options: {
+interface RowVideo {
   ffmpeg: string;
   encoder: string;
   source: string;
@@ -283,8 +279,25 @@ export async function encodeRows(options: {
   audio?: string;
   /** Seconds into `audio` the loop is taken from. */
   audioWindow?: { start?: number; end?: number };
-}): Promise<void> {
-  const { width, height, fps, seconds, centre } = options;
+}
+
+/**
+ * Lift the cards of row artwork out of the surface and back, a few at a time, each at the same
+ * moments of every loop, so the last frame runs into the first.
+ */
+export async function encodeRise(options: RowVideo): Promise<void> {
+  const { width, height, seconds } = options;
+  const art = parseRowArtwork(readFileSync(options.source, "utf8"));
+  const source = await riseFrames(art, width, height, options.centre ?? { x: width / 2, y: height / 2 }, seconds);
+  await encodeFrames(options, source.frame);
+}
+
+/**
+ * Slide the rows of row artwork one pitch per loop, so the last frame runs into the first;
+ * everything outside the mask stays put.
+ */
+export async function encodeRows(options: RowVideo): Promise<void> {
+  const { width, height, seconds, centre } = options;
   const art = parseRowArtwork(readFileSync(options.source, "utf8"));
   for (const dur of animationPeriods(art.source)) {
     const cycles = seconds / dur;
@@ -292,7 +305,6 @@ export async function encodeRows(options: {
       throw new Error(`Row artwork: an <animate> lasts ${dur} s, which does not divide the ${seconds} s loop, so the loop would jump.`);
     }
   }
-  const frames = Math.round(seconds * fps);
   // Shapes riding a card hand over to the next card in the last moments, so the loop closes.
   const fade = Math.min(LOOP_CROSSFADE, seconds / 4);
   const motion = (t: number): RowMotion => ({
@@ -300,6 +312,13 @@ export async function encodeRows(options: {
     seam: t > seconds - fade ? { weight: (t - (seconds - fade)) / fade, shift: (k) => rowOffset(k, seconds, seconds, art.pitchX) } : undefined,
   });
   const source = await rowFrames(art, width, height, centre ?? { x: width / 2, y: height / 2 }, motion, [seconds * 0.37, seconds - fade / 2]);
+  await encodeFrames(options, source.frame);
+}
+
+/** Encode `frame(t)` over the loop: frames are rendered several at a time and piped to ffmpeg in order. */
+async function encodeFrames(options: RowVideo, frame: (t: number) => Promise<Buffer>): Promise<void> {
+  const { width, height, fps, seconds } = options;
+  const frames = Math.round(seconds * fps);
   const pixelFormat = options.codec === "prores" ? "yuv422p10le" : "yuv420p";
   const sound = await soundtrack(options.ffmpeg, options.audio, 1, frames / fps, options.audioWindow);
   const filter = [`[0:v]scale=out_color_matrix=bt709:out_range=tv:sws_dither=ed,format=${pixelFormat}[v]`, sound.filter].filter(Boolean).join(";");
@@ -329,7 +348,7 @@ export async function encodeRows(options: {
     for (let f = 0; f < frames; f++) {
       while (next < frames && next < f + IN_FLIGHT) {
         const n = next++;
-        const pending = source.frame(n / fps);
+        const pending = frame(n / fps);
         pending.catch(() => undefined);
         ahead.set(n, pending);
       }
@@ -372,15 +391,17 @@ export async function generateAppStoreVideos(outDir: string, config: TvOSImageCr
     const common = { ffmpeg, encoder, output, width: asset.width, height: asset.height, fps, codec, audio, audioWindow };
     const centre = designCentre(asset, readRowArtwork(placement.source));
     const sound = [Boolean(audio), AUDIO_CROSSFADE, audioStart ?? null, audioEnd ?? null];
+    const animate = (placement.animate ?? {}) as { rows?: number; rise?: number };
     const key = placement.video
       ? inputKey([placement.video, audio], ["recording", common.width, common.height, fps, codec, encoder, sound])
-      : inputKey([placement.source, audio], ["rows", common.width, common.height, fps, codec, encoder, placement.animate, centre, sound]);
+      : inputKey([placement.source, audio], [animate.rise ? "rise" : "rows", common.width, common.height, fps, codec, encoder, placement.animate, centre, sound]);
     if (cache.fresh(filename, key)) continue;
     if (placement.video) {
       await encodeRecording({ ...common, source: placement.video, minSeconds: asset.minSeconds ?? 5 });
+    } else if (animate.rise) {
+      await encodeRise({ ...common, source: placement.source as string, seconds: animate.rise, centre });
     } else {
-      const seconds = (placement.animate as { rows: number }).rows;
-      await encodeRows({ ...common, source: placement.source as string, seconds, centre });
+      await encodeRows({ ...common, source: placement.source as string, seconds: animate.rows as number, centre });
     }
     cache.record(filename, key);
     written.push(output);
