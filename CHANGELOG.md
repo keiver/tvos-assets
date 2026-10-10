@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-10
+- feat(app-store): animate.rise, row artwork whose cards rise out of the surface and sink back (#14)
+
+
 - feat(app-store): `animate: { rise: seconds }` beside `animate: { rows: seconds }`. Row artwork's
   cards come up out of an empty surface and sink back a few at a time, in a loop that closes. The
   look is the SVG's own: what is drawn through the mask fades in with its card, and the file's
