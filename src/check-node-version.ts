@@ -1,7 +1,8 @@
-const major = parseInt(process.versions.node.split(".")[0], 10);
-if (major < 18) {
+const [major, minor] = process.versions.node.split(".").map((part) => parseInt(part, 10));
+// sharp's floor.
+if (major < 20 || (major === 20 && minor < 9)) {
   console.error(
-    `tvos-assets requires Node.js >= 18 (current: ${process.versions.node}). ` +
+    `tvos-assets requires Node.js >= 20.9 (current: ${process.versions.node}). ` +
     `Please upgrade Node.js and try again.`,
   );
   process.exit(1);

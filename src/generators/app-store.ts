@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import sharp from "sharp";
+import sharp, { type Sharp } from "sharp";
 import { isSvgPath } from "../config.js";
 import type { AppStorePlacementConfig, TvOSImageCreatorConfig } from "../types.js";
 import { ensureDir, safeWriteFile } from "../utils/fs.js";
@@ -157,7 +157,7 @@ export async function renderSource(
   height: number,
   centre: { x: number; y: number } = { x: width / 2, y: height / 2 },
 ): Promise<Buffer> {
-  let image: sharp.Sharp;
+  let image: Sharp;
   if (isSvgPath(source)) {
     const svg = readFileSync(source, "utf8");
     const art = readRowArtwork(source);
