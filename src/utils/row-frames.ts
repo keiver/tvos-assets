@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import sharp, { type OverlayOptions } from "sharp";
 import { animateAt, animationPeriods, cardBox, renderRows, riders } from "./svg-rows.js";
 import type { RowArtwork } from "./svg-rows.js";
 
@@ -126,7 +126,7 @@ export async function rowFrames(
   });
 
   /** A rider's sprite at canvas offset `shift`, faded to `opacity` and clipped to the canvas. */
-  const place = async (tag: string, shift: number, opacity: number): Promise<sharp.OverlayOptions | undefined> => {
+  const place = async (tag: string, shift: number, opacity: number): Promise<OverlayOptions | undefined> => {
     const b = cardBox(tag) as { x0: number; y0: number };
     const [ix, phase] = snap(b.x0 + dx + shift);
     const iy = Math.floor(b.y0 + dy), fy = +(b.y0 + dy - iy).toFixed(4);
@@ -172,7 +172,7 @@ export async function rowFrames(
         }
       }
     }
-    const placed: sharp.OverlayOptions[] = [{ input: out, raw: { width, height, channels: 4 } }];
+    const placed: OverlayOptions[] = [{ input: out, raw: { width, height, channels: 4 } }];
     for (const { tag, row } of riders(state, art.cards)) {
       const w = m.seam?.weight ?? 0;
       for (const copy of [

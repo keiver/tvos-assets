@@ -34,7 +34,7 @@ npm install -g tvos-assets           # global CLI
 npx tvos-assets --help               # no install
 ```
 
-Needs Node.js 18 or later. [sharp](https://sharp.pixelplumbing.com/install) installs with it. App Store videos also need [ffmpeg](https://ffmpeg.org) on `PATH` (or at `FFMPEG_PATH`).
+Needs Node.js 20.9 or later. [sharp](https://sharp.pixelplumbing.com/install) installs with it. App Store videos also need [ffmpeg](https://ffmpeg.org) on `PATH` (or at `FFMPEG_PATH`).
 
 ## Usage
 

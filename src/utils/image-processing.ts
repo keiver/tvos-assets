@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import sharp, { type Sharp } from "sharp";
 
 const TRANSPARENT = { r: 0, g: 0, b: 0, alpha: 0 } as const;
 
@@ -13,7 +13,7 @@ const DEFAULT_ICON_SCALE = 0.8;
  * subsequent resize only occurs for extreme viewBox-to-target ratios (beyond
  * ~133x at the default 72dpi base).
  */
-async function inputImage(inputPath: string, targetW: number, targetH: number): Promise<sharp.Sharp> {
+async function inputImage(inputPath: string, targetW: number, targetH: number): Promise<Sharp> {
   if (!inputPath.toLowerCase().endsWith(".svg")) {
     return sharp(inputPath);
   }
@@ -362,7 +362,7 @@ export async function renderIconOnTransparent(
   const sourceIconSize = options?.sourceIconSize ?? 0;
 
   try {
-    let buffer = await (await inputImage(iconPath, size, size))
+    let buffer: Buffer = await (await inputImage(iconPath, size, size))
       .resize(size, size, { fit: "contain", background: TRANSPARENT })
       .png()
       .toBuffer();

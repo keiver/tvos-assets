@@ -24,7 +24,7 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=20.9.0"
   },
   "scripts": {
     "build": "tsc",
@@ -70,7 +70,7 @@
     "archiver": "^7.0.1",
     "commander": "^12.1.0",
     "picocolors": "^1.1.1",
-    "sharp": "^0.33.5"
+    "sharp": "^0.35.5"
   },
   "peerDependencies": {
     "@expo/config-plugins": ">=7.0.0"

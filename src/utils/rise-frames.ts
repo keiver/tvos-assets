@@ -1,4 +1,4 @@
-import sharp from "sharp";
+import sharp, { type Sharp } from "sharp";
 import { cardBox, filterReach, renderRows, riders, risenCard } from "./svg-rows.js";
 import type { RowArtwork } from "./svg-rows.js";
 
@@ -41,7 +41,7 @@ export function risePhase(n: number, k: number, period: number): number {
 }
 
 /** Row artwork on the canvas as raw RGB, drawn with bleed so filters see past the canvas edges. */
-export function rowStill(art: RowArtwork, width: number, height: number, centre: { x: number; y: number }): sharp.Sharp {
+export function rowStill(art: RowArtwork, width: number, height: number, centre: { x: number; y: number }): Sharp {
   const bleed = filterReach(art.source);
   const svg = renderRows(art, width + 2 * bleed, height + 2 * bleed, undefined, { x: centre.x + bleed, y: centre.y + bleed });
   return sharp(Buffer.from(svg)).extract({ left: bleed, top: bleed, width, height }).flatten({ background: { r: 0, g: 0, b: 0 } }).removeAlpha();
