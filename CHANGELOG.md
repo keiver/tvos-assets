@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-13
+- chore(deps): sharp 0.35.5 and the Node 20.9 floor (#16)
+
+
 - chore(deps): sharp 0.35.5, the first release with the advisories in its bundled libvips, libheif
   and librsvg fixed (GHSA-f88m-g3jw-g9cj, GHSA-rgj7-g3m4-5g8c, GHSA-wq5f-xc86-pv6w). sharp 0.35
   requires Node.js 20.9, so that is the floor here too: `engines.node` is `>=20.9.0` and the CLI
