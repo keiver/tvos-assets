@@ -88,7 +88,7 @@ function buildOverrides(
   if (flags.splashLogoSize !== undefined) {
     const size = Number(flags.splashLogoSize);
     if (!Number.isFinite(size) || size < 1) {
-      throw new Error(`Invalid --splash-logo-size "${flags.splashLogoSize}". Must be a number of pixels >= 1.`);
+      throw new Error(`Invalid --splash-logo-size "${flags.splashLogoSize}". Must be a number of points >= 1.`);
     }
     assign("splashScreen.logo.baseSize", size);
   }
@@ -156,7 +156,7 @@ program
   .option("--ios-icon-name <name>", "Name of the iOS .appiconset (default: AppIcon)")
   .option("--splash-logo-name <name>", "Name of the splash logo imageset (default: SplashScreenLogo)")
   .option("--splash-background-name <name>", "Name of the splash colorset (default: SplashScreenBackground)")
-  .option("--splash-logo-size <pixels>", "Base splash logo size in px (default: 200)")
+  .option("--splash-logo-size <points>", "Splash logo width in points, for every device type without its own size (default: 200)")
   .option("--no-ios-icon", "Skip the iOS AppIcon.appiconset")
   .option("--no-top-shelf", "Skip both Top Shelf imagesets")
   .option("--no-splash", "Skip the splash screen logo and colorset")

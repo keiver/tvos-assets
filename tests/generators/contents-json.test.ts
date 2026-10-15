@@ -103,11 +103,10 @@ describe("buildTopShelfImageEntries", () => {
 
 describe("buildSplashLogoImageEntries", () => {
   it("generates universal entries then tv entries", () => {
-    const entries = buildSplashLogoImageEntries(
-      "200-icon",
-      ["1x", "2x", "3x"] as ScaleFactor[],
-      ["1x", "2x"] as ScaleFactor[],
-    );
+    const entries = buildSplashLogoImageEntries("200-icon", [
+      { idiom: "universal", scales: ["1x", "2x", "3x"] as ScaleFactor[], width: 200 },
+      { idiom: "tv", scales: ["1x", "2x"] as ScaleFactor[], width: 200 },
+    ]);
 
     expect(entries).toHaveLength(5);
 
@@ -119,6 +118,21 @@ describe("buildSplashLogoImageEntries", () => {
     // TV entries use -tv@ convention
     expect(entries[3]).toEqual({ filename: "200-icon-tv@1x.png", idiom: "tv", scale: "1x" });
     expect(entries[4]).toEqual({ filename: "200-icon-tv@2x.png", idiom: "tv", scale: "2x" });
+  });
+
+  it("names other device types by idiom and follows a device's scales with its dark ones", () => {
+    const entries = buildSplashLogoImageEntries("logo", [
+      { idiom: "iphone", scales: ["2x", "3x"] as ScaleFactor[], width: 140, darkImage: "/art/dark.png" },
+      { idiom: "mac", scales: ["1x"] as ScaleFactor[], width: 140 },
+    ]);
+    const dark = [{ appearance: "luminosity", value: "dark" }];
+    expect(entries).toEqual([
+      { filename: "logo-iphone@2x.png", idiom: "iphone", scale: "2x" },
+      { filename: "logo-iphone@3x.png", idiom: "iphone", scale: "3x" },
+      { appearances: dark, filename: "logo-iphone-dark@2x.png", idiom: "iphone", scale: "2x" },
+      { appearances: dark, filename: "logo-iphone-dark@3x.png", idiom: "iphone", scale: "3x" },
+      { filename: "logo-mac@1x.png", idiom: "mac", scale: "1x" },
+    ]);
   });
 });
 

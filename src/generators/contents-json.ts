@@ -12,6 +12,8 @@ import type {
   XcassetsMetaConfig,
 } from "../types.js";
 import { hexToRGBA, rgbaToAppleComponents } from "../utils/color.js";
+import { splashLogoFilename } from "../splash.js";
+import type { SplashLogoVariant } from "../splash.js";
 
 function makeInfo(meta: XcassetsMetaConfig) {
   return { author: meta.author, version: meta.version };
@@ -93,28 +95,23 @@ export function buildTopShelfImageEntries(
   }));
 }
 
-/** Build image entries for splash screen logo imageset */
-export function buildSplashLogoImageEntries(
-  filePrefix: string,
-  universalScales: ScaleFactor[],
-  tvScales: ScaleFactor[],
-): ImageEntry[] {
+/** Build image entries for splash screen logo imageset: per device type, its scales, then its dark scales */
+export function buildSplashLogoImageEntries(filePrefix: string, variants: SplashLogoVariant[]): ImageEntry[] {
   const entries: ImageEntry[] = [];
 
-  for (const scale of universalScales) {
-    entries.push({
-      filename: `${filePrefix}@${scale}.png`,
-      idiom: "universal",
-      scale,
-    });
-  }
-
-  for (const scale of tvScales) {
-    entries.push({
-      filename: `${filePrefix}-tv@${scale}.png`,
-      idiom: "tv",
-      scale,
-    });
+  for (const { idiom, scales, darkImage } of variants) {
+    for (const scale of scales) {
+      entries.push({ filename: splashLogoFilename(filePrefix, idiom, scale, false), idiom, scale });
+    }
+    if (!darkImage) continue;
+    for (const scale of scales) {
+      entries.push({
+        appearances: [{ appearance: "luminosity", value: "dark" }],
+        filename: splashLogoFilename(filePrefix, idiom, scale, true),
+        idiom,
+        scale,
+      });
+    }
   }
 
   return entries;

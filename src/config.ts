@@ -2,13 +2,14 @@ import { readFileSync, existsSync, lstatSync, statSync, accessSync, constants } 
 import { resolve, join, extname, dirname } from "node:path";
 import { homedir } from "node:os";
 import sharp from "sharp";
-import type { ImageStackAssetConfig, TvOSImageCreatorConfig } from "./types.js";
+import type { Idiom, ImageStackAssetConfig, SplashScreenLogoConfig, TvOSImageCreatorConfig } from "./types.js";
 import { darkenHex } from "./utils/color.js";
+import { IDIOM_KEYS, IDIOM_SCALES, IDIOMS } from "./splash.js";
 
 const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
 export type DeepPartial<T> = {
-  [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
+  [K in keyof T]?: NonNullable<T[K]> extends object ? DeepPartial<NonNullable<T[K]>> : T[K];
 };
 
 export interface CLIArgs {
@@ -105,8 +106,10 @@ function getDefaultConfig(
         name: "SplashScreenLogo",
         baseSize: 200,
         filePrefix: "200-icon",
-        universal: { scales: ["1x", "2x", "3x"] },
-        tv: { scales: ["1x", "2x"] },
+        idioms: {
+          universal: { scales: [...IDIOM_SCALES.universal] },
+          tv: { scales: [...IDIOM_SCALES.tv] },
+        },
       },
       background: {
         enabled: true,
@@ -318,6 +321,94 @@ function resolveIconScale(raw: unknown, label: string, fallback: number): number
   return scale;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** 1.8 kept `universal` and `tv` on the logo itself; they move into `idioms`, where an `idioms` entry wins. */
+function foldLegacySplashIdioms<T>(source: T): T {
+  const splash = isRecord(source) ? source.splashScreen : undefined;
+  const logo = isRecord(splash) ? splash.logo : undefined;
+  if (!isRecord(splash) || !isRecord(logo) || !("universal" in logo || "tv" in logo)) return source;
+
+  const { universal, tv, ...rest } = logo;
+  const idioms = isRecord(rest.idioms) ? rest.idioms : {};
+  const folded: Record<string, unknown> = {};
+  for (const [key, legacy] of [["universal", universal], ["tv", tv]] as const) {
+    if (legacy === undefined) continue;
+    const current = idioms[key];
+    folded[key] = isRecord(legacy) && isRecord(current) ? { ...legacy, ...current } : (current ?? legacy);
+  }
+  return { ...source, splashScreen: { ...splash, logo: { ...rest, idioms: { ...idioms, ...folded } } } };
+}
+
+function checkPointSize(value: unknown, label: string): void {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    throw new Error(`Invalid ${label}: "${String(value)}". Use a whole number of points, 1 or more.`);
+  }
+}
+
+function optionalImagePath(raw: unknown, label: string): string | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== "string") throw new Error(`Invalid ${label}: "${String(raw)}". Use a path to a PNG or SVG.`);
+  const trimmed = raw.trim();
+  return trimmed ? validateImagePath(trimmed, label) : undefined;
+}
+
+/** Validate the splash logo, resolve its art paths and give each device type Apple's scales when it names none. */
+function resolveSplashLogo(logo: SplashScreenLogoConfig): void {
+  checkPointSize(logo.baseSize, "splashScreen.logo.baseSize");
+  logo.image = optionalImagePath(logo.image, "splashScreen.logo.image");
+  logo.darkImage = optionalImagePath(logo.darkImage, "splashScreen.logo.darkImage");
+
+  const idioms: unknown = logo.idioms;
+  if (!isRecord(idioms)) {
+    throw new Error(`Invalid splashScreen.logo.idioms: use an object keyed by ${IDIOMS.join(", ")}.`);
+  }
+  // Built fresh: an entry may still be the caller's own override object.
+  const resolved: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(idioms)) {
+    const label = `splashScreen.logo.idioms.${key}`;
+    if (!(IDIOMS as string[]).includes(key)) {
+      throw new Error(`Unknown device type "${key}" in splashScreen.logo.idioms. Use ${IDIOMS.join(", ")}.`);
+    }
+    if (!isRecord(entry)) {
+      throw new Error(`Invalid ${label}: use an object with ${IDIOM_KEYS.join(", ")}.`);
+    }
+    for (const field of Object.keys(entry)) {
+      if (!(IDIOM_KEYS as readonly string[]).includes(field)) {
+        throw new Error(`Unknown key "${field}" in ${label}. Use ${IDIOM_KEYS.join(", ")}.`);
+      }
+    }
+
+    const allowed = IDIOM_SCALES[key as Idiom];
+    const scales = entry.scales ?? [...allowed];
+    if (!Array.isArray(scales) || scales.length === 0) {
+      throw new Error(`Invalid ${label}.scales: list at least one of ${allowed.join(", ")}.`);
+    }
+    for (const scale of scales) {
+      if (!(allowed as readonly unknown[]).includes(scale)) {
+        throw new Error(`Invalid ${label}.scales: "${String(scale)}". Apple lists ${allowed.join(", ")} for ${key}.`);
+      }
+    }
+    if (new Set(scales).size !== scales.length) {
+      throw new Error(`Invalid ${label}.scales: each scale may appear once.`);
+    }
+    if (entry.size !== undefined) checkPointSize(entry.size, `${label}.size`);
+
+    resolved[key] = {
+      ...entry,
+      scales: [...scales],
+      image: optionalImagePath(entry.image, `${label}.image`),
+      darkImage: optionalImagePath(entry.darkImage, `${label}.darkImage`),
+    };
+  }
+  if (!isRecord(resolved.universal)) {
+    throw new Error("splashScreen.logo.idioms.universal is required: it is the logo every device falls back to.");
+  }
+  logo.idioms = resolved as SplashScreenLogoConfig["idioms"];
+}
+
 const MAX_CONFIG_SIZE = 1024 * 1024; // 1 MB
 
 export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
@@ -413,12 +504,12 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   // Merge: file config overrides defaults, programmatic overrides beat the file, then CLI args win
   let merged = deepMerge(
     defaults as unknown as Record<string, unknown>,
-    fileConfig as unknown as Record<string, unknown>,
+    foldLegacySplashIdioms(fileConfig) as unknown as Record<string, unknown>,
   ) as unknown as TvOSImageCreatorConfig;
   if (cliArgs.overrides) {
     merged = deepMerge(
       merged as unknown as Record<string, unknown>,
-      cliArgs.overrides as unknown as Record<string, unknown>,
+      foldLegacySplashIdioms(cliArgs.overrides) as unknown as Record<string, unknown>,
     ) as unknown as TvOSImageCreatorConfig;
   }
 
@@ -446,6 +537,8 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
       }
     }
   }
+
+  if (merged.splashScreen.logo.enabled) resolveSplashLogo(merged.splashScreen.logo);
 
   // Ensure CLI args always win for inputs
   merged.inputs.iconImage = resolvedIcon;

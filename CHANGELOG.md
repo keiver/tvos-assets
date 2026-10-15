@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+- fix(plugin): the splash logo and color reach the build. `expo-splash-screen` deletes and rewrites
+  `SplashScreenLogo.imageset` and `SplashScreenBackground.colorset` in its dangerous mod, and Expo
+  runs the dangerous mod of a plugin listed later first, so its splash replaced this plugin's in
+  every build. The plugin writes the splash in a finalized mod, after every dangerous mod, wherever
+  it sits in the list.
+- feat(splash): `splashScreen.logo.idioms` takes one entry per device type (`universal`, `iphone`,
+  `ipad`, `tv`, `mac`), each with `size`, `scales`, `image` and `darkImage`. An entry without
+  `scales` gets the ones Apple's HIG lists for the device. `universal` is always written. 1.8's
+  `splashScreen.logo.universal` and `splashScreen.logo.tv` are read as those entries.
+- feat(splash): `splashScreen.logo.image` and `darkImage` draw the logo from its own art; a dark image
+  adds dark appearance entries. The plugin's `splash` prop sets all of it with `image`, `darkImage`,
+  `size`, `idioms`, `backgroundColor` and `darkBackgroundColor`, and rejects a prop it doesn't know.
+- feat(splash): the logo size is its width and the height follows the art, so a wordmark is no
+  longer padded into a square. Square art comes out the same.
+- fix(config): an unknown splash device type or key, a scale the device doesn't use, a repeated
+  scale or a size that isn't a whole number fails with a message naming it.
+- fix(preview): splash art paths in the resolved config are shown relative, like every other path,
+  and the art is listed under Inputs.
+
 ## [1.8.0] - 2026-10-13
 - chore(deps): sharp 0.35.5 and the Node 20.9 floor (#16)
 

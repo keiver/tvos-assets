@@ -126,6 +126,13 @@ function displayConfig(
     }
   }
 
+  const logo = copy.splashScreen.logo;
+  for (const art of [logo, ...Object.values(logo.idioms ?? {})]) {
+    if (!art) continue;
+    if (art.image) art.image = show(art.image);
+    if (art.darkImage) art.darkImage = show(art.darkImage);
+  }
+
   const store = copy.appStore;
   if (store.backgroundImage) store.backgroundImage = show(store.backgroundImage);
   if (store.centerImage) store.centerImage = show(store.centerImage);
@@ -455,10 +462,21 @@ async function collectInputs(
     }
   }
 
+  const logo = config.splashScreen.logo;
+  const splash: InputCandidate[] = [
+    { role: "splash", path: logo.image },
+    { role: "splash dark", path: logo.darkImage },
+    ...Object.entries(logo.idioms ?? {}).flatMap(([idiom, entry]) => [
+      { role: `splash ${idiom}`, path: entry?.image },
+      { role: `splash ${idiom} dark`, path: entry?.darkImage },
+    ]),
+  ];
+
   const rest: InputCandidate[] = [
     { role: "background", path: config.inputs.backgroundImage },
     { role: "icon dark", path: config.inputs.iconDarkImage },
     { role: "icon tinted", path: config.inputs.iconTintedImage },
+    ...(logo.enabled ? splash : []),
   ];
 
   const candidates = assembled ? [...layers, icon, ...rest] : [icon, ...rest, ...layers];

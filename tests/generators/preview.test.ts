@@ -334,6 +334,29 @@ describe("preview.html", () => {
     expect(resolved).not.toContain(homedir());
   });
 
+  it("keeps the home directory out of the splash art paths and lists the art as inputs", async () => {
+    const splashOut = join(TMP, "splash-paths");
+    const art = join(splashOut, "art");
+    mkdirSync(art, { recursive: true });
+    const splashArt = await createTestIcon(art);
+    const config = resolveConfig({
+      icon,
+      background,
+      color: "#101010",
+      outDir: splashOut,
+      overrides: { splashScreen: { logo: { idioms: { tv: { darkImage: splashArt } } } } },
+    });
+    const previewPath = join(splashOut, "preview.html");
+    await generateAssets(config, join(splashOut, "Images.xcassets"), { platforms: [], previewPath });
+
+    const page = readFileSync(previewPath, "utf-8");
+    const resolved = page.match(/<summary>Show resolved config<\/summary>\s*<pre>([\s\S]*?)<\/pre>/)?.[1];
+    expect(resolved).toContain("darkImage");
+    expect(resolved).not.toContain(homedir());
+    const roles = [...page.matchAll(/class="role">([^<]+)</g)].map((match) => match[1]);
+    expect(roles).toEqual(["icon", "background", "splash tv dark"]);
+  });
+
   it("links sources absolutely by default, relatively when asked", async () => {
     const dir = join(TMP, "links");
     mkdirSync(dir, { recursive: true });

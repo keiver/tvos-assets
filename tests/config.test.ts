@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import sharp from "sharp";
 import { resolveConfig, validateInputImages } from "../src/config";
+import type { CLIArgs } from "../src/config";
 import {
   createTestIcon,
   createTestBackground,
@@ -731,6 +732,78 @@ describe("resolveConfig", () => {
     // Should not throw even though the default colors were overridden
     const config = resolveConfig({ config: configPath });
     expect(config.splashScreen.background.enabled).toBe(false);
+  });
+
+  // --- Splash logo image and sizes ---
+
+  async function resolveWithLogo(logo: unknown) {
+    const { icon, bg } = await createStandardInputs();
+    return resolveConfig({
+      icon,
+      background: bg,
+      color: "#FF0000",
+      overrides: { splashScreen: { logo } } as CLIArgs["overrides"],
+    });
+  }
+
+  it("writes universal and tv by default, at Apple's scales", async () => {
+    const config = await resolveWithLogo({});
+    expect(config.splashScreen.logo.idioms).toEqual({
+      universal: { scales: ["1x", "2x", "3x"] },
+      tv: { scales: ["1x", "2x"] },
+    });
+  });
+
+  it("gives a device type Apple's scales when it names none", async () => {
+    const { idioms } = (await resolveWithLogo({ idioms: { iphone: {}, ipad: {}, mac: { size: 120 } } })).splashScreen.logo;
+    expect(idioms.iphone?.scales).toEqual(["2x", "3x"]);
+    expect(idioms.ipad?.scales).toEqual(["2x"]);
+    expect(idioms.mac).toEqual({ scales: ["1x", "2x"], size: 120 });
+  });
+
+  it("does not change the caller's override object", async () => {
+    const iphone = { size: 120 };
+    await resolveWithLogo({ idioms: { iphone } });
+    expect(iphone).toEqual({ size: 120 });
+  });
+
+  it("resolves the logo's art paths to absolute paths", async () => {
+    const { icon } = await createStandardInputs();
+    const { logo } = (await resolveWithLogo({ image: icon, idioms: { tv: { darkImage: icon } } })).splashScreen;
+    expect(logo.image).toBe(resolve(icon));
+    expect(logo.idioms.tv?.darkImage).toBe(resolve(icon));
+  });
+
+  it("reads the 1.8 universal and tv keys as idioms entries", async () => {
+    const { idioms } = (await resolveWithLogo({ universal: { scales: ["2x"] }, tv: { scales: ["1x"] } })).splashScreen.logo;
+    expect(idioms.universal.scales).toEqual(["2x"]);
+    expect(idioms.tv?.scales).toEqual(["1x"]);
+    expect((await resolveWithLogo({ universal: { scales: ["2x"] } })).splashScreen.logo).not.toHaveProperty("universal");
+  });
+
+  it("lets an idioms entry win over the 1.8 key for the same device type", async () => {
+    const { idioms } = (await resolveWithLogo({ tv: { scales: ["1x"] }, idioms: { tv: { scales: ["2x"] } } })).splashScreen.logo;
+    expect(idioms.tv?.scales).toEqual(["2x"]);
+  });
+
+  it.each([
+    [{ idioms: { watch: {} } }, /Unknown device type "watch"/],
+    [{ idioms: { tv: { tvSize: 200 } } }, /Unknown key "tvSize" in splashScreen\.logo\.idioms\.tv/],
+    [{ idioms: { ipad: { scales: ["1x"] } } }, /Invalid splashScreen\.logo\.idioms\.ipad\.scales: "1x"\. Apple lists 2x for ipad/],
+    [{ idioms: { iphone: { scales: ["2x", "2x"] } } }, /each scale may appear once/],
+    [{ idioms: { universal: { scales: [] } } }, /list at least one of 1x, 2x, 3x/],
+    [{ idioms: { universal: null } }, /Invalid splashScreen\.logo\.idioms\.universal/],
+    [{ baseSize: 0 }, /Invalid splashScreen\.logo\.baseSize/],
+    [{ idioms: { mac: { size: 12.5 } } }, /Invalid splashScreen\.logo\.idioms\.mac\.size/],
+    [{ image: "missing.png" }, /splashScreen\.logo\.image not found/],
+    [{ idioms: { tv: { darkImage: "missing.png" } } }, /splashScreen\.logo\.idioms\.tv\.darkImage not found/],
+  ])("rejects splash logo %j", async (logo, message) => {
+    await expect(resolveWithLogo(logo)).rejects.toThrow(message);
+  });
+
+  it("skips splash logo validation when the logo is disabled", async () => {
+    const config = await resolveWithLogo({ enabled: false, idioms: { watch: {} } });
+    expect(config.splashScreen.logo.enabled).toBe(false);
   });
 
   // --- Prototype pollution guard (Phase 3 fix) ---

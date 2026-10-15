@@ -7,7 +7,8 @@ export type ScaleFactor = "1x" | "2x" | "3x";
 
 export type ImageSource = "icon" | "background";
 
-export type Idiom = "universal" | "tv";
+/** Asset catalog device types an image set can target. */
+export type Idiom = "universal" | "iphone" | "ipad" | "tv" | "mac";
 
 export interface RGBAColor {
   red: number;
@@ -59,17 +60,27 @@ export interface BrandAssetsConfig {
   topShelfImageWide: ImageSetAssetConfig;
 }
 
+/** One device type's splash logo; unset fields fall back to the logo's own. */
+export interface SplashScreenLogoIdiomConfig {
+  scales: ScaleFactor[];
+  /** Logo width in points; the height follows the art's aspect ratio. */
+  size?: number;
+  image?: string;
+  /** Art for the dark appearance; no dark entries are written without one. */
+  darkImage?: string;
+}
+
 export interface SplashScreenLogoConfig {
   enabled: boolean;
   name: string;
+  /** Logo width in points for every device type without its own `size`. */
   baseSize: number;
   filePrefix: string;
-  universal: {
-    scales: ScaleFactor[];
-  };
-  tv: {
-    scales: ScaleFactor[];
-  };
+  /** Art for every device type without its own `image`; the icon when unset. */
+  image?: string;
+  darkImage?: string;
+  /** `universal` is the fallback for every device and is always written. */
+  idioms: Partial<Record<Idiom, SplashScreenLogoIdiomConfig>> & { universal: SplashScreenLogoIdiomConfig };
 }
 
 export interface ColorEntry {
@@ -223,6 +234,7 @@ export interface ImageStackContentsJson extends ContentsJson {
 }
 
 export interface ImageEntry {
+  appearances?: AppearanceEntry[];
   filename: string;
   idiom: string;
   scale?: string;

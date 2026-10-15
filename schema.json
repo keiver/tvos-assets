@@ -143,7 +143,7 @@
       "properties": {
         "logo": {
           "type": "object",
-          "description": "Splash screen logo. The icon is rendered on a transparent background at multiple scales for both universal and Apple TV idioms.",
+          "description": "Splash screen logo: the icon, or your own art, on transparency, per device type and scale, with optional dark variants.",
           "properties": {
             "enabled": {
               "type": "boolean",
@@ -156,46 +156,60 @@
               "default": "SplashScreenLogo"
             },
             "baseSize": {
-              "type": "number",
+              "type": "integer",
               "minimum": 1,
-              "description": "Base icon size in pixels. Multiplied by each scale factor to produce the final image dimensions (e.g. 200 base x 2x = 400px).",
+              "description": "Logo width in points for every device type without its own size. The height follows the art's aspect ratio; each scale multiplies both (200 wide x 2x = 400px).",
               "default": 200
             },
             "filePrefix": {
               "type": "string",
-              "description": "Filename prefix for generated PNGs. Produces files like {filePrefix}@1x.png, {filePrefix}@2x.png, etc.",
+              "description": "Filename prefix for generated PNGs: {filePrefix}@2x.png for universal, {filePrefix}-tv@2x.png for tv, {filePrefix}-iphone-dark@3x.png for a dark iPhone variant.",
               "default": "200-icon"
             },
-            "universal": {
+            "image": {
+              "type": "string",
+              "description": "PNG or SVG drawn as the logo for every device type without its own image, as is (no border radius). Defaults to the icon."
+            },
+            "darkImage": {
+              "type": "string",
+              "description": "PNG or SVG for the dark appearance on every device type without its own darkImage. Without one, no dark entries are written."
+            },
+            "idioms": {
               "type": "object",
-              "description": "Scale variants for non-TV devices (iOS, iPadOS).",
+              "description": "One entry per device type the imageset targets. universal is the fallback for every device and is always written; tv is on by default.",
               "properties": {
-                "scales": {
-                  "$ref": "#/$defs/scaleFactorArray",
-                  "description": "Scale factors for universal idiom.",
-                  "default": [
-                    "1x",
-                    "2x",
-                    "3x"
-                  ]
+                "universal": {
+                  "allOf": [{ "$ref": "#/$defs/splashLogoIdiom" }],
+                  "properties": { "scales": { "items": { "enum": ["1x", "2x", "3x"] }, "default": ["1x", "2x", "3x"] } }
+                },
+                "iphone": {
+                  "allOf": [{ "$ref": "#/$defs/splashLogoIdiom" }],
+                  "properties": { "scales": { "items": { "enum": ["2x", "3x"] }, "default": ["2x", "3x"] } }
+                },
+                "ipad": {
+                  "allOf": [{ "$ref": "#/$defs/splashLogoIdiom" }],
+                  "properties": { "scales": { "items": { "enum": ["2x"] }, "default": ["2x"] } }
+                },
+                "tv": {
+                  "allOf": [{ "$ref": "#/$defs/splashLogoIdiom" }],
+                  "properties": { "scales": { "items": { "enum": ["1x", "2x"] }, "default": ["1x", "2x"] } }
+                },
+                "mac": {
+                  "allOf": [{ "$ref": "#/$defs/splashLogoIdiom" }],
+                  "properties": { "scales": { "items": { "enum": ["1x", "2x"] }, "default": ["1x", "2x"] } }
                 }
               },
               "additionalProperties": false
             },
+            "universal": {
+              "deprecated": true,
+              "description": "1.8 spelling of idioms.universal; read as that entry.",
+              "allOf": [{ "$ref": "#/$defs/splashLogoIdiom" }]
+            },
             "tv": {
-              "type": "object",
-              "description": "Scale variants for Apple TV.",
-              "properties": {
-                "scales": {
-                  "$ref": "#/$defs/scaleFactorArray",
-                  "description": "Scale factors for tv idiom.",
-                  "default": [
-                    "1x",
-                    "2x"
-                  ]
-                }
-              },
-              "additionalProperties": false
+              "deprecated": true,
+              "description": "1.8 spelling of idioms.tv; read as that entry.",
+              "allOf": [{ "$ref": "#/$defs/splashLogoIdiom" }]
             }
           },
           "additionalProperties": false
@@ -309,6 +323,30 @@
       },
       "minItems": 1,
       "uniqueItems": true
+    },
+    "splashLogoIdiom": {
+      "type": "object",
+      "description": "One device type's splash logo. Unset fields fall back to the logo's own.",
+      "properties": {
+        "scales": {
+          "$ref": "#/$defs/scaleFactorArray",
+          "description": "Scale factors to write. Defaults to the ones Apple's HIG lists for the device: iPhone 2x and 3x, iPad 2x, Mac and Apple TV 1x and 2x."
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Logo width in points. Defaults to splashScreen.logo.baseSize."
+        },
+        "image": {
+          "type": "string",
+          "description": "PNG or SVG drawn as this device type's logo. Defaults to splashScreen.logo.image, then the icon."
+        },
+        "darkImage": {
+          "type": "string",
+          "description": "PNG or SVG for this device type's dark appearance. Defaults to splashScreen.logo.darkImage."
+        }
+      },
+      "additionalProperties": false
     },
     "size": {
       "type": "object",

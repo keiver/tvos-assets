@@ -91,12 +91,12 @@ SVG inputs are rasterized at the density each size needs, so a small viewBox sti
 | `--ios-icon-name <name>` | `iosIcon.name` | via `config` | string | `AppIcon` | The `.appiconset` name. Must match `ASSETCATALOG_COMPILER_APPICON_NAME` on the iOS target. |
 | `--no-splash` | `splashScreen.logo.enabled`, `splashScreen.background.enabled` | via `config` | boolean | `true` | Splash logo and color on or off. |
 | `--splash-logo-name <name>` | `splashScreen.logo.name` | via `config` | string | `SplashScreenLogo` | Imageset name. Must match your launch screen. |
-| `--splash-logo-size <px>` | `splashScreen.logo.baseSize` | via `config` | number | `200` | Logo size in px, multiplied by each scale. |
+| `--splash-logo-size <points>` | `splashScreen.logo.baseSize` | `splash.size` | integer | `200` | Logo width in points for every device type without its own `size`. The height follows the art. |
+| `--set splashScreen.logo.image=` | `splashScreen.logo.image`, `splashScreen.logo.darkImage` | `splash.image`, `splash.darkImage` | path | the icon; no dark | Logo art for every device type without its own, drawn as is (no border radius). A dark image adds dark entries. |
+| `--set splashScreen.logo.idioms.tv.size=` | `splashScreen.logo.idioms.<device>.{size,scales,image,darkImage}` | `splash.idioms` | per key | `universal` and `tv` | One entry per device type: `universal`, `iphone`, `ipad`, `tv`, `mac`. See [Splash screen](#splash-screen). |
 | `--set splashScreen.logo.filePrefix=` | `splashScreen.logo.filePrefix` | via `config` | string | `200-icon` | File name prefix. |
-| `--set splashScreen.logo.universal.scales=` | `splashScreen.logo.universal.scales` | via `config` | string[] | `1x,2x,3x` | Logo scales for iPhone and iPad. |
-| `--set splashScreen.logo.tv.scales=` | `splashScreen.logo.tv.scales` | via `config` | string[] | `1x,2x` | Logo scales for Apple TV. |
 | `--splash-background-name <name>` | `splashScreen.background.name` | via `config` | string | `SplashScreenBackground` | Colorset name. Must match your launch screen. |
-| `--set splashScreen.background.tv.dark=` | `splashScreen.background.{universal,tv}.{light,dark}` | via `config` | `#RRGGBB` | `--color` / `--dark-color` | Splash colors per device and appearance. |
+| `--set splashScreen.background.tv.dark=` | `splashScreen.background.{universal,tv}.{light,dark}` | `splash.backgroundColor`, `splash.darkBackgroundColor` | `#RRGGBB` | `--color` / `--dark-color` | Splash colors per device and appearance. The plugin props set every device; `darkBackgroundColor` defaults to `backgroundColor`. |
 | `--app-store` | `appStore.enabled` | `appStore` | boolean | `false` | Write the [App Store creative assets](#app-store-creative-assets) into `AppStore/` (plugin: `appStore.outDir`). |
 | `--app-store-background <path>` | `appStore.backgroundImage` | `appStore.background` | path | `--background` | Backdrop for the App Store images. |
 | `--app-store-center <path>` | `appStore.centerImage` | `appStore.centerImage` | path | the icon | Art centred in each safe area, such as a wordmark. |
@@ -166,11 +166,11 @@ Regenerate everything on each `expo prebuild`, for tvOS (`EXPO_TV=1`) and iOS:
 
 There's no `icon` prop here: with art for both layers, the plugin assembles the icon. Props are the **Plugin** column of the [options table](#options), with paths relative to the project root. Anything else goes through `config`, a JSON config file merged under the props.
 
-Install it as a dev dependency (`npm i -D tvos-assets`) and list it **after** `expo-splash-screen` and any TV config plugin (such as `@react-native-tvos/config-tv`), so its splash assets win.
+Install it as a dev dependency (`npm i -D tvos-assets`).
 
 - `EXPO_TV=1 expo prebuild` writes `AppIcon.brandassets` (both imagestacks and both Top Shelf images) into `ios/<project>/Images.xcassets/` and sets the tvOS `Info.plist` icon and Top Shelf keys.
 - `expo prebuild` writes the iOS `AppIcon.appiconset` with its light, dark and tinted icons.
-- Both write the splash logo and color.
+- Both write the splash logo and color, per device type. See [Splash screen](#splash-screen).
 - With an `appStore` prop, both also write the App Store assets into its `outDir` (default `./AppStore`), outside `ios/`, so prebuild never wipes them. Only files whose inputs changed are rendered again.
 
 ```json
@@ -182,6 +182,32 @@ Install it as a dev dependency (`npm i -D tvos-assets`) and list it **after** `e
   "video": { "audio": "./store/music.mp3" }
 }
 ```
+
+### Splash screen
+
+`expo-splash-screen` deletes and rewrites `SplashScreenLogo.imageset` and `SplashScreenBackground.colorset` in its dangerous mod. The plugin writes both in a finalized mod, which Expo runs after every dangerous mod, so its splash is the one in the build wherever the two sit in the plugin list. Keep `expo-splash-screen` for the launch storyboard and `Info.plist`; its `image` and `imageWidth` no longer pick the logo.
+
+```json
+"splash": {
+  "image": "./assets/brand/splash.png",
+  "darkImage": "./assets/brand/splash-dark.png",
+  "size": 140,
+  "idioms": { "tv": { "size": 200 } },
+  "backgroundColor": "#1C1C1E"
+}
+```
+
+| Prop | Config key | Default | What it does |
+| --- | --- | --- | --- |
+| `image` | `splashScreen.logo.image` | the icon | Logo art (PNG or SVG), drawn as is. The icon's border radius applies only to the icon. |
+| `darkImage` | `splashScreen.logo.darkImage` | none | Art for the dark appearance. Without one, no dark entries are written. |
+| `size` | `splashScreen.logo.baseSize` | `200` | Logo width in points. The height follows the art's aspect ratio, so a wordmark is not padded into a square. |
+| `idioms` | `splashScreen.logo.idioms` | `universal`, `tv` | One entry per device type, each with `size`, `scales`, `image` and `darkImage`; unset keys fall back to the ones above. |
+| `backgroundColor`, `darkBackgroundColor` | `splashScreen.background` | `color`, `darkColor` | Splash colors on every device. `darkBackgroundColor` defaults to `backgroundColor`. |
+
+Device types are the asset catalog idioms: `universal`, `iphone`, `ipad`, `tv` and `mac`. `universal` is the image every device falls back to, so it is always written; `tv` is on by default. An entry without `scales` gets the ones Apple's [HIG](https://developer.apple.com/design/human-interface-guidelines/images) lists for the device: iPhone 2x and 3x, iPad 2x, Mac and Apple TV 1x and 2x, and `universal` all three. A scale the device doesn't use, an unknown device type or key, or a size that isn't a whole number fails with a message naming it. 1.8's `splashScreen.logo.universal` and `splashScreen.logo.tv` still work and are read as those `idioms` entries.
+
+The launch storyboard `expo-splash-screen` writes centers the image view with no size constraint.
 
 Each prebuild rewrites the folders it owns (`AppIcon.brandassets`, `AppIcon.appiconset`, `SplashScreenLogo.imageset`, `SplashScreenBackground.colorset`) and leaves the rest of the catalog alone. To change your icon, replace the source files and run prebuild.
 
@@ -589,8 +615,10 @@ Every section is optional. Name the file `tvos-assets.config.json` in your proje
       "name": "SplashScreenLogo",
       "baseSize": 200,
       "filePrefix": "200-icon",
-      "universal": { "scales": ["1x", "2x", "3x"] },
-      "tv": { "scales": ["1x", "2x"] }
+      "idioms": {
+        "universal": { "scales": ["1x", "2x", "3x"] },
+        "tv": { "scales": ["1x", "2x"] }
+      }
     },
     "background": {
       "enabled": true,
@@ -665,7 +693,7 @@ In Expo projects, use the [config plugin](#expo-config-plugin) instead: it runs 
 
 **Xcode doesn't show the icon.** The bundle name must match `ASSETCATALOG_COMPILER_APPICON_NAME` on that target, and the catalog must be in the target. See [Wiring the assets up in Xcode](#wiring-the-assets-up-in-xcode).
 
-**Prebuild overwrites the splash assets.** List `tvos-assets/plugin` after `expo-splash-screen` and any TV config plugin; the last plugin wins.
+**The splash logo is the wrong size or image.** Set it with the plugin's `splash` prop, not `expo-splash-screen`'s `image` and `imageWidth`. See [Splash screen](#splash-screen).
 
 **The plugin made iOS icons instead of tvOS ones.** Run `EXPO_TV=1 expo prebuild`.
 
