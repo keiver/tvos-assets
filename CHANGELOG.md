@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-15
+- feat(splash): splash logo per device type, written after expo-splash-screen (#17)
+
+
 - fix(plugin): the splash logo and color reach the build. `expo-splash-screen` deletes and rewrites
   `SplashScreenLogo.imageset` and `SplashScreenBackground.colorset` in its dangerous mod, and Expo
   runs the dangerous mod of a plugin listed later first, so its splash replaced this plugin's in
