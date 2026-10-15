@@ -145,6 +145,7 @@ It's one file with every image embedded, so it works offline and can go straight
 
 - **Where everything came from**: each input with its role, the exact command, and the merged config. Paths are relative or start with `~`, so a shared page never exposes your machine's paths.
 - **Every generated file** with its real name and pixel size, transparency on a checkerboard, and the splash colors as light and dark swatches. Click a thumbnail to open the full-size file.
+- **The splash on device screens**: the logo each device loads, at its size in points, centred on the splash color on an iPhone 17 Pro Max, iPad Pro 13-inch and Apple TV screen, with a dark version when the dark splash looks different.
 - **Live parallax**: point at an imagestack and its layers separate the way tvOS moves them on focus.
 - **The App Store assets** with `--app-store`: each image with its safe area outlined, and the videos playing (they're too big to embed, so they play from the files beside the page).
 

@@ -25,6 +25,9 @@
   scale or a size that isn't a whole number fails with a message naming it.
 - fix(preview): splash art paths in the resolved config are shown relative, like every other path,
   and the art is listed under Inputs.
+- feat(preview): the splash logo section shows the logo each device loads, at its size in points,
+  centred on the splash color on an iPhone 17 Pro Max (440x956pt), iPad Pro 13-inch (1032x1376pt)
+  and Apple TV (1920x1080pt) screen, plus dark screens when the dark splash looks different.
 - fix(preview): a relative `--config` path no longer shows as `../../Users/<name>/...` when the page
   is written outside the home directory, and `--print-config` no longer wraps between its hyphens.
 

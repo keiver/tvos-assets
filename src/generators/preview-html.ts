@@ -218,6 +218,15 @@ figcaption .note { color: var(--accent); }
 }
 .swatch-chip { width: 100%; height: 84px; outline: 1px solid var(--rule); }
 
+/* ---- splash on device screens ----
+   One shared height, so a phone and a TV read side by side; each screen keeps its own aspect ratio,
+   and the logo is sized as a share of the screen width, exactly as it is in points. */
+.screens-hint { padding-top: 26px; }
+.screens { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 26px 22px; padding: 14px 0 4px; }
+.screens figure { max-width: 100%; }
+.screen { max-width: 100%; display: grid; place-items: center; outline: 1px solid var(--rule); }
+.screen-logo { background-repeat: no-repeat; background-position: center; background-size: contain; }
+
 footer {
   margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
   color: var(--ink-dim); font-size: 11px;
@@ -396,6 +405,28 @@ function renderGroup(group: PreviewGroup, index: number): string {
       )
       .join("\n    ");
     parts.push(`  <div class="swatches">\n    ${swatches}\n  </div>`);
+  }
+
+  if (group.screens && group.screens.length > 0) {
+    const pct = (part: number, whole: number): string => `${((part / whole) * 100).toFixed(3)}%`;
+    const pt = (value: number): string => String(Math.round(value * 100) / 100);
+    const screens = group.screens
+      .map((screen) => {
+        const background = screen.background ? safeHex(screen.background, "#000000") : "var(--paper)";
+        const { logo } = screen;
+        return `<figure>
+      <div class="screen" style="aspect-ratio:${screen.width} / ${screen.height};background:${background};width:calc(260px * ${screen.width} / ${screen.height})">
+        <div class="screen-logo" style="width:${pct(logo.width, screen.width)};aspect-ratio:${aspectRatio(logo.width, logo.height)};background-image:var(--${logo.imageKey})"
+             role="img" aria-label="${esc(group.title)} on ${esc(screen.device)}"></div>
+      </div>
+      <figcaption><span class="name">${esc(screen.device)} <span class="note">${screen.appearance}</span></span>
+        <span class="dims">${screen.width} x ${screen.height} pt, logo ${pt(logo.width)} x ${pt(logo.height)} pt <span class="note">${esc(logo.idiom)} ${esc(logo.scale)}</span></span>
+      </figcaption>
+    </figure>`;
+      })
+      .join("\n    ");
+    parts.push(`  <p class="hint screens-hint">The logo at its size in points on each screen, on the splash color.</p>
+  <div class="screens">\n    ${screens}\n  </div>`);
   }
 
   if (group.assets.length > 0) {

@@ -129,6 +129,39 @@ describe("preview.html", () => {
     expect(html.match(/class="layer"/g) ?? []).toHaveLength(6);
   });
 
+  it("shows the splash logo at its point size on each device's screen, on the splash color", () => {
+    const screens = [...html.matchAll(/<div class="screen" style="aspect-ratio:([^;]+);background:([^;]+);[^"]*">\s*<div class="screen-logo" style="width:([^;]+);/g)].map(
+      (match) => ({ ratio: match[1], background: match[2], width: match[3] }),
+    );
+    // iPhone, iPad and Apple TV, light and dark: the default dark color differs from the light one.
+    expect(screens).toHaveLength(6);
+    expect(screens[0]).toEqual({ ratio: "440 / 956", background: "#F39C12", width: "45.455%" });
+    expect(screens[2]).toEqual({ ratio: "1032 / 1376", background: "#F39C12", width: "19.380%" });
+    expect(screens[4]).toEqual({ ratio: "1920 / 1080", background: "#F39C12", width: "10.417%" });
+    expect(screens[1].background).not.toBe("#F39C12");
+    expect(html).toContain("iPhone 17 Pro Max");
+    expect(html).toContain("200 x 200 pt");
+  });
+
+  it("uses a device type's own logo entry over universal for its screen", async () => {
+    const dir = join(TMP, "screens-tv");
+    mkdirSync(dir, { recursive: true });
+    const config = resolveConfig({
+      icon,
+      background,
+      color: "#101010",
+      outDir: dir,
+      overrides: { splashScreen: { logo: { baseSize: 140, idioms: { tv: { size: 120 } } } } },
+    });
+    const previewPath = join(dir, "preview.html");
+    await generateAssets(config, join(dir, "Images.xcassets"), { platforms: [], previewPath });
+    const page = readFileSync(previewPath, "utf-8");
+
+    const widths = [...page.matchAll(/class="screen-logo" style="width:([^;]+);/g)].map((match) => match[1]);
+    expect(widths).toContain("31.818%"); // 140 / 440 on iPhone, from universal
+    expect(widths).toContain("6.250%"); // 120 / 1920 on Apple TV, from tv
+  });
+
   it("renders the colorset as swatches with hex values", () => {
     expect(html).toContain("#F39C12");
     expect((html.match(/class="swatch-chip"/g) ?? []).length).toBe(4);
