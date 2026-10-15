@@ -126,6 +126,10 @@ function displayConfig(
     }
   }
 
+  for (const shelf of [copy.brandAssets.topShelfImage, copy.brandAssets.topShelfImageWide]) {
+    if (shelf.backgroundImage) shelf.backgroundImage = show(shelf.backgroundImage);
+  }
+
   const logo = copy.splashScreen.logo;
   for (const art of [logo, ...Object.values(logo.idioms ?? {})]) {
     if (!art) continue;
@@ -474,6 +478,8 @@ async function collectInputs(
 
   const rest: InputCandidate[] = [
     { role: "background", path: config.inputs.backgroundImage },
+    { role: "top shelf background", path: config.brandAssets.topShelfImage.backgroundImage },
+    { role: "top shelf wide background", path: config.brandAssets.topShelfImageWide.backgroundImage },
     { role: "icon dark", path: config.inputs.iconDarkImage },
     { role: "icon tinted", path: config.inputs.iconTintedImage },
     ...(logo.enabled ? splash : []),

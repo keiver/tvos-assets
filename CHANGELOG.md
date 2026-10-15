@@ -16,6 +16,11 @@
   `size`, `idioms`, `backgroundColor` and `darkBackgroundColor`, and rejects a prop it doesn't know.
 - feat(splash): the logo size is its width and the height follows the art, so a wordmark is no
   longer padded into a square. Square art comes out the same.
+- feat(top-shelf): `brandAssets.topShelfImage.backgroundImage` and `.iconScale` (and the same on
+  `topShelfImageWide`) give a Top Shelf image its own backdrop and mark size; the app icons keep
+  `inputs.backgroundImage` and `brandAssets.iconScale`.
+- fix(config): Top Shelf backgrounds and splash art are checked to hold PNG or SVG data, like the
+  other optional inputs.
 - fix(config): an unknown splash device type or key, a scale the device doesn't use, a repeated
   scale or a size that isn't a whole number fails with a message naming it.
 - fix(preview): splash art paths in the resolved config are shown relative, like every other path,

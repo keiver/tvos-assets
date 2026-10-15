@@ -128,6 +128,43 @@ describe("generateTopShelfImageSet", () => {
 
     expect(existsSync(join(parentDir, "Top Shelf Image.imageset"))).toBe(false);
   });
+
+  it("draws on its own backgroundImage, with the mark at its own iconScale", async () => {
+    const green = join(TMP, "shelf-bg.png");
+    await sharp({ create: { width: 2320, height: 720, channels: 3, background: { r: 0, g: 200, b: 0 } } })
+      .png()
+      .toFile(green);
+    const { config, iconSourceSize } = await makeConfig();
+    const shelf = { ...config.brandAssets.topShelfImage, backgroundImage: green, iconScale: config.brandAssets.iconScale / 2 };
+
+    // Rows of the centre column that differ from the backdrop: the height the mark covers.
+    const markHeight = async (dir: string): Promise<number> => {
+      const { data, info } = await sharp(join(dir, "Top Shelf Image.imageset", "top@1x.png"))
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const x = Math.floor(info.width / 2);
+      const bg = [data[0], data[1], data[2]];
+      let rows = 0;
+      for (let y = 0; y < info.height; y++) {
+        const i = (y * info.width + x) * info.channels;
+        if (Math.abs(data[i] - bg[0]) + Math.abs(data[i + 1] - bg[1]) + Math.abs(data[i + 2] - bg[2]) > 30) rows++;
+      }
+      return rows;
+    };
+
+    const fullDir = join(TMP, "topshelf-full");
+    const halfDir = join(TMP, "topshelf-half");
+    mkdirSync(fullDir, { recursive: true });
+    mkdirSync(halfDir, { recursive: true });
+    await generateTopShelfImageSet(fullDir, { ...config.brandAssets.topShelfImage, backgroundImage: green }, config, iconSourceSize);
+    await generateTopShelfImageSet(halfDir, shelf, config, iconSourceSize);
+
+    const { data } = await sharp(join(halfDir, "Top Shelf Image.imageset", "top@1x.png")).raw().toBuffer({ resolveWithObject: true });
+    expect([data[0], data[1], data[2]]).toEqual([0, 200, 0]);
+    const ratio = (await markHeight(halfDir)) / (await markHeight(fullDir));
+    expect(ratio).toBeGreaterThan(0.45);
+    expect(ratio).toBeLessThan(0.55);
+  });
 });
 
 describe("generateSplashLogoImageSet", () => {

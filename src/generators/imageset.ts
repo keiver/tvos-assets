@@ -47,7 +47,7 @@ export async function generateTopShelfImageSet(
     const filename = `${asset.filePrefix}@${scale}.png`;
 
     const buffer = await compositeIconOnBackground(
-      config.inputs.backgroundImage,
+      asset.backgroundImage ?? config.inputs.backgroundImage,
       config.inputs.iconImage,
       w,
       h,
@@ -55,7 +55,7 @@ export async function generateTopShelfImageSet(
         opaque: true,
         borderRadius: config.inputs.iconBorderRadius,
         sourceIconSize: iconSourceSize,
-        iconScale: config.brandAssets.iconScale,
+        iconScale: asset.iconScale ?? config.brandAssets.iconScale,
         content,
       },
     );

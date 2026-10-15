@@ -355,6 +355,18 @@ function optionalImagePath(raw: unknown, label: string): string | undefined {
   return trimmed ? validateImagePath(trimmed, label) : undefined;
 }
 
+/** Every art file the splash logo draws from, labelled for error messages. */
+function splashArt(logo: SplashScreenLogoConfig): Array<{ path: string | undefined; label: string }> {
+  return [
+    { path: logo.image, label: "Splash logo image" },
+    { path: logo.darkImage, label: "Splash logo dark image" },
+    ...Object.entries(logo.idioms ?? {}).flatMap(([idiom, entry]) => [
+      { path: entry?.image, label: `Splash logo ${idiom} image` },
+      { path: entry?.darkImage, label: `Splash logo ${idiom} dark image` },
+    ]),
+  ];
+}
+
 /** Validate the splash logo, resolve its art paths and give each device type Apple's scales when it names none. */
 function resolveSplashLogo(logo: SplashScreenLogoConfig): void {
   checkPointSize(logo.baseSize, "splashScreen.logo.baseSize");
@@ -592,6 +604,13 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     const trimmed = (raw ?? "").trim();
     return trimmed ? validateImagePath(trimmed, label) : undefined;
   };
+  for (const key of ["topShelfImage", "topShelfImageWide"] as const) {
+    const shelf = merged.brandAssets[key];
+    shelf.backgroundImage = optionalImage(shelf.backgroundImage, `brandAssets.${key}.backgroundImage`);
+    if (shelf.iconScale !== undefined && shelf.iconScale !== null) {
+      shelf.iconScale = resolveIconScale(shelf.iconScale, `brandAssets.${key}.iconScale`, merged.brandAssets.iconScale);
+    }
+  }
   merged.appStore.backgroundImage = optionalImage(merged.appStore.backgroundImage, "appStore.backgroundImage");
   merged.appStore.centerImage = optionalImage(merged.appStore.centerImage, "appStore.centerImage");
   // App Store Connect: universal is an image only; In-App Event videos run 15-30 s, the others 5-30 s.
@@ -778,6 +797,9 @@ export async function validateInputImages(
     { path: config.brandAssets.appIconLarge.layers.front.imagePath, label: "appIconLarge front layer" },
     { path: config.brandAssets.appIconLarge.layers.middle.imagePath, label: "appIconLarge middle layer" },
     { path: config.brandAssets.appIconLarge.layers.back.imagePath, label: "appIconLarge back layer" },
+    { path: config.brandAssets.topShelfImage.backgroundImage, label: "topShelfImage background" },
+    { path: config.brandAssets.topShelfImageWide.backgroundImage, label: "topShelfImageWide background" },
+    ...(config.splashScreen.logo.enabled ? splashArt(config.splashScreen.logo) : []),
   ];
   for (const { path, label } of optionalInputs) {
     if (!path) continue;

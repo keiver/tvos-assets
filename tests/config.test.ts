@@ -734,6 +734,54 @@ describe("resolveConfig", () => {
     expect(config.splashScreen.background.enabled).toBe(false);
   });
 
+  // --- Top Shelf background and mark size ---
+
+  it("resolves a Top Shelf image's own background and iconScale", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const config = resolveConfig({
+      icon,
+      background: bg,
+      color: "#FF0000",
+      overrides: { brandAssets: { topShelfImageWide: { backgroundImage: bg, iconScale: 0.375 } } },
+    });
+    expect(config.brandAssets.topShelfImageWide.backgroundImage).toBe(resolve(bg));
+    expect(config.brandAssets.topShelfImageWide.iconScale).toBe(0.375);
+    expect(config.brandAssets.topShelfImage.backgroundImage).toBeUndefined();
+    expect(config.brandAssets.topShelfImage.iconScale).toBeUndefined();
+  });
+
+  it.each([
+    [{ topShelfImage: { iconScale: 1.5 } }, /Invalid brandAssets\.topShelfImage\.iconScale/],
+    [{ topShelfImageWide: { backgroundImage: "missing.png" } }, /brandAssets\.topShelfImageWide\.backgroundImage not found/],
+  ])("rejects Top Shelf %j", async (brandAssets, message) => {
+    const { icon, bg } = await createStandardInputs();
+    expect(() =>
+      resolveConfig({ icon, background: bg, color: "#FF0000", overrides: { brandAssets } as CLIArgs["overrides"] }),
+    ).toThrow(message);
+  });
+
+  it("checks the data of Top Shelf backgrounds and splash art, not just the extension", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const jpegAsPng = join(TMP, "really-a-jpeg.png");
+    await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 1, g: 2, b: 3 } } }).jpeg().toFile(jpegAsPng);
+
+    const shelf = resolveConfig({
+      icon,
+      background: bg,
+      color: "#FF0000",
+      overrides: { brandAssets: { topShelfImage: { backgroundImage: jpegAsPng } } },
+    });
+    await expect(validateInputImages(shelf)).rejects.toThrow(/topShelfImage background is not valid PNG data/);
+
+    const splash = resolveConfig({
+      icon,
+      background: bg,
+      color: "#FF0000",
+      overrides: { splashScreen: { logo: { idioms: { tv: { image: jpegAsPng } } } } },
+    });
+    await expect(validateInputImages(splash)).rejects.toThrow(/Splash logo tv image is not valid PNG data/);
+  });
+
   // --- Splash logo image and sizes ---
 
   async function resolveWithLogo(logo: unknown) {

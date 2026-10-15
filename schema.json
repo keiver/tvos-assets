@@ -478,6 +478,16 @@
         "filePrefix": {
           "type": "string",
           "description": "Filename prefix for generated PNGs. Produces files like {filePrefix}@1x.png."
+        },
+        "backgroundImage": {
+          "type": "string",
+          "description": "PNG or SVG backdrop for this image only, cover-cropped from its centre. Defaults to inputs.backgroundImage."
+        },
+        "iconScale": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "description": "How much of the shorter side the mark covers on this image only. Defaults to brandAssets.iconScale."
         }
       },
       "required": [

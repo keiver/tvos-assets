@@ -15,6 +15,8 @@ const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
   "appStore.backgroundImage",
   "appStore.centerImage",
   "appStore.video.audio",
+  "brandAssets.topShelfImage.backgroundImage",
+  "brandAssets.topShelfImageWide.backgroundImage",
   "splashScreen.logo.image",
   "splashScreen.logo.darkImage",
   ...IDIOMS.flatMap((idiom) => ["image", "darkImage"].map((key) => `splashScreen.logo.idioms.${idiom}.${key}`)),
@@ -30,6 +32,8 @@ const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
 const OPTIONAL_NUMBER_PATHS: ReadonlySet<string> = new Set([
   "appStore.video.audioStart",
   "appStore.video.audioEnd",
+  "brandAssets.topShelfImage.iconScale",
+  "brandAssets.topShelfImageWide.iconScale",
   ...IDIOMS.map((idiom) => `splashScreen.logo.idioms.${idiom}.size`),
   ...["header", "searchResults", "universal", "eventCard", "eventDetails"].flatMap((placement) =>
     ["rows", "rise"].map((kind) => `appStore.${placement}.animate.${kind}`),

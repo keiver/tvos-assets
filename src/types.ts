@@ -43,6 +43,10 @@ export interface ImageSetAssetConfig {
   size: Size;
   scales: ScaleFactor[];
   filePrefix: string;
+  /** Backdrop for this image only; inputs.backgroundImage when unset. */
+  backgroundImage?: string;
+  /** How much of the shorter side the mark covers on this image only; brandAssets.iconScale when unset. */
+  iconScale?: number;
 }
 
 export interface BrandAssetsConfig {

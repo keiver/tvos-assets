@@ -24,6 +24,11 @@ describe("parseSetEntry", () => {
     expect(() => parseSetEntry("splashScreen.logo.idioms.watch.size=120")).toThrow(/Unknown --set path/);
   });
 
+  it("takes a Top Shelf image's own background and iconScale, which have no default", () => {
+    expect(parseSetEntry("brandAssets.topShelfImage.backgroundImage=./shelf.svg").value).toBe("./shelf.svg");
+    expect(parseSetEntry("brandAssets.topShelfImageWide.iconScale=0.375").value).toBe(0.375);
+  });
+
   it("takes the 1.8 splash scale paths", () => {
     expect(parseSetEntry("splashScreen.logo.tv.scales=1x").value).toEqual(["1x"]);
   });
