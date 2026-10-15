@@ -352,7 +352,7 @@ function renderProvenance(options: RenderPreviewOptions): string {
     : "Resolved from flags and built-in defaults.";
   parts.push(`  <div class="provenance">
     <h2>Config</h2>
-    <p class="hint">${source} This is the fully merged config the run used, the same output as <b>--print-config</b>.</p>
+    <p class="hint">${source} This is the fully merged config the run used, the same output as <b style="white-space: nowrap">--print-config</b>.</p>
     <details class="config">
       <summary>Show resolved config</summary>
       <pre>${esc(configJson)}</pre>

@@ -1,3 +1,4 @@
+import { basename, dirname } from "node:path";
 import { tildify, displayPath, isUpward } from "../../src/utils/paths";
 
 const HOME = "/Users/someone";
@@ -81,6 +82,14 @@ describe("displayPath", () => {
     );
     // With both ends outside the home there is nothing to leak, upward stays upward.
     expect(displayPath("/opt/art/icon.svg", "/opt/out", true, HOME)).toBe("../art/icon.svg");
+  });
+
+  it("reads a relative path against the working directory before checking for the home directory", () => {
+    // The CLI passes --config as typed, so the path can arrive relative.
+    const home = dirname(process.cwd());
+    expect(displayPath("tvos-assets.config.json", "/private/tmp/scratch/out", true, home)).toBe(
+      `~/${basename(process.cwd())}/tvos-assets.config.json`,
+    );
   });
 
   it("keeps a directory named like a dotdot segment inside", () => {

@@ -20,6 +20,8 @@
   scale or a size that isn't a whole number fails with a message naming it.
 - fix(preview): splash art paths in the resolved config are shown relative, like every other path,
   and the art is listed under Inputs.
+- fix(preview): a relative `--config` path no longer shows as `../../Users/<name>/...` when the page
+  is written outside the home directory, and `--print-config` no longer wraps between its hyphens.
 
 ## [1.8.0] - 2026-10-13
 - chore(deps): sharp 0.35.5 and the Node 20.9 floor (#16)
