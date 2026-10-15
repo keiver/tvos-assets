@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+- fix(plugin): the splash logo and color reach the build. `expo-splash-screen` deletes and rewrites
+  `SplashScreenLogo.imageset` and `SplashScreenBackground.colorset` in its dangerous mod, and Expo
+  runs the dangerous mod of a plugin listed later first, so its splash replaced this plugin's in
+  every build. The plugin writes the splash in a finalized mod, after every dangerous mod, wherever
+  it sits in the list.
+- feat(splash): `splashScreen.logo.idioms` takes one entry per device type (`universal`, `iphone`,
+  `ipad`, `tv`, `mac`), each with `size`, `scales`, `image` and `darkImage`. An entry without
+  `scales` gets the ones Apple's HIG lists for the device. `universal` is always written. 1.8's
+  `splashScreen.logo.universal` and `splashScreen.logo.tv` are read as those entries.
+- feat(splash): `splashScreen.logo.image` and `darkImage` draw the logo from its own art; a dark image
+  adds dark appearance entries. The plugin's `splash` prop sets all of it with `image`, `darkImage`,
+  `size`, `idioms`, `backgroundColor` and `darkBackgroundColor`, and rejects a prop it doesn't know.
+- feat(splash): the logo size is its width and the height follows the art, so a wordmark is no
+  longer padded into a square. Square art comes out the same.
+- feat(top-shelf): `brandAssets.topShelfImage.backgroundImage` and `.iconScale` (and the same on
+  `topShelfImageWide`) give a Top Shelf image its own backdrop and mark size; the app icons keep
+  `inputs.backgroundImage` and `brandAssets.iconScale`.
+- fix(config): Top Shelf backgrounds and splash art are checked to hold PNG or SVG data, like the
+  other optional inputs.
+- fix(config): an unknown splash device type or key, a scale the device doesn't use, a repeated
+  scale or a size that isn't a whole number fails with a message naming it.
+- fix(preview): splash art paths in the resolved config are shown relative, like every other path,
+  and the art is listed under Inputs.
+- feat(preview): the splash logo section shows the logo each device loads, at its size in points,
+  centred on the splash color on an iPhone 17 Pro Max (440x956pt), iPad Pro 13-inch (1032x1376pt)
+  and Apple TV (1920x1080pt) screen, plus dark screens when the dark splash looks different.
+- fix(preview): a relative `--config` path no longer shows as `../../Users/<name>/...` when the page
+  is written outside the home directory, and `--print-config` no longer wraps between its hyphens.
+
 ## [1.8.0] - 2026-10-13
 - chore(deps): sharp 0.35.5 and the Node 20.9 floor (#16)
 

@@ -22,6 +22,7 @@ import type { OutsideLinkStyle } from "./generators/preview.js";
 import type { TvOSImageCreatorConfig } from "./types.js";
 import { ensureDir, cleanDir, writeContentsJson, safeWriteFile } from "./utils/fs.js";
 import { assembleIconFromLayers, contentBox } from "./utils/image-processing.js";
+import { splashLogoVariants } from "./splash.js";
 
 export type TargetPlatform = "tvos" | "ios";
 
@@ -121,7 +122,9 @@ export function planAssets(config: TvOSImageCreatorConfig, options: PlanOptions 
   if (config.splashScreen.logo.enabled) {
     directories.push(`${config.splashScreen.logo.name}.imageset`);
     contentsJson += 1;
-    pngs += config.splashScreen.logo.universal.scales.length + config.splashScreen.logo.tv.scales.length;
+    for (const { scales, darkImage } of splashLogoVariants(config.splashScreen.logo)) {
+      pngs += scales.length * (darkImage ? 2 : 1);
+    }
   }
 
   if (config.splashScreen.background.enabled) {

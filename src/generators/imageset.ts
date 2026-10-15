@@ -7,10 +7,12 @@ import type {
 import { ensureDir, writeContentsJson, safeWriteFile } from "../utils/fs.js";
 import {
   compositeIconOnBackground,
-  renderIconOnTransparent,
+  heightAtWidth,
+  renderAtSize,
   scaleMultiplier,
   validateOutputDimensions,
 } from "../utils/image-processing.js";
+import { splashLogoFilename, splashLogoVariants } from "../splash.js";
 import type { ContentBox } from "../utils/image-processing.js";
 import {
   imageSetContentsJson,
@@ -45,7 +47,7 @@ export async function generateTopShelfImageSet(
     const filename = `${asset.filePrefix}@${scale}.png`;
 
     const buffer = await compositeIconOnBackground(
-      config.inputs.backgroundImage,
+      asset.backgroundImage ?? config.inputs.backgroundImage,
       config.inputs.iconImage,
       w,
       h,
@@ -53,7 +55,7 @@ export async function generateTopShelfImageSet(
         opaque: true,
         borderRadius: config.inputs.iconBorderRadius,
         sourceIconSize: iconSourceSize,
-        iconScale: config.brandAssets.iconScale,
+        iconScale: asset.iconScale ?? config.brandAssets.iconScale,
         content,
       },
     );
@@ -62,7 +64,7 @@ export async function generateTopShelfImageSet(
   }
 }
 
-/** Generate the splash screen logo imageset (icon on transparent) */
+/** Generate the splash screen logo imageset: per device type, its art on transparency, `width` points wide */
 export async function generateSplashLogoImageSet(
   parentDir: string,
   logoConfig: SplashScreenLogoConfig,
@@ -74,38 +76,32 @@ export async function generateSplashLogoImageSet(
   const imagesetDir = join(parentDir, `${logoConfig.name}.imageset`);
   ensureDir(imagesetDir);
 
-  // Write Contents.json
-  const imageEntries = buildSplashLogoImageEntries(
-    logoConfig.filePrefix,
-    logoConfig.universal.scales,
-    logoConfig.tv.scales,
-  );
-  const contents = imageSetContentsJson(imageEntries, config.xcassetsMeta);
+  const variants = splashLogoVariants(logoConfig);
+  const contents = imageSetContentsJson(buildSplashLogoImageEntries(logoConfig.filePrefix, variants), config.xcassetsMeta);
   writeContentsJson(join(imagesetDir, "Contents.json"), contents);
 
-  const borderOpts = config.inputs.iconBorderRadius > 0 && iconSourceSize
+  // The icon's border radius belongs to the icon, so separate splash art is drawn as is.
+  const iconBorder = config.inputs.iconBorderRadius > 0 && iconSourceSize
     ? { borderRadius: config.inputs.iconBorderRadius, sourceIconSize: iconSourceSize }
     : undefined;
 
-  // Generate universal scale variants
-  for (const scale of logoConfig.universal.scales) {
-    const multiplier = scaleMultiplier(scale);
-    const size = logoConfig.baseSize * multiplier;
-    validateOutputDimensions(size, size, `${logoConfig.name} universal @${scale}`);
-    const filename = `${logoConfig.filePrefix}@${scale}.png`;
+  for (const variant of variants) {
+    const appearances: [string | undefined, boolean][] = [[variant.image, false]];
+    if (variant.darkImage) appearances.push([variant.darkImage, true]);
 
-    const buffer = await renderIconOnTransparent(config.inputs.iconImage, size, borderOpts);
-    safeWriteFile(join(imagesetDir, filename), buffer);
-  }
+    for (const [art, dark] of appearances) {
+      const path = art ?? config.inputs.iconImage;
+      const height = await heightAtWidth(path, variant.width);
+      for (const scale of variant.scales) {
+        const multiplier = scaleMultiplier(scale);
+        const w = variant.width * multiplier;
+        const h = height * multiplier;
+        const filename = splashLogoFilename(logoConfig.filePrefix, variant.idiom, scale, dark);
+        validateOutputDimensions(w, h, `${logoConfig.name} ${filename}`);
 
-  // Generate tv scale variants
-  for (const scale of logoConfig.tv.scales) {
-    const multiplier = scaleMultiplier(scale);
-    const size = logoConfig.baseSize * multiplier;
-    validateOutputDimensions(size, size, `${logoConfig.name} tv @${scale}`);
-    const filename = `${logoConfig.filePrefix}-tv@${scale}.png`;
-
-    const buffer = await renderIconOnTransparent(config.inputs.iconImage, size, borderOpts);
-    safeWriteFile(join(imagesetDir, filename), buffer);
+        const buffer = await renderAtSize(path, w, h, art ? undefined : iconBorder);
+        safeWriteFile(join(imagesetDir, filename), buffer);
+      }
+    }
   }
 }

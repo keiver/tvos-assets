@@ -39,7 +39,7 @@ Gotcha: never give a Commander `.option()` a default value for anything that als
 **Generators** (`src/generators/`):
 - `brand-assets.ts` — Orchestrates Brand Assets folder: calls imagestack + imageset generators
 - `imagestack.ts` — 3-layer parallax app icons (Front/Middle: icon on transparent canvas; Back: opaque background). Handles both small icon and App Store icon variants
-- `imageset.ts` — Top Shelf images (icon composited on background, opaque) and splash screen logo (icon on transparent, multiple scales/idioms)
+- `imageset.ts`: Top Shelf images (icon composited on background, opaque) and splash screen logo (icon or own art on transparency, per device type from `src/splash.ts`, optional dark variants, width-led so the art keeps its aspect ratio)
 - `colorset.ts` — Splash screen background colorset with light/dark + universal/tv variants
 - `icon.ts` — Standalone 1024×1024 opaque icon.png
 - `contents-json.ts` — All Contents.json builders. Uses Xcode's format: space before colons, 2-space indent, trailing newline

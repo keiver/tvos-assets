@@ -5,7 +5,8 @@ import {
   resizeImage,
   resizeImageOpaque,
   compositeIconOnBackground,
-  renderIconOnTransparent,
+  heightAtWidth,
+  renderAtSize,
   renderIconOnTransparentCanvas,
   scaleMultiplier,
   validateOutputDimensions,
@@ -122,10 +123,23 @@ describe("compositeIconOnBackground", () => {
   });
 });
 
-describe("renderIconOnTransparent", () => {
-  it("renders at the correct square size", async () => {
+describe("heightAtWidth", () => {
+  it("keeps the image's aspect ratio", async () => {
+    const wide = join(TMP, "wide.png");
+    await createTestPng(wide, 400, 100, { transparent: true });
+    expect(await heightAtWidth(wide, 140)).toBe(35);
+    expect(await heightAtWidth(await makeIcon(), 140)).toBe(140);
+  });
+
+  it("throws with context on invalid input", async () => {
+    await expect(heightAtWidth(join(TMP, "nonexistent.png"), 200)).rejects.toThrow(/Image processing failed/);
+  });
+});
+
+describe("renderAtSize", () => {
+  it("renders at the size it is given", async () => {
     const icon = await makeIcon();
-    const buffer = await renderIconOnTransparent(icon, 200);
+    const buffer = await renderAtSize(icon, 200, 200);
     const meta = await sharp(buffer).metadata();
     expect(meta.width).toBe(200);
     expect(meta.height).toBe(200);
@@ -133,14 +147,14 @@ describe("renderIconOnTransparent", () => {
 
   it("preserves transparency (4 channels)", async () => {
     const icon = await makeIcon();
-    const buffer = await renderIconOnTransparent(icon, 200);
+    const buffer = await renderAtSize(icon, 200, 200);
     const meta = await sharp(buffer).metadata();
     expect(meta.channels).toBe(4);
   });
 
   it("throws with context on invalid input", async () => {
     const badPath = join(TMP, "nonexistent.png");
-    await expect(renderIconOnTransparent(badPath, 200)).rejects.toThrow(
+    await expect(renderAtSize(badPath, 200, 200)).rejects.toThrow(
       /Image processing failed/,
     );
   });
@@ -243,10 +257,10 @@ describe("compositeIconOnBackground with borderRadius", () => {
   });
 });
 
-describe("renderIconOnTransparent with borderRadius", () => {
+describe("renderAtSize with borderRadius", () => {
   it("applies border radius when options provided", async () => {
     const icon = await makeIcon();
-    const buffer = await renderIconOnTransparent(icon, 200, {
+    const buffer = await renderAtSize(icon, 200, 200, {
       borderRadius: 100,
       sourceIconSize: 1024,
     });

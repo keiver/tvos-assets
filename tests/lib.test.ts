@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig } from "../src/config";
 import { generateAssets, planAssets } from "../src/lib";
+import type { ScaleFactor } from "../src/types";
 import {
   createTestIcon,
   createTestBackground,
@@ -138,6 +139,15 @@ describe("planAssets", () => {
     const on = planAssets({ ...config, appStore: { ...config.appStore, enabled: true } });
     expect(on.appStore).toBe(3);
     expect(on.total).toBe(off.total + 3);
+  });
+
+  it("counts every splash logo PNG: each device type's scales, twice with a dark image", async () => {
+    const config = await makeConfig();
+    const logo = config.splashScreen.logo;
+    expect(planAssets(config, { platforms: [] }).pngs).toBe(5);
+
+    const withPhone = { ...logo, idioms: { ...logo.idioms, iphone: { scales: ["2x", "3x"] as ScaleFactor[], darkImage: "/art/dark.png" } } };
+    expect(planAssets({ ...config, splashScreen: { ...config.splashScreen, logo: withPhone } }, { platforms: [] }).pngs).toBe(9);
   });
 });
 

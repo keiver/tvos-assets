@@ -37,12 +37,13 @@ export async function applyBorderRadius(
   buffer: Buffer,
   size: number,
   radius: number,
+  height: number = size,
 ): Promise<Buffer> {
   if (radius <= 0) return buffer;
-  const r = Math.min(radius, size / 2);
+  const r = Math.min(radius, size / 2, height / 2);
   const mask = Buffer.from(
-    `<svg width="${size}" height="${size}">
-      <rect x="0" y="0" width="${size}" height="${size}" rx="${r}" ry="${r}" fill="white"/>
+    `<svg width="${size}" height="${height}">
+      <rect x="0" y="0" width="${size}" height="${height}" rx="${r}" ry="${r}" fill="white"/>
     </svg>`,
   );
   return sharp(buffer)
@@ -353,28 +354,41 @@ export async function compositeCenterInRect(
   }
 }
 
-export async function renderIconOnTransparent(
-  iconPath: string,
-  size: number,
+/** The height an image drawn `width` wide takes at its own aspect ratio. */
+export async function heightAtWidth(path: string, width: number): Promise<number> {
+  try {
+    const { width: w, height: h } = await sharp(path).metadata();
+    if (!w || !h) throw new Error("the image has no dimensions");
+    return Math.max(1, Math.round((width * h) / w));
+  } catch (err) {
+    wrapSharpError(err, `reading the size of ${path}`);
+  }
+}
+
+/** Draw an image `width` x `height` on transparency; the size comes from `heightAtWidth`, so nothing is padded. */
+export async function renderAtSize(
+  path: string,
+  width: number,
+  height: number,
   options?: { borderRadius?: number; sourceIconSize?: number },
 ): Promise<Buffer> {
   const borderRadius = options?.borderRadius ?? 0;
   const sourceIconSize = options?.sourceIconSize ?? 0;
 
   try {
-    let buffer: Buffer = await (await inputImage(iconPath, size, size))
-      .resize(size, size, { fit: "contain", background: TRANSPARENT })
+    let buffer: Buffer = await (await inputImage(path, width, height))
+      .resize(width, height, { fit: "contain", background: TRANSPARENT })
       .png()
       .toBuffer();
 
     if (borderRadius > 0 && sourceIconSize > 0) {
-      const scaledRadius = Math.round((borderRadius / sourceIconSize) * size);
-      buffer = await applyBorderRadius(buffer, size, scaledRadius);
+      const scaledRadius = Math.round((borderRadius / sourceIconSize) * width);
+      buffer = await applyBorderRadius(buffer, width, scaledRadius, height);
     }
 
     return buffer;
   } catch (err) {
-    wrapSharpError(err, `rendering icon on transparent at ${size}x${size}`);
+    wrapSharpError(err, `rendering ${path} at ${width}x${height}`);
   }
 }
 

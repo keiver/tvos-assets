@@ -114,6 +114,98 @@ describe("plugin appStore prop", () => {
   });
 });
 
+describe("plugin splash prop", () => {
+  it("maps the art, sizes, device types and colors onto splashScreen overrides", () => {
+    const args = plugin.buildResolveArgs(PROJECT_ROOT, {
+      splash: {
+        image: "./assets/brand/splash-icon.png",
+        darkImage: "./assets/brand/splash-dark.png",
+        size: 140,
+        idioms: { tv: { size: 200, image: "./assets/brand/splash-tv.png" }, iphone: { scales: ["3x"] } },
+        backgroundColor: "#1C1C1E",
+      },
+    });
+    const colors = { light: "#1C1C1E", dark: "#1C1C1E" };
+    expect(args.overrides.splashScreen).toEqual({
+      logo: {
+        image: resolve(PROJECT_ROOT, "assets/brand/splash-icon.png"),
+        darkImage: resolve(PROJECT_ROOT, "assets/brand/splash-dark.png"),
+        baseSize: 140,
+        idioms: {
+          tv: { size: 200, image: resolve(PROJECT_ROOT, "assets/brand/splash-tv.png") },
+          iphone: { scales: ["3x"] },
+        },
+      },
+      background: { universal: colors, tv: colors },
+    });
+  });
+
+  it("rejects an unknown splash prop", () => {
+    expect(() => plugin.buildResolveArgs(PROJECT_ROOT, { splash: { tvSize: 200 } })).toThrow(
+      /Unknown splash prop "tvSize"/,
+    );
+  });
+
+  it("passes unknown device-type keys through so config validation names them", () => {
+    const args = plugin.buildResolveArgs(PROJECT_ROOT, { splash: { idioms: { tv: { width: 200 } } } });
+    expect(args.overrides.splashScreen.logo.idioms.tv).toEqual({ width: 200 });
+  });
+
+  it("uses darkBackgroundColor for the dark appearance when given", () => {
+    const args = plugin.buildResolveArgs(PROJECT_ROOT, {
+      splash: { backgroundColor: "#FFFFFF", darkBackgroundColor: "#000000" },
+    });
+    const colors = { light: "#FFFFFF", dark: "#000000" };
+    expect(args.overrides.splashScreen).toEqual({ logo: {}, background: { universal: colors, tv: colors } });
+  });
+
+  it("leaves splashScreen alone without the prop", () => {
+    expect(plugin.buildResolveArgs(PROJECT_ROOT, {}).overrides.splashScreen).toBeUndefined();
+  });
+
+  it("turns the splash off for the catalog pass and leaves the rest of the config as is", () => {
+    const config = {
+      iosIcon: { enabled: true },
+      splashScreen: { logo: { enabled: true, baseSize: 200 }, background: { enabled: true, name: "Bg" } },
+    };
+    expect(plugin.withoutSplash(config)).toEqual({
+      iosIcon: { enabled: true },
+      splashScreen: { logo: { enabled: false, baseSize: 200 }, background: { enabled: false, name: "Bg" } },
+    });
+    expect(config.splashScreen.logo.enabled).toBe(true);
+  });
+});
+
+describe("plugin mods", () => {
+  afterEach(() => {
+    jest.resetModules();
+  });
+
+  it("writes the catalog in a dangerous mod and the splash in a finalized mod", () => {
+    const registered: string[] = [];
+    jest.doMock(
+      "@expo/config-plugins",
+      () => ({
+        withDangerousMod: (config: object, [platform]: [string]) => {
+          registered.push(`dangerous:${platform}`);
+          return config;
+        },
+        withFinalizedMod: (config: object, [platform]: [string]) => {
+          registered.push(`finalized:${platform}`);
+          return config;
+        },
+        withInfoPlist: (config: object) => config,
+      }),
+      { virtual: true },
+    );
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      require("../plugin/index.cjs")({}, {});
+    });
+    expect(registered).toEqual(["dangerous:ios", "finalized:ios"]);
+  });
+});
+
 describe("plugin isTvBuild", () => {
   const original = process.env.EXPO_TV;
 

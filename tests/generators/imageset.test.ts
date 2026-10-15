@@ -128,6 +128,43 @@ describe("generateTopShelfImageSet", () => {
 
     expect(existsSync(join(parentDir, "Top Shelf Image.imageset"))).toBe(false);
   });
+
+  it("draws on its own backgroundImage, with the mark at its own iconScale", async () => {
+    const green = join(TMP, "shelf-bg.png");
+    await sharp({ create: { width: 2320, height: 720, channels: 3, background: { r: 0, g: 200, b: 0 } } })
+      .png()
+      .toFile(green);
+    const { config, iconSourceSize } = await makeConfig();
+    const shelf = { ...config.brandAssets.topShelfImage, backgroundImage: green, iconScale: config.brandAssets.iconScale / 2 };
+
+    // Rows of the centre column that differ from the backdrop: the height the mark covers.
+    const markHeight = async (dir: string): Promise<number> => {
+      const { data, info } = await sharp(join(dir, "Top Shelf Image.imageset", "top@1x.png"))
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      const x = Math.floor(info.width / 2);
+      const bg = [data[0], data[1], data[2]];
+      let rows = 0;
+      for (let y = 0; y < info.height; y++) {
+        const i = (y * info.width + x) * info.channels;
+        if (Math.abs(data[i] - bg[0]) + Math.abs(data[i + 1] - bg[1]) + Math.abs(data[i + 2] - bg[2]) > 30) rows++;
+      }
+      return rows;
+    };
+
+    const fullDir = join(TMP, "topshelf-full");
+    const halfDir = join(TMP, "topshelf-half");
+    mkdirSync(fullDir, { recursive: true });
+    mkdirSync(halfDir, { recursive: true });
+    await generateTopShelfImageSet(fullDir, { ...config.brandAssets.topShelfImage, backgroundImage: green }, config, iconSourceSize);
+    await generateTopShelfImageSet(halfDir, shelf, config, iconSourceSize);
+
+    const { data } = await sharp(join(halfDir, "Top Shelf Image.imageset", "top@1x.png")).raw().toBuffer({ resolveWithObject: true });
+    expect([data[0], data[1], data[2]]).toEqual([0, 200, 0]);
+    const ratio = (await markHeight(halfDir)) / (await markHeight(fullDir));
+    expect(ratio).toBeGreaterThan(0.45);
+    expect(ratio).toBeLessThan(0.55);
+  });
 });
 
 describe("generateSplashLogoImageSet", () => {
@@ -201,5 +238,93 @@ describe("generateSplashLogoImageSet", () => {
     const meta = await sharp(join(imagesetDir, "200-icon@1x.png")).metadata();
     expect(meta.format).toBe("png");
     expect(meta.width).toBe(200);
+  });
+
+  it("draws each device type at its own size, others at baseSize", async () => {
+    const { config, iconSourceSize } = await makeConfig({
+      splashScreen: { logo: { baseSize: 140, idioms: { tv: { size: 200 }, iphone: {} } } },
+    });
+    const parentDir = join(TMP, "splash-logo-sizes");
+    mkdirSync(parentDir, { recursive: true });
+
+    await generateSplashLogoImageSet(parentDir, config.splashScreen.logo, config, iconSourceSize);
+
+    const imagesetDir = join(parentDir, "SplashScreenLogo.imageset");
+    expect((await sharp(join(imagesetDir, "200-icon@1x.png")).metadata()).width).toBe(140);
+    expect((await sharp(join(imagesetDir, "200-icon@3x.png")).metadata()).width).toBe(420);
+    expect((await sharp(join(imagesetDir, "200-icon-tv@1x.png")).metadata()).width).toBe(200);
+    expect((await sharp(join(imagesetDir, "200-icon-tv@2x.png")).metadata()).width).toBe(400);
+    // iPhone takes Apple's 2x and 3x when it names no scales.
+    expect((await sharp(join(imagesetDir, "200-icon-iphone@2x.png")).metadata()).width).toBe(280);
+    expect(existsSync(join(imagesetDir, "200-icon-iphone@3x.png"))).toBe(true);
+    expect(existsSync(join(imagesetDir, "200-icon-iphone@1x.png"))).toBe(false);
+  });
+
+  it("keeps a wide logo's aspect ratio: size is the width", async () => {
+    const wide = join(TMP, "wordmark.png");
+    await sharp({ create: { width: 400, height: 100, channels: 4, background: { r: 0, g: 0, b: 255, alpha: 1 } } })
+      .png()
+      .toFile(wide);
+    const { config, iconSourceSize } = await makeConfig({ splashScreen: { logo: { image: wide, baseSize: 140 } } });
+    const parentDir = join(TMP, "splash-logo-wide");
+    mkdirSync(parentDir, { recursive: true });
+
+    await generateSplashLogoImageSet(parentDir, config.splashScreen.logo, config, iconSourceSize);
+
+    const meta = await sharp(join(parentDir, "SplashScreenLogo.imageset", "200-icon@2x.png")).metadata();
+    expect([meta.width, meta.height]).toEqual([280, 70]);
+  });
+
+  it("draws the logo from splashScreen.logo.image, without the icon's border radius", async () => {
+    const splash = join(TMP, "splash.png");
+    await sharp({ create: { width: 64, height: 64, channels: 4, background: { r: 0, g: 0, b: 255, alpha: 1 } } })
+      .png()
+      .toFile(splash);
+    const { config, iconSourceSize } = await makeConfig({ splashScreen: { logo: { image: splash } } });
+    config.inputs.iconBorderRadius = 30;
+    const parentDir = join(TMP, "splash-logo-image");
+    mkdirSync(parentDir, { recursive: true });
+
+    await generateSplashLogoImageSet(parentDir, config.splashScreen.logo, config, iconSourceSize);
+
+    const { data } = await sharp(join(parentDir, "SplashScreenLogo.imageset", "200-icon-tv@1x.png"))
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    expect([data[0], data[1], data[2], data[3]]).toEqual([0, 0, 255, 255]);
+  });
+
+  it("writes dark entries from darkImage, and a device type's own image wins over the logo's", async () => {
+    const paint = async (name: string, rgb: { r: number; g: number; b: number }): Promise<string> => {
+      const path = join(TMP, name);
+      await sharp({ create: { width: 64, height: 64, channels: 4, background: { ...rgb, alpha: 1 } } }).png().toFile(path);
+      return path;
+    };
+    const light = await paint("light.png", { r: 255, g: 0, b: 0 });
+    const dark = await paint("dark.png", { r: 0, g: 255, b: 0 });
+    const tvArt = await paint("tv.png", { r: 0, g: 0, b: 255 });
+    const { config, iconSourceSize } = await makeConfig({
+      splashScreen: { logo: { image: light, darkImage: dark, idioms: { tv: { image: tvArt } } } },
+    });
+    const parentDir = join(TMP, "splash-logo-dark");
+    mkdirSync(parentDir, { recursive: true });
+
+    await generateSplashLogoImageSet(parentDir, config.splashScreen.logo, config, iconSourceSize);
+
+    const imagesetDir = join(parentDir, "SplashScreenLogo.imageset");
+    const firstPixel = async (file: string): Promise<number[]> => {
+      const { data } = await sharp(join(imagesetDir, file)).raw().toBuffer({ resolveWithObject: true });
+      return [data[0], data[1], data[2]];
+    };
+    expect(await firstPixel("200-icon@1x.png")).toEqual([255, 0, 0]);
+    expect(await firstPixel("200-icon-dark@1x.png")).toEqual([0, 255, 0]);
+    expect(await firstPixel("200-icon-tv@1x.png")).toEqual([0, 0, 255]);
+    expect(await firstPixel("200-icon-tv-dark@1x.png")).toEqual([0, 255, 0]);
+
+    const contents = parseContentsJson(join(imagesetDir, "Contents.json")) as {
+      images: { filename: string; appearances?: { appearance: string; value: string }[] }[];
+    };
+    const darkEntry = contents.images.find((i) => i.filename === "200-icon-tv-dark@2x.png");
+    expect(darkEntry?.appearances).toEqual([{ appearance: "luminosity", value: "dark" }]);
+    expect(contents.images).toHaveLength(10);
   });
 });

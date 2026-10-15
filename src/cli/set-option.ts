@@ -1,6 +1,7 @@
 import { configShapeTemplate } from "../config.js";
 import type { DeepPartial } from "../config.js";
 import type { TvOSImageCreatorConfig } from "../types.js";
+import { IDIOMS } from "../splash.js";
 
 const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 
@@ -14,6 +15,11 @@ const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
   "appStore.backgroundImage",
   "appStore.centerImage",
   "appStore.video.audio",
+  "brandAssets.topShelfImage.backgroundImage",
+  "brandAssets.topShelfImageWide.backgroundImage",
+  "splashScreen.logo.image",
+  "splashScreen.logo.darkImage",
+  ...IDIOMS.flatMap((idiom) => ["image", "darkImage"].map((key) => `splashScreen.logo.idioms.${idiom}.${key}`)),
   ...["header", "searchResults", "universal", "eventCard", "eventDetails"].flatMap((placement) =>
     ["backgroundImage", "centerImage", "video", "source"].map((key) => `appStore.${placement}.${key}`),
   ),
@@ -26,9 +32,19 @@ const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
 const OPTIONAL_NUMBER_PATHS: ReadonlySet<string> = new Set([
   "appStore.video.audioStart",
   "appStore.video.audioEnd",
+  "brandAssets.topShelfImage.iconScale",
+  "brandAssets.topShelfImageWide.iconScale",
+  ...IDIOMS.map((idiom) => `splashScreen.logo.idioms.${idiom}.size`),
   ...["header", "searchResults", "universal", "eventCard", "eventDetails"].flatMap((placement) =>
     ["rows", "rise"].map((kind) => `appStore.${placement}.animate.${kind}`),
   ),
+]);
+
+/** List keys with no default: device types beyond universal and tv, and the 1.8 spelling of the two. */
+const OPTIONAL_LIST_PATHS: ReadonlySet<string> = new Set([
+  ...IDIOMS.map((idiom) => `splashScreen.logo.idioms.${idiom}.scales`),
+  "splashScreen.logo.universal.scales",
+  "splashScreen.logo.tv.scales",
 ]);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -115,6 +131,9 @@ export function parseSetEntry(entry: string): ParsedSetEntry {
       }
       if (OPTIONAL_NUMBER_PATHS.has(rawPath)) {
         return { path, value: coerceToTemplateType(rawValue, 0, rawPath) };
+      }
+      if (OPTIONAL_LIST_PATHS.has(rawPath)) {
+        return { path, value: coerceToTemplateType(rawValue, [], rawPath) };
       }
       const known = Object.keys(cursor).join(", ");
       const at = walked ? `"${walked}"` : "the config root";

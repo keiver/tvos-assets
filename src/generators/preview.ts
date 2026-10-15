@@ -6,6 +6,7 @@ import { safeWriteFile } from "../utils/fs.js";
 import { displayPath, isUpward, tildify } from "../utils/paths.js";
 import { renderPreviewHtml } from "./preview-html.js";
 import { APP_STORE_ASSETS } from "./app-store.js";
+import { scaleMultiplier } from "../utils/image-processing.js";
 
 /** Long edge of the embedded thumbnails, in CSS pixels before device scaling. */
 const THUMB_MAX_EDGE = 640;
@@ -42,6 +43,17 @@ export interface PreviewSwatch {
   appearance: string;
 }
 
+/** A device screen in points with the splash logo it would show, at the logo's own point size. */
+export interface PreviewScreen {
+  device: string;
+  appearance: "light" | "dark";
+  width: number;
+  height: number;
+  /** The splash color for this device and appearance; the page's own when there is no colorset. */
+  background?: string;
+  logo: { imageKey: string; width: number; height: number; idiom: string; scale: string };
+}
+
 export interface PreviewGroup {
   title: string;
   /** Path of the asset directory relative to Images.xcassets. */
@@ -49,6 +61,7 @@ export interface PreviewGroup {
   assets: PreviewAsset[];
   parallax?: PreviewParallax;
   swatches?: PreviewSwatch[];
+  screens?: PreviewScreen[];
   /** Videos played from their files on disk, too large to embed. */
   videos?: { filename: string; href?: string; width: number; height: number; note: string }[];
 }
@@ -124,6 +137,17 @@ function displayConfig(
       const art = stack.layers[layer];
       if (art.imagePath) art.imagePath = show(art.imagePath);
     }
+  }
+
+  for (const shelf of [copy.brandAssets.topShelfImage, copy.brandAssets.topShelfImageWide]) {
+    if (shelf.backgroundImage) shelf.backgroundImage = show(shelf.backgroundImage);
+  }
+
+  const logo = copy.splashScreen.logo;
+  for (const art of [logo, ...Object.values(logo.idioms ?? {})]) {
+    if (!art) continue;
+    if (art.image) art.image = show(art.image);
+    if (art.darkImage) art.darkImage = show(art.darkImage);
   }
 
   const store = copy.appStore;
@@ -395,6 +419,81 @@ async function collectCatalog(
   return [...stacks, ...brandImageSets, ...appIconSets, ...imageSets, ...colorSets];
 }
 
+/** Screens from Xcode's simulator profiles (main-screen width, height, scale), in points. */
+const SPLASH_SCREENS = [
+  { device: "iPhone 17 Pro Max", idiom: "iphone", width: 440, height: 956 },
+  { device: "iPad Pro 13-inch (M5)", idiom: "ipad", width: 1032, height: 1376 },
+  { device: "Apple TV", idiom: "tv", width: 1920, height: 1080 },
+] as const;
+
+type Appearance = "light" | "dark";
+
+function appearanceOf(entry: { appearances?: { appearance: string; value: string }[] }): Appearance {
+  return entry.appearances?.some((a) => a.appearance === "luminosity" && a.value === "dark") ? "dark" : "light";
+}
+
+/** The device's own entries when it has any, else universal; a dark lookup falls back to light, as the catalog does. */
+function pickForDevice<T extends { idiom?: string; appearances?: { appearance: string; value: string }[] }>(
+  entries: T[],
+  idiom: string,
+  appearance: Appearance,
+): T[] {
+  for (const candidate of [idiom, "universal"]) {
+    const own = entries.filter((entry) => (entry.idiom ?? "universal") === candidate);
+    if (own.length === 0) continue;
+    const matching = own.filter((entry) => appearanceOf(entry) === appearance);
+    return matching.length > 0 ? matching : own.filter((entry) => appearanceOf(entry) === "light");
+  }
+  return [];
+}
+
+/**
+ * The splash logo on each device's screen, read from the catalog on disk: the
+ * entry the device would load at its largest scale, centred on the splash color.
+ */
+async function splashScreens(
+  xcassetsDir: string,
+  config: TvOSImageCreatorConfig,
+  table: ImageTable,
+): Promise<PreviewScreen[]> {
+  const logoDir = join(xcassetsDir, `${config.splashScreen.logo.name}.imageset`);
+  const logoContents = readJson(join(logoDir, "Contents.json"));
+  const images = Array.isArray(logoContents?.images) ? (logoContents.images as ContentsImageEntry[]) : [];
+  const colorContents = readJson(join(xcassetsDir, `${config.splashScreen.background.name}.colorset`, "Contents.json"));
+  const colors = Array.isArray(colorContents?.colors)
+    ? (colorContents.colors as { idiom?: string; appearances?: { appearance: string; value: string }[]; color?: { components?: Record<string, string> } }[])
+    : [];
+  const screens: PreviewScreen[] = [];
+  for (const screen of SPLASH_SCREENS) {
+    for (const appearance of ["light", "dark"] as Appearance[]) {
+      const sharpest = pickForDevice(images.filter((entry) => entry.filename && entry.scale), screen.idiom, appearance)
+        .sort((a, b) => scaleMultiplier(b.scale as string) - scaleMultiplier(a.scale as string))[0];
+      if (!sharpest?.filename) continue;
+      const path = join(logoDir, sharpest.filename);
+      if (!existsSync(path)) continue;
+
+      const { key, width, height } = await table.add(path);
+      const scale = scaleMultiplier(sharpest.scale as string);
+      const color = pickForDevice(colors, screen.idiom, appearance)[0]?.color?.components;
+      const background = color ? componentsToHex(color) : undefined;
+      // A dark screen that looks like the light one adds nothing.
+      const light = screens[screens.length - 1];
+      if (appearance === "dark" && light?.device === screen.device && light.logo.imageKey === key && light.background === background) {
+        continue;
+      }
+      screens.push({
+        device: screen.device,
+        appearance,
+        width: screen.width,
+        height: screen.height,
+        background,
+        logo: { imageKey: key, width: width / scale, height: height / scale, idiom: sharpest.idiom ?? "universal", scale: sharpest.scale as string },
+      });
+    }
+  }
+  return screens;
+}
+
 function countFiles(dir: string): number {
   if (!existsSync(dir)) return 0;
   let total = 0;
@@ -455,10 +554,23 @@ async function collectInputs(
     }
   }
 
+  const logo = config.splashScreen.logo;
+  const splash: InputCandidate[] = [
+    { role: "splash", path: logo.image },
+    { role: "splash dark", path: logo.darkImage },
+    ...Object.entries(logo.idioms ?? {}).flatMap(([idiom, entry]) => [
+      { role: `splash ${idiom}`, path: entry?.image },
+      { role: `splash ${idiom} dark`, path: entry?.darkImage },
+    ]),
+  ];
+
   const rest: InputCandidate[] = [
     { role: "background", path: config.inputs.backgroundImage },
+    { role: "top shelf background", path: config.brandAssets.topShelfImage.backgroundImage },
+    { role: "top shelf wide background", path: config.brandAssets.topShelfImageWide.backgroundImage },
     { role: "icon dark", path: config.inputs.iconDarkImage },
     { role: "icon tinted", path: config.inputs.iconTintedImage },
+    ...(logo.enabled ? splash : []),
   ];
 
   const candidates = assembled ? [...layers, icon, ...rest] : [icon, ...rest, ...layers];
@@ -518,6 +630,10 @@ export async function generatePreview(options: GeneratePreviewOptions): Promise<
   // Inputs first, so a source that is also an output is embedded once and shared.
   const inputs = await collectInputs(options.config, table, previewDir, outside);
   const groups = await collectCatalog(options.xcassetsDir, table, previewDir, outside);
+  const logoGroup = groups.find(
+    (group) => group.title === `${options.config.splashScreen.logo.name}.imageset` && group.location === "Images.xcassets",
+  );
+  if (logoGroup) logoGroup.screens = await splashScreens(options.xcassetsDir, options.config, table);
 
   if (options.standaloneIconPath && existsSync(options.standaloneIconPath)) {
     const { key, width, height, hasAlpha } = await table.add(options.standaloneIconPath);

@@ -1,8 +1,7 @@
 /**
  * Expo config plugin: generate tvOS/iOS Images.xcassets at prebuild time.
  *
- * Usage in app.json (list AFTER expo-splash-screen and any TV config plugin so
- * the generated assets overwrite their single-icon output):
+ * Usage in app.json:
  *
  * `icon` is optional when `layers` supplies art for both front and middle: the
  * icon is then assembled from that art.
@@ -23,6 +22,7 @@
  *       "searchResults": { "background": "./shots/library.png", "center": false, "video": "./shots/tour.mov" },
  *       "video": { "fps": 30, "codec": "h264" }
  *     },
+ *     "splash": { "image": "./assets/brand/splash.png", "size": 140, "idioms": { "tv": { "size": 200 } }, "backgroundColor": "#1C1C1E" },
  *     "config": "./tvos-assets.config.json"
  *   }]
  *
@@ -98,6 +98,54 @@ function appStoreOverrides(projectRoot, props) {
   return overrides;
 }
 
+const SPLASH_PROPS = ["image", "darkImage", "size", "idioms", "backgroundColor", "darkBackgroundColor"];
+
+/** Art paths in a splash prop object resolved against the project root; other keys pass through to validation. */
+function withResolvedArt(projectRoot, art) {
+  const out = { ...art };
+  for (const key of ["image", "darkImage"]) {
+    if (typeof out[key] === "string") out[key] = resolveInput(projectRoot, out[key]);
+  }
+  return out;
+}
+
+/** Plugin `splash` props to config overrides; `size` and `image` apply to every device type without its own. */
+function splashOverrides(projectRoot, splash) {
+  for (const key of Object.keys(splash)) {
+    if (!SPLASH_PROPS.includes(key)) {
+      throw new Error(`[tvos-assets] Unknown splash prop "${key}". Use ${SPLASH_PROPS.join(", ")}.`);
+    }
+  }
+
+  const logo = {};
+  if (splash.image) logo.image = resolveInput(projectRoot, splash.image);
+  if (splash.darkImage) logo.darkImage = resolveInput(projectRoot, splash.darkImage);
+  if (splash.size != null) logo.baseSize = splash.size;
+  if (splash.idioms != null) {
+    logo.idioms = {};
+    for (const [idiom, entry] of Object.entries(splash.idioms)) {
+      logo.idioms[idiom] = entry !== null && typeof entry === "object" ? withResolvedArt(projectRoot, entry) : entry;
+    }
+  }
+
+  const overrides = { logo };
+  const colors = {};
+  if (splash.backgroundColor) colors.light = splash.backgroundColor;
+  const dark = splash.darkBackgroundColor || splash.backgroundColor;
+  if (dark) colors.dark = dark;
+  if (Object.keys(colors).length > 0) overrides.background = { universal: { ...colors }, tv: { ...colors } };
+  return overrides;
+}
+
+/** The config with both splash assets off, for the pass that writes the rest of the catalog. */
+function withoutSplash(config) {
+  const { logo, background } = config.splashScreen;
+  return {
+    ...config,
+    splashScreen: { logo: { ...logo, enabled: false }, background: { ...background, enabled: false } },
+  };
+}
+
 function buildResolveArgs(projectRoot, props) {
   const overrides = {};
 
@@ -116,6 +164,10 @@ function buildResolveArgs(projectRoot, props) {
 
   if (props.appStore) {
     overrides.appStore = appStoreOverrides(projectRoot, props.appStore);
+  }
+
+  if (props.splash) {
+    overrides.splashScreen = splashOverrides(projectRoot, props.splash);
   }
 
   return {
@@ -141,29 +193,48 @@ function appStoreOutDir(projectRoot, props) {
   return path.resolve(projectRoot, props.appStore.outDir || "AppStore");
 }
 
+function xcassetsDirFor(cfg) {
+  return path.join(cfg.modRequest.projectRoot, "ios", cfg.modRequest.projectName, "Images.xcassets");
+}
+
 function withTvosAssets(config, props = {}) {
-  const { withDangerousMod, withInfoPlist } = loadConfigPlugins();
+  const { withDangerousMod, withFinalizedMod, withInfoPlist } = loadConfigPlugins();
 
   config = withDangerousMod(config, [
     "ios",
     async (cfg) => {
       const projectRoot = cfg.modRequest.projectRoot;
-      const projectName = cfg.modRequest.projectName;
       const lib = await loadLib();
 
       const resolved = lib.resolveConfig(buildResolveArgs(projectRoot, props));
-      const xcassetsDir = path.join(projectRoot, "ios", projectName, "Images.xcassets");
+      const xcassetsDir = xcassetsDirFor(cfg);
       const platforms = isTvBuild() ? ["tvos"] : ["ios"];
 
       console.log(`[tvos-assets] Generating ${platforms[0]} assets into ${xcassetsDir}`);
       const appStoreDir = appStoreOutDir(projectRoot, props);
       if (appStoreDir) console.log(`[tvos-assets] Writing App Store creative assets into ${appStoreDir}`);
-      const { warnings } = await lib.generateAssets(resolved, xcassetsDir, { platforms, appStoreDir });
+      const { warnings } = await lib.generateAssets(withoutSplash(resolved), xcassetsDir, { platforms, appStoreDir });
       for (const warning of warnings) {
         console.warn(`[tvos-assets] Warning: ${warning}`);
       }
       console.log("[tvos-assets] Done.");
 
+      return cfg;
+    },
+  ]);
+
+  // expo-splash-screen deletes and rewrites both splash folders in its own dangerous mod, and
+  // Expo runs every dangerous mod before any finalized one, so the splash is written here.
+  config = withFinalizedMod(config, [
+    "ios",
+    async (cfg) => {
+      const lib = await loadLib();
+      const resolved = lib.resolveConfig(buildResolveArgs(cfg.modRequest.projectRoot, props));
+      const { logo, background } = resolved.splashScreen;
+      if (!logo.enabled && !background.enabled) return cfg;
+
+      console.log("[tvos-assets] Writing the splash logo and color");
+      await lib.generateAssets(resolved, xcassetsDirFor(cfg), { platforms: [] });
       return cfg;
     },
   ]);
@@ -192,3 +263,4 @@ module.exports = withTvosAssets;
 module.exports.buildResolveArgs = buildResolveArgs;
 module.exports.isTvBuild = isTvBuild;
 module.exports.appStoreOutDir = appStoreOutDir;
+module.exports.withoutSplash = withoutSplash;

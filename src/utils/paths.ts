@@ -1,5 +1,5 @@
 import { homedir } from "node:os";
-import { relative } from "node:path";
+import { relative, resolve } from "node:path";
 
 /**
  * Replace a leading home directory with `~`.
@@ -52,6 +52,9 @@ export function displayPath(
   allowUpward: boolean,
   home: string = homedir(),
 ): string {
+  // Absolute first: a relative path never starts with the home directory, so the leak check below would miss it.
+  path = resolve(path);
+  from = resolve(from);
   const rel = relative(from, path);
   if (rel === "") return "."; // the reference directory itself
   if (!isUpward(rel)) return `./${toPosix(rel)}`;

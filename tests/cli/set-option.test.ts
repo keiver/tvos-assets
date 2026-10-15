@@ -14,6 +14,25 @@ describe("parseSetEntry", () => {
     expect(parseSetEntry("xcassetsMeta.version=2").value).toBe(2);
   });
 
+  it("takes the splash art, device types and sizes, which have no default", () => {
+    expect(parseSetEntry("splashScreen.logo.image=./splash.png").value).toBe("./splash.png");
+    expect(parseSetEntry("splashScreen.logo.darkImage=./dark.png").value).toBe("./dark.png");
+    expect(parseSetEntry("splashScreen.logo.idioms.universal.size=140").value).toBe(140);
+    expect(parseSetEntry("splashScreen.logo.idioms.tv.image=./tv.png").value).toBe("./tv.png");
+    expect(parseSetEntry("splashScreen.logo.idioms.iphone.scales=2x,3x").value).toEqual(["2x", "3x"]);
+    expect(parseSetEntry("splashScreen.logo.idioms.mac.size=120").value).toBe(120);
+    expect(() => parseSetEntry("splashScreen.logo.idioms.watch.size=120")).toThrow(/Unknown --set path/);
+  });
+
+  it("takes a Top Shelf image's own background and iconScale, which have no default", () => {
+    expect(parseSetEntry("brandAssets.topShelfImage.backgroundImage=./shelf.svg").value).toBe("./shelf.svg");
+    expect(parseSetEntry("brandAssets.topShelfImageWide.iconScale=0.375").value).toBe(0.375);
+  });
+
+  it("takes the 1.8 splash scale paths", () => {
+    expect(parseSetEntry("splashScreen.logo.tv.scales=1x").value).toEqual(["1x"]);
+  });
+
   it("takes the App Store music and its loop window, which have no default", () => {
     expect(parseSetEntry("appStore.video.audio=./music.mp3").value).toBe("./music.mp3");
     expect(parseSetEntry("appStore.video.audioStart=12.5").value).toBe(12.5);

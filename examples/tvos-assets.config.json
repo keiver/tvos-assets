@@ -62,8 +62,10 @@
       "name": "SplashScreenLogo",
       "baseSize": 200,
       "filePrefix": "200-icon",
-      "universal": { "scales": ["1x", "2x", "3x"] },
-      "tv": { "scales": ["1x", "2x"] }
+      "idioms": {
+        "universal": { "scales": ["1x", "2x", "3x"] },
+        "tv": { "scales": ["1x", "2x"] }
+      }
     },
     "background": {
       "enabled": true,
