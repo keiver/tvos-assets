@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-24
+- feat(mark): one mark over the Top Shelf and the App Store, scenes draw and animate it (#19)
+
+
 - feat(mark): `--mark` (`inputs.markImage`, plugin `mark`) is the brand on transparency drawn over
   backdrops, on both Top Shelf images and in the App Store safe area, measured on its own like the
   icon; the icon when unset. A flat icon that carries an opaque surface for iOS no longer brings
