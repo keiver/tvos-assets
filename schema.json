@@ -483,6 +483,10 @@
           "type": "string",
           "description": "PNG or SVG backdrop for this image only, cover-cropped from its centre. Defaults to inputs.backgroundImage."
         },
+        "iconImage": {
+          "type": "string",
+          "description": "PNG or SVG mark for this image only, measured on its own. Defaults to the icon."
+        },
         "iconScale": {
           "type": "number",
           "exclusiveMinimum": 0,

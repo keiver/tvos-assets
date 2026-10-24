@@ -668,6 +668,7 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   for (const key of ["topShelfImage", "topShelfImageWide"] as const) {
     const shelf = merged.brandAssets[key];
     shelf.backgroundImage = optionalImage(shelf.backgroundImage, `brandAssets.${key}.backgroundImage`);
+    shelf.iconImage = optionalImage(shelf.iconImage, `brandAssets.${key}.iconImage`);
     if (shelf.iconScale !== undefined && shelf.iconScale !== null) {
       shelf.iconScale = resolveIconScale(shelf.iconScale, `brandAssets.${key}.iconScale`, merged.brandAssets.iconScale);
     }

@@ -45,6 +45,8 @@ export interface ImageSetAssetConfig {
   filePrefix: string;
   /** Backdrop for this image only; inputs.backgroundImage when unset. */
   backgroundImage?: string;
+  /** The mark on this image only; the icon when unset. */
+  iconImage?: string;
   /** How much of the shorter side the mark covers on this image only; brandAssets.iconScale when unset. */
   iconScale?: number;
 }

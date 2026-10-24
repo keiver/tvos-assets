@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+- feat(top-shelf): `brandAssets.topShelfImage.iconImage` (and the same on `topShelfImageWide`)
+  draws that Top Shelf image's mark from its own art, measured on its own, so a flat icon that
+  carries an opaque surface for iOS does not bring the surface onto the Top Shelf.
+
 ## [1.10.0] - 2026-10-24
 - feat(app-store): scene artwork, any SVG animated by its own <animate> or by selector rules, rendered in Chrome (#18)
 

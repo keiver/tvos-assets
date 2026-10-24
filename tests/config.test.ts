@@ -742,17 +742,20 @@ describe("resolveConfig", () => {
       icon,
       background: bg,
       color: "#FF0000",
-      overrides: { brandAssets: { topShelfImageWide: { backgroundImage: bg, iconScale: 0.375 } } },
+      overrides: { brandAssets: { topShelfImageWide: { backgroundImage: bg, iconScale: 0.375, iconImage: icon } } },
     });
     expect(config.brandAssets.topShelfImageWide.backgroundImage).toBe(resolve(bg));
     expect(config.brandAssets.topShelfImageWide.iconScale).toBe(0.375);
+    expect(config.brandAssets.topShelfImageWide.iconImage).toBe(resolve(icon));
     expect(config.brandAssets.topShelfImage.backgroundImage).toBeUndefined();
     expect(config.brandAssets.topShelfImage.iconScale).toBeUndefined();
+    expect(config.brandAssets.topShelfImage.iconImage).toBeUndefined();
   });
 
   it.each([
     [{ topShelfImage: { iconScale: 1.5 } }, /Invalid brandAssets\.topShelfImage\.iconScale/],
     [{ topShelfImageWide: { backgroundImage: "missing.png" } }, /brandAssets\.topShelfImageWide\.backgroundImage not found/],
+    [{ topShelfImage: { iconImage: "missing.svg" } }, /brandAssets\.topShelfImage\.iconImage not found/],
   ])("rejects Top Shelf %j", async (brandAssets, message) => {
     const { icon, bg } = await createStandardInputs();
     expect(() =>

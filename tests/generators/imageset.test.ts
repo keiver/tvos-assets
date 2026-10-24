@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, rmSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig, validateInputImages } from "../../src/config";
 import { generateTopShelfImageSet, generateSplashLogoImageSet } from "../../src/generators/imageset";
-import { createTestIcon, createTestBackground } from "../fixtures/create-fixtures";
+import { createTestIcon, createTestBackground, createTestSvgLayer } from "../fixtures/create-fixtures";
 import type { TvOSImageCreatorConfig } from "../../src/types";
 
 const TMP = join(__dirname, "../../.test-tmp-imageset");
@@ -164,6 +164,27 @@ describe("generateTopShelfImageSet", () => {
     const ratio = (await markHeight(halfDir)) / (await markHeight(fullDir));
     expect(ratio).toBeGreaterThan(0.45);
     expect(ratio).toBeLessThan(0.55);
+  });
+
+  it("draws its own iconImage as the mark, measured on its own, instead of the icon", async () => {
+    const { config, iconSourceSize } = await makeConfig();
+    const blue = createTestSvgLayer(TMP, "mark.svg", "#0000FF", 400);
+    const dir = join(TMP, "topshelf-mark");
+    mkdirSync(dir, { recursive: true });
+    await generateTopShelfImageSet(dir, { ...config.brandAssets.topShelfImage, iconImage: blue }, config, iconSourceSize);
+
+    const { data, info } = await sharp(join(dir, "Top Shelf Image.imageset", "top@1x.png")).raw().toBuffer({ resolveWithObject: true });
+    const centre = ((Math.floor(info.height / 2) * info.width) + Math.floor(info.width / 2)) * info.channels;
+    expect([data[centre], data[centre + 1], data[centre + 2]]).toEqual([0, 0, 255]);
+    // The disc fills 400 of 512 of its own canvas; at the default iconScale that is most of the 720 height.
+    const x = Math.floor(info.width / 2);
+    let rows = 0;
+    for (let y = 0; y < info.height; y++) {
+      const i = (y * info.width + x) * info.channels;
+      if (data[i + 2] > 200 && data[i] < 50) rows++;
+    }
+    expect(rows).toBeGreaterThan(info.height * 0.5);
+    expect(rows).toBeLessThan(info.height);
   });
 });
 

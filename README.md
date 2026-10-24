@@ -89,6 +89,7 @@ SVG inputs are rasterized at the density each size needs, so a small viewBox sti
 | `--set brandAssets.topShelfImage.filePrefix=` | `brandAssets.topShelfImage(Wide).filePrefix` | via `config` | string | `top` / `wide` | File name prefix. |
 | `--set brandAssets.topShelfImage.backgroundImage=` | `brandAssets.topShelfImage(Wide).backgroundImage` | via `config` | path | `--background` | Backdrop for that Top Shelf image only, cover-cropped from its centre. The app icons keep `--background`. |
 | `--set brandAssets.topShelfImage.iconScale=` | `brandAssets.topShelfImage(Wide).iconScale` | via `config` | number | `--tv-icon-scale` | How much of the 720pt height the mark covers on that Top Shelf image only. The app icons keep `--tv-icon-scale`. |
+| `--set brandAssets.topShelfImage.iconImage=` | `brandAssets.topShelfImage(Wide).iconImage` | via `config` | path | the icon | The mark on that Top Shelf image only, measured on its own: the parallax layers' art, say, when the flat icon carries an opaque surface for iOS. |
 | `--no-ios-icon` | `iosIcon.enabled` | via `config` | boolean | `true` | iOS `AppIcon.appiconset` on or off. |
 | `--ios-icon-name <name>` | `iosIcon.name` | via `config` | string | `AppIcon` | The `.appiconset` name. Must match `ASSETCATALOG_COMPILER_APPICON_NAME` on the iOS target. |
 | `--no-splash` | `splashScreen.logo.enabled`, `splashScreen.background.enabled` | via `config` | boolean | `true` | Splash logo and color on or off. |

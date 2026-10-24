@@ -17,6 +17,8 @@ const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
   "appStore.video.audio",
   "brandAssets.topShelfImage.backgroundImage",
   "brandAssets.topShelfImageWide.backgroundImage",
+  "brandAssets.topShelfImage.iconImage",
+  "brandAssets.topShelfImageWide.iconImage",
   "splashScreen.logo.image",
   "splashScreen.logo.darkImage",
   ...IDIOMS.flatMap((idiom) => ["image", "darkImage"].map((key) => `splashScreen.logo.idioms.${idiom}.${key}`)),

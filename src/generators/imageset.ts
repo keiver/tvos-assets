@@ -4,9 +4,11 @@ import type {
   SplashScreenLogoConfig,
   TvOSImageCreatorConfig,
 } from "../types.js";
+import sharp from "sharp";
 import { ensureDir, writeContentsJson, safeWriteFile } from "../utils/fs.js";
 import {
   compositeIconOnBackground,
+  contentBox,
   heightAtWidth,
   renderAtSize,
   scaleMultiplier,
@@ -38,6 +40,14 @@ export async function generateTopShelfImageSet(
   const contents = imageSetContentsJson(imageEntries, config.xcassetsMeta);
   writeContentsJson(join(imagesetDir, "Contents.json"), contents);
 
+  // A mark of this image's own is measured on its own; the icon's measurements fit the icon.
+  const mark = asset.iconImage ?? config.inputs.iconImage;
+  if (asset.iconImage) {
+    const meta = await sharp(asset.iconImage).metadata();
+    iconSourceSize = Math.min(meta.width ?? 0, meta.height ?? 0) || undefined;
+    content = await contentBox(asset.iconImage);
+  }
+
   // Generate PNGs at each scale
   for (const scale of asset.scales) {
     const multiplier = scaleMultiplier(scale);
@@ -48,7 +58,7 @@ export async function generateTopShelfImageSet(
 
     const buffer = await compositeIconOnBackground(
       asset.backgroundImage ?? config.inputs.backgroundImage,
-      config.inputs.iconImage,
+      mark,
       w,
       h,
       {
