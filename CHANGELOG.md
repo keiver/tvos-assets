@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-24
+- feat(app-store): scene artwork, any SVG animated by its own <animate> or by selector rules, rendered in Chrome (#18)
+
+
 - feat(app-store): scene artwork. Any SVG `source` becomes a placement's video with
   `animate: { loop, elements }`: each rule in `elements` selects elements of the file (`#id`, `tag`,
   `#id tag`) and writes an `<animate>` on every one in SMIL's own words, `stagger` spreading their
