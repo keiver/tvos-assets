@@ -3,14 +3,17 @@ import { readFileSync } from "node:fs";
 import os from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import type { AppStoreVideoCodec, TvOSImageCreatorConfig } from "../types.js";
+import type { Browser } from "playwright-core";
+import type { AppStoreVideoCodec, SceneAnimation, TvOSImageCreatorConfig } from "../types.js";
 import { ensureDir } from "../utils/fs.js";
 import { riseFrames } from "../utils/rise-frames.js";
 import { rowFrames } from "../utils/row-frames.js";
 import type { RowMotion } from "../utils/row-frames.js";
+import { openSceneBrowser, sceneFrames } from "../utils/scene-browser.js";
 import { animationPeriods, parseRowArtwork } from "../utils/svg-rows.js";
+import { expandScene, sceneRules } from "../utils/svg-scene.js";
 import { StoreCache, inputKey } from "../utils/store-cache.js";
-import { designCentre, enabledAssets, readRowArtwork } from "./app-store.js";
+import { designCentre, enabledAssets, readRowArtwork, sceneAnimate } from "./app-store.js";
 import type { AppStoreAsset } from "./app-store.js";
 
 const run = promisify(execFile);
@@ -315,6 +318,22 @@ export async function encodeRows(options: RowVideo): Promise<void> {
   await encodeFrames(options, source.frame);
 }
 
+/**
+ * Play a scene's SVG (its own SMIL plus the `elements` rules written in) in the browser for one
+ * loop; every animation's period divides the loop, so the last frame runs into the first.
+ */
+export async function encodeScene(options: RowVideo & { browser: Browser; elements?: SceneAnimation[] }): Promise<void> {
+  const { width, height, seconds } = options;
+  const svg = expandScene(readFileSync(options.source, "utf8"), options.elements);
+  sceneRules(svg, seconds);
+  const frames = await sceneFrames(options.browser, svg, width, height);
+  try {
+    await encodeFrames(options, frames.frame);
+  } finally {
+    await frames.close();
+  }
+}
+
 /** Encode `frame(t)` over the loop: frames are rendered several at a time and piped to ffmpeg in order. */
 async function encodeFrames(options: RowVideo, frame: (t: number) => Promise<Buffer>): Promise<void> {
   const { width, height, fps, seconds } = options;
@@ -384,6 +403,8 @@ export async function generateAppStoreVideos(outDir: string, config: TvOSImageCr
   const cache = new StoreCache(outDir);
 
   const written: string[] = [];
+  let browser: Browser | undefined;
+  try {
   for (const asset of assets) {
     const filename = `${asset.video}${extension}`;
     const output = join(outDir, filename);
@@ -392,12 +413,18 @@ export async function generateAppStoreVideos(outDir: string, config: TvOSImageCr
     const centre = designCentre(asset, readRowArtwork(placement.source));
     const sound = [Boolean(audio), AUDIO_CROSSFADE, audioStart ?? null, audioEnd ?? null];
     const animate = (placement.animate ?? {}) as { rows?: number; rise?: number };
+    const scene = placement.video ? undefined : sceneAnimate(placement);
     const key = placement.video
       ? inputKey([placement.video, audio], ["recording", common.width, common.height, fps, codec, encoder, sound])
-      : inputKey([placement.source, audio], [animate.rise ? "rise" : "rows", common.width, common.height, fps, codec, encoder, placement.animate, centre, sound]);
+      : scene
+        ? inputKey([placement.source, audio], ["scene", common.width, common.height, fps, codec, encoder, scene, sound])
+        : inputKey([placement.source, audio], [animate.rise ? "rise" : "rows", common.width, common.height, fps, codec, encoder, placement.animate, centre, sound]);
     if (cache.fresh(filename, key)) continue;
     if (placement.video) {
       await encodeRecording({ ...common, source: placement.video, minSeconds: asset.minSeconds ?? 5 });
+    } else if (scene) {
+      browser ??= await openSceneBrowser();
+      await encodeScene({ ...common, source: placement.source as string, seconds: scene.loop as number, browser, elements: scene.elements });
     } else if (animate.rise) {
       await encodeRise({ ...common, source: placement.source as string, seconds: animate.rise, centre });
     } else {
@@ -405,6 +432,9 @@ export async function generateAppStoreVideos(outDir: string, config: TvOSImageCr
     }
     cache.record(filename, key);
     written.push(output);
+  }
+  } finally {
+    await browser?.close();
   }
   return written;
 }

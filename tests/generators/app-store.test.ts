@@ -1,10 +1,10 @@
 jest.setTimeout(120000);
 
 import sharp from "sharp";
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig } from "../../src/config";
-import { APP_STORE_ASSETS as ALL_ASSETS, designCentre, generateAppStoreAssets } from "../../src/generators/app-store";
+import { APP_STORE_ASSETS as ALL_ASSETS, designCentre, generateAppStoreAssets, sceneSidecars } from "../../src/generators/app-store";
 import { parseRowArtwork } from "../../src/utils/svg-rows";
 import type { Rect } from "../../src/utils/image-processing";
 
@@ -302,5 +302,75 @@ describe("appStore config", () => {
     await expect(enabledConfig({ backgroundImage: join(TMP, "nope.png") })).rejects.toThrow(
       /appStore\.backgroundImage not found/,
     );
+  });
+});
+
+const SCENE_SVG = readFileSync(join(__dirname, "../../examples/scene-artwork/fireflies.svg"), "utf8");
+const breathe = { select: "#lights g", attributeName: "opacity", values: "0.35;1;0.35", dur: 4, stagger: true };
+
+function writeScene(): string {
+  const art = join(TMP, "scene.svg");
+  writeFileSync(art, SCENE_SVG);
+  return art;
+}
+
+describe("scene artwork config", () => {
+  it("takes loop and elements on a video placement, elements alone on universal, and loop alone", async () => {
+    const art = writeScene();
+    const config = await enabledConfig({
+      header: { source: art, animate: { loop: 20, elements: [breathe] } },
+      universal: { source: art, animate: { elements: [breathe] } },
+    });
+    expect(config.appStore.header.animate).toEqual({ loop: 20, elements: [breathe] });
+    expect(sceneSidecars(config).map((asset) => asset.filename)).toEqual(["header.png", "universal.png"]);
+    const silent = await enabledConfig({ header: { source: art, animate: { loop: 20 } } });
+    expect(sceneSidecars(silent)).toEqual([]);
+  });
+
+  it("names what is wrong with a scene", async () => {
+    const art = writeScene();
+    const png = join(TMP, "black.png");
+    const cases: [Record<string, unknown>, RegExp][] = [
+      [{ header: { source: art, animate: { elements: [breathe] } } }, /appStore\.header\.animate\.loop is required/],
+      [{ universal: { source: art, animate: { loop: 20 } } }, /appStore\.universal\.animate\.loop is not supported/],
+      [{ header: { source: art, animate: { loop: 3 } } }, /Invalid appStore\.header\.animate\.loop: "3"\. Use 5 to 30/],
+      [{ eventCard: { enabled: true, source: art, animate: { loop: 10 } } }, /Invalid appStore\.eventCard\.animate\.loop: "10"\. Use 15 to 30/],
+      [{ header: { source: png, animate: { loop: 20 } } }, /appStore\.header\.animate needs an SVG appStore\.header\.source/],
+      [{ header: { source: art, animate: { loop: 20, elements: [{ ...breathe, dur: 3 }] } } }, /elements\[0\]\.dur \(3 s\) does not divide the 20 s loop/],
+      [{ header: { source: art, animate: { loop: 20, elements: [{ ...breathe, select: "g > circle" }] } } }, /elements\[0\]\.select: .*not one of #id, tag or #id tag/],
+      [{ header: { source: art, animate: { loop: 20, elements: [{ ...breathe, ease: true }] } } }, /elements\[0\] has unknown keys: ease/],
+      [{ header: { source: art, animate: { loop: 20, elements: [{ ...breathe, keySplines: "0 0 1 1" }] } } }, /keySplines needs calcMode "spline"/],
+      [{ header: { source: art, animate: { loop: 20, elements: [{ ...breathe, keyTimes: "0;1" }] } } }, /keyTimes has 2 entries for 3 values/],
+      [{ header: { source: art, animate: { loop: 20, elements: [{ ...breathe, values: "" }] } } }, /values must hold one or more/],
+      [{ header: { source: art, animate: { loop: 20, elements: [{ ...breathe, attributeName: "1x" }] } } }, /attributeName must be an attribute name/],
+      [{ header: { source: art, animate: { loop: 20, elements: [{ ...breathe, additive: "max" }] } } }, /additive must be replace or sum/],
+      [{ header: { source: art, animate: { loop: 20, elements: "all" } } }, /elements must be a list/],
+      [{ header: { source: art, animate: { loop: 20, rows: 5 } } }, /takes one of rows or rise, got: loop, rows/],
+    ];
+    for (const [extra, error] of cases) await expect(enabledConfig(extra)).rejects.toThrow(error);
+  });
+});
+
+describe("scene artwork stills (Chrome)", () => {
+  it("draws the first frame in Chrome, writes the file as played beside it, and skips both next time", async () => {
+    const art = writeScene();
+    const config = await enabledConfig({
+      header: { source: art, animate: { loop: 20, elements: [breathe] } },
+      searchResults: { enabled: false },
+      universal: { enabled: false },
+    });
+    const dir = join(TMP, "AppStore");
+    await generateAppStoreAssets(dir, config);
+    const meta = await sharp(join(dir, "header.png")).metadata();
+    expect([meta.width, meta.height, meta.hasAlpha]).toEqual([3840, 1646, false]);
+    const played = readFileSync(join(dir, "header.svg"), "utf8");
+    expect(played.match(/<animate /g)).toHaveLength(6);
+    expect(played).toContain('begin="-0.44s"');
+    const store = JSON.parse(readFileSync(join(dir, ".tvos-assets-store.json"), "utf8")) as Record<string, string>;
+    expect(store["header.svg"]).toBe(store["header.png"]);
+
+    const before = statSync(join(dir, "header.png")).mtimeMs;
+    await generateAppStoreAssets(dir, config);
+    expect(statSync(join(dir, "header.png")).mtimeMs).toBe(before);
   });
 });

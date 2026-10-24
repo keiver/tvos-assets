@@ -15,7 +15,7 @@ import { generateAppIconSet } from "./generators/appiconset.js";
 import { generateSplashLogoImageSet } from "./generators/imageset.js";
 import { generateColorSet } from "./generators/colorset.js";
 import { generateIcon } from "./generators/icon.js";
-import { enabledAssets, generateAppStoreAssets } from "./generators/app-store.js";
+import { enabledAssets, generateAppStoreAssets, sceneSidecars } from "./generators/app-store.js";
 import { generateAppStoreVideos, videoAssets } from "./generators/app-store-video.js";
 import { generatePreview } from "./generators/preview.js";
 import type { OutsideLinkStyle } from "./generators/preview.js";
@@ -135,7 +135,7 @@ export function planAssets(config: TvOSImageCreatorConfig, options: PlanOptions 
   const standaloneIcon = options.standaloneIcon ?? false;
   const preview = options.preview ?? false;
   const stills = enabledAssets(config).length;
-  const appStore = stills + videoAssets(config).length;
+  const appStore = stills + sceneSidecars(config).length + videoAssets(config).length;
 
   return {
     directories,

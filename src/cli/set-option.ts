@@ -36,7 +36,7 @@ const OPTIONAL_NUMBER_PATHS: ReadonlySet<string> = new Set([
   "brandAssets.topShelfImageWide.iconScale",
   ...IDIOMS.map((idiom) => `splashScreen.logo.idioms.${idiom}.size`),
   ...["header", "searchResults", "universal", "eventCard", "eventDetails"].flatMap((placement) =>
-    ["rows", "rise"].map((kind) => `appStore.${placement}.animate.${kind}`),
+    ["rows", "rise", "loop"].map((kind) => `appStore.${placement}.animate.${kind}`),
   ),
 ]);
 

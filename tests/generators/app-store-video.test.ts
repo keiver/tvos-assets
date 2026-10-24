@@ -10,6 +10,7 @@ import {
   bestLoopStart,
   encodeRise,
   encodeRows,
+  encodeScene,
   encoderPreference,
   ffmpegPath,
   generateAppStoreVideos,
@@ -19,7 +20,11 @@ import {
   videoAssets,
 } from "../../src/generators/app-store-video";
 import { risePhase, riseTiming } from "../../src/utils/rise-frames";
+import { openSceneBrowser } from "../../src/utils/scene-browser";
 import { RAISED_SVG, ROW_SVG } from "../fixtures/row-artwork";
+import { readFileSync } from "node:fs";
+
+const SCENE_SVG = readFileSync(join(__dirname, "../../examples/scene-artwork/fireflies.svg"), "utf8");
 
 const TMP = join(__dirname, "../../.test-tmp-app-store-video");
 
@@ -320,6 +325,50 @@ describeWithFfmpeg("encodeRows (ffmpeg)", () => {
     await expect(
       encodeRows({ ffmpeg, encoder: await pickEncoder(ffmpeg, "h264"), source, output: join(TMP, "blink.mp4"), width: 400, height: 200, fps: 30, seconds: 5, codec: "h264" }),
     ).rejects.toThrow(/lasts 2 s, which does not divide the 5 s loop/);
+  });
+});
+
+describeWithFfmpeg("encodeScene (ffmpeg and Chrome)", () => {
+  it("plays the rules in Chrome for one loop, each light breathing out of step with the next", async () => {
+    const source = join(TMP, "scene.svg");
+    writeFileSync(source, SCENE_SVG);
+    const output = join(TMP, "scene.mp4");
+    const ffmpeg = ffmpegPath();
+    const browser = await openSceneBrowser();
+    try {
+      await encodeScene({
+        ffmpeg, encoder: await pickEncoder(ffmpeg, "h264"), source, output, width: 480, height: 206, fps: 30, seconds: 5, codec: "h264", browser,
+        elements: [{ select: "#lights g", attributeName: "opacity", values: "0;1;0", dur: 5, stagger: true }],
+      });
+    } finally {
+      await browser.close();
+    }
+    const probe = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-show_streams", "-of", "json", output], { encoding: "utf-8" })) as { streams: Record<string, string | number>[] };
+    expect(probe.streams.find((s) => s.codec_type === "video")).toMatchObject({ width: 480, height: 206, nb_frames: "150" });
+    const frame = (t: number): Buffer =>
+      execFileSync("ffmpeg", ["-v", "error", "-ss", String(t), "-i", output, "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"]);
+    const red = (buf: Buffer, x: number, y: number): number => buf[(y * 480 + x) * 3];
+    // The first light (300,520 in the 1920x823 scene) begins 0.44 s in, so it peaks near 2.06 s and is dim at 0.
+    expect(red(frame(2.06), 75, 130)).toBeGreaterThan(red(frame(0), 75, 130) + 60);
+    // The second light (640,440) begins 2.91 s in, so at 2.06 s it is on its way down, dimmer than the first.
+    expect(red(frame(2.06), 160, 110)).toBeLessThan(red(frame(2.06), 75, 130) - 40);
+  });
+
+  it("refuses a rule whose dur does not divide the loop", async () => {
+    const source = join(TMP, "scene.svg");
+    writeFileSync(source, SCENE_SVG);
+    const ffmpeg = ffmpegPath();
+    const browser = await openSceneBrowser();
+    try {
+      await expect(
+        encodeScene({
+          ffmpeg, encoder: await pickEncoder(ffmpeg, "h264"), source, output: join(TMP, "bad.mp4"), width: 480, height: 206, fps: 30, seconds: 5, codec: "h264", browser,
+          elements: [{ select: "#lights g", attributeName: "opacity", values: "0;1;0", dur: 2 }],
+        }),
+      ).rejects.toThrow(/lasts 2 s, which does not divide the 5 s loop/);
+    } finally {
+      await browser.close();
+    }
   });
 });
 

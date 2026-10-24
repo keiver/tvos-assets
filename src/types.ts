@@ -155,11 +155,40 @@ export interface AppStorePlacementConfig {
   source?: string;
   /**
    * Loop length in seconds (5-30) of a video of row-artwork `source`: `rows` slides its rows,
-   * `rise` lifts its cards out of the surface and back, a few at a time.
+   * `rise` lifts its cards out of the surface and back, a few at a time. A scene (`loop`,
+   * `elements`) is any SVG `source` played by a browser: its own SMIL plus the `elements` rules.
    */
-  animate?: { rows: number } | { rise: number };
+  animate?: { rows: number } | { rise: number } | SceneAnimate;
   /** A recording (.mov, .mp4, .m4v) to cut into this placement's looping video. */
   video?: string;
+}
+
+/** Scene artwork: `loop` seconds of video (none for universal, which is a still), `elements` the motion. */
+export interface SceneAnimate {
+  loop?: number;
+  elements?: SceneAnimation[];
+}
+
+/**
+ * One rule written into the SVG as an `<animate>` on every element `select` matches. The keys
+ * other than `select` and `stagger` are SMIL's own and mean what they mean there.
+ */
+export interface SceneAnimation {
+  /** `#id`, `tag`, or `#id tag` (every `tag` inside the element with that id). */
+  select: string;
+  attributeName: string;
+  /** Semicolon-separated SMIL `values`. */
+  values: string;
+  /** Seconds; must divide the loop. */
+  dur: number;
+  /** Seconds into the animation the loop starts at. */
+  begin?: number;
+  keyTimes?: string;
+  calcMode?: "linear" | "discrete" | "spline";
+  keySplines?: string;
+  additive?: "replace" | "sum";
+  /** Spread the matches' `begin` across `dur`, so no two neighbours move in step. */
+  stagger?: boolean;
 }
 
 export type AppStoreVideoCodec = "h264" | "prores";

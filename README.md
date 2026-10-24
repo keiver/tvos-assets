@@ -34,7 +34,7 @@ npm install -g tvos-assets           # global CLI
 npx tvos-assets --help               # no install
 ```
 
-Needs Node.js 20.9 or later. [sharp](https://sharp.pixelplumbing.com/install) installs with it. App Store videos also need [ffmpeg](https://ffmpeg.org) on `PATH` (or at `FFMPEG_PATH`).
+Needs Node.js 20.9 or later. [sharp](https://sharp.pixelplumbing.com/install) installs with it. App Store videos also need [ffmpeg](https://ffmpeg.org) on `PATH` (or at `FFMPEG_PATH`), and [scene artwork](#scene-artwork) needs Google Chrome (or a Chromium at `CHROME_PATH`).
 
 ## Usage
 
@@ -104,7 +104,7 @@ SVG inputs are rasterized at the density each size needs, so a small viewBox sti
 | `--app-store-center <path>` | `appStore.centerImage` | `appStore.centerImage` | path | the icon | Art centred in each safe area, such as a wordmark. |
 | `--set appStore.iconScale=` | `appStore.iconScale` | `appStore.iconScale` | number | `0.8` | How much of each safe area the centred art covers. |
 | `--set appStore.header.source=` | `appStore.<placement>.source` | same keys | path | none | Finished art (SVG or PNG) for a placement. Required for `eventCard` and `eventDetails`. See [Row artwork](#row-artwork). |
-| `--set appStore.header.animate.rows=20` | `appStore.<placement>.animate` | same keys | `{ rows: seconds }` or `{ rise: seconds }` | none | A looping video from row artwork, its rows sliding or its [cards rising](#cards-that-rise): 5-30 s, or 15-30 s for In-App Events. Not for `universal`. |
+| `--set appStore.header.animate.rows=20` | `appStore.<placement>.animate` | same keys | `{ rows: seconds }`, `{ rise: seconds }` or `{ loop: seconds, elements: [...] }` | none | A looping video: row artwork's rows sliding or its [cards rising](#cards-that-rise), or a [scene](#scene-artwork) played in Chrome. 5-30 s, or 15-30 s for In-App Events. `universal` takes a scene's `elements` only. |
 | `--set appStore.searchResults.video=` | `appStore.<placement>.video` | same keys | path | none | A [recording](#recordings) cut into the placement's looping video. Not for `universal`. |
 | `--set appStore.universal.enabled=false` | `appStore.<placement>.enabled` | same keys | boolean | on; In-App Events off | Write a placement or skip it: `header`, `searchResults`, `universal`, `eventCard`, `eventDetails`. |
 | `--set appStore.searchResults.center=false` | `appStore.<placement>.{backgroundImage,centerImage,center}` | same keys | per placement | `center: true` | Per-placement backdrop and centred art; `center: false` writes the backdrop alone. |
@@ -369,6 +369,42 @@ A card comes up every 10 s in a 20 or 30 s loop (once per loop in shorter ones),
 To put the same art on every card (a logo pressed into each one, say), fill a full-canvas shape with a `pattern` whose tile is one card spacing wide and two rows tall.
 
 Cards that draw the same share their frames, so this is fast too: a 20 s 4K header takes about 40 s on an M1 Max.
+
+### Scene artwork
+
+Row artwork is one kind of `source`. A **scene** is any other SVG: a night sky, a wordmark on a gradient, whatever the file draws, cover-fitted to each canvas. `animate` with `loop` makes its video, and `elements` says what moves: each rule selects elements of the file and writes an `<animate>` on every one of them, in SMIL's own words.
+
+```json
+"appStore": {
+  "enabled": true,
+  "header": { "source": "./store/scene.svg", "animate": { "loop": 20, "elements": [
+    { "select": "#lights g", "attributeName": "opacity", "values": "0.35;1;0.35", "dur": 4, "stagger": true },
+    { "select": "#lights circle", "attributeName": "cy", "values": "0;-10;0", "dur": 10, "additive": "sum", "stagger": true }
+  ] } },
+  "universal": { "source": "./store/scene.svg", "animate": { "elements": [
+    { "select": "#lights g", "attributeName": "opacity", "values": "0.35;1;0.35", "dur": 4, "stagger": true }
+  ] } }
+}
+```
+
+Frames come from the Google Chrome on your machine (or the browser at `CHROME_PATH`): the file's animations paused and seeked to each frame's time, so the video is what Safari and Chrome play when they open the SVG. Beside each still, `header.svg` (and so on) is the file as played, `<animate>` tags written in: open it in a browser to see the loop without rendering it. `universal` takes `elements` without `loop`, since App Store Connect takes no video there; its still is the scene's first frame, like the others.
+
+| Key | Meaning |
+|---|---|
+| `select` | `#id`: the element with that id. `tag`: every element of that name outside `<defs>`, `<mask>` and `<clipPath>`. `#id tag`: every such element inside the element with that id. |
+| `attributeName`, `values`, `dur`, `keyTimes`, `calcMode`, `keySplines`, `additive` | SMIL's, written on the `<animate>` as they are; `dur` in seconds. `additive: "sum"` adds the values to the element's own, so one rule drifts circles that sit at different places. |
+| `begin` | Seconds into its animation each match is at when the loop starts. |
+| `stagger` | Spreads the matches' starts across `dur` by the golden ratio, so no two neighbours move in step. |
+
+An SVG that already carries its own `<animate>` tags needs no `elements`: `animate: { loop: 20 }` plays it as it is. `elements` cannot be set with `--set`; use the config file or the plugin prop. The rules a scene follows, each checked with a message naming it:
+
+| Rule | Why |
+|---|---|
+| `<svg>` has a `viewBox`, or numeric `width` and `height` | The fit to each canvas needs one. |
+| Every animation's `dur` divides `loop` | So the last frame runs into the first. |
+| No `<text>`, no `<script>`, no `<image>` linking outside the file, no CSS `@keyframes` | Fonts and scripts differ per machine; a CSS animation's length cannot be checked against the loop. |
+
+Chrome hands over a 3840x1646 frame in about half a second, four pages at a time: the 20 s header and search results videos together take about 6.5 minutes on an M1 Max, and the three stills 3 s. [`examples/scene-artwork/fireflies.svg`](examples/scene-artwork/fireflies.svg) is a scene with six lights in a `<g id="lights">`.
 
 ### Recordings
 

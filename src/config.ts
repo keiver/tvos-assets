@@ -2,8 +2,9 @@ import { readFileSync, existsSync, lstatSync, statSync, accessSync, constants } 
 import { resolve, join, extname, dirname } from "node:path";
 import { homedir } from "node:os";
 import sharp from "sharp";
-import type { Idiom, ImageStackAssetConfig, SplashScreenLogoConfig, TvOSImageCreatorConfig } from "./types.js";
+import type { Idiom, ImageStackAssetConfig, SceneAnimate, SplashScreenLogoConfig, TvOSImageCreatorConfig } from "./types.js";
 import { darkenHex } from "./utils/color.js";
+import { parseSelect } from "./utils/svg-scene.js";
 import { IDIOM_KEYS, IDIOM_SCALES, IDIOMS } from "./splash.js";
 
 const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
@@ -209,6 +210,66 @@ export function isSvgPath(filePath: string): boolean {
   return extname(filePath).toLowerCase() === ".svg";
 }
 
+const SCENE_RULE_KEYS = ["select", "attributeName", "values", "dur", "begin", "keyTimes", "calcMode", "keySplines", "additive", "stagger"];
+
+/** The scene form of `appStore.<key>.animate`: `loop` for the video, `elements` for the motion written into the SVG. */
+function validateSceneAnimate(animate: SceneAnimate, key: string, event: boolean, source: string | undefined, noVideo: string): void {
+  const label = `appStore.${key}.animate`;
+  if (!source || !isSvgPath(source)) throw new Error(`${label} needs an SVG appStore.${key}.source.`);
+  const min = event ? 15 : 5;
+  if (key === "universal") {
+    if (animate.loop !== undefined) throw new Error(`${label}.loop is not supported: ${noVideo}; give universal elements only, for its still.`);
+  } else if (animate.loop === undefined) {
+    throw new Error(`${label}.loop is required: the seconds the scene's video loops over, ${min} to 30.`);
+  } else if (typeof animate.loop !== "number" || !Number.isFinite(animate.loop) || animate.loop < min || animate.loop > 30) {
+    throw new Error(`Invalid ${label}.loop: "${String(animate.loop)}". Use ${min} to 30 seconds.`);
+  }
+  if (animate.elements === undefined) return;
+  if (!Array.isArray(animate.elements)) throw new Error(`${label}.elements must be a list of rules.`);
+  animate.elements.forEach((rule, i) => {
+    const at = `${label}.elements[${i}]`;
+    if (typeof rule !== "object" || rule === null || Array.isArray(rule)) {
+      throw new Error(`${at} must be an object with select, attributeName, values and dur.`);
+    }
+    const unknown = Object.keys(rule).filter((k) => !SCENE_RULE_KEYS.includes(k));
+    if (unknown.length > 0) throw new Error(`${at} has unknown keys: ${unknown.join(", ")}. Known: ${SCENE_RULE_KEYS.join(", ")}.`);
+    try {
+      parseSelect(rule.select);
+    } catch (err) {
+      throw new Error(`${at}.select: ${(err as Error).message}`);
+    }
+    if (typeof rule.attributeName !== "string" || !/^[A-Za-z][\w:-]*$/.test(rule.attributeName)) {
+      throw new Error(`${at}.attributeName must be an attribute name such as opacity, got: "${String(rule.attributeName)}".`);
+    }
+    const values = typeof rule.values === "string" ? rule.values.split(";").map((v) => v.trim()).filter(Boolean) : [];
+    if (values.length === 0) throw new Error(`${at}.values must hold one or more values separated by ";".`);
+    if (typeof rule.dur !== "number" || !Number.isFinite(rule.dur) || !(rule.dur > 0)) {
+      throw new Error(`${at}.dur must be seconds above 0, got: "${String(rule.dur)}".`);
+    }
+    if (animate.loop !== undefined) {
+      const cycles = animate.loop / rule.dur;
+      if (Math.abs(cycles - Math.round(cycles)) > 1e-6) {
+        throw new Error(`${at}.dur (${rule.dur} s) does not divide the ${animate.loop} s loop, so the loop would jump.`);
+      }
+    }
+    if (rule.begin !== undefined && (typeof rule.begin !== "number" || !Number.isFinite(rule.begin))) {
+      throw new Error(`${at}.begin must be seconds, got: "${String(rule.begin)}".`);
+    }
+    if (rule.keyTimes !== undefined) {
+      const count = typeof rule.keyTimes === "string" ? rule.keyTimes.split(";").filter((v) => v.trim()).length : 0;
+      if (count !== values.length) throw new Error(`${at}.keyTimes has ${count} entries for ${values.length} values; they go one to one.`);
+    }
+    if (rule.calcMode !== undefined && !["linear", "discrete", "spline"].includes(rule.calcMode)) {
+      throw new Error(`${at}.calcMode must be linear, discrete or spline, got: "${String(rule.calcMode)}".`);
+    }
+    if (rule.keySplines !== undefined && rule.calcMode !== "spline") throw new Error(`${at}.keySplines needs calcMode "spline".`);
+    if (rule.additive !== undefined && !["replace", "sum"].includes(rule.additive)) {
+      throw new Error(`${at}.additive must be replace or sum, got: "${String(rule.additive)}".`);
+    }
+    if (rule.stagger !== undefined && typeof rule.stagger !== "boolean") throw new Error(`${at}.stagger must be true or false.`);
+  });
+}
+
 function validateImagePath(rawPath: string, label: string): string {
   const resolved = resolve(rawPath);
   if (!existsSync(resolved)) {
@@ -289,7 +350,7 @@ const STACKING_ORDER = ["back", "middle", "front"] as const;
  *
  * Only `source: "icon"` layers count: a `background` layer is the backdrop, not
  * part of the icon. Every one of them must carry its own `imagePath`, because a
- * layer without one falls back to `inputs.iconImage` — the very thing being
+ * layer without one falls back to `inputs.iconImage`, the very thing being
  * derived.
  */
 function assemblyLayers(stack: ImageStackAssetConfig): string[] | undefined {
@@ -629,18 +690,22 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     }
     if (placement.animate) {
       const kinds = Object.keys(placement.animate);
-      if (kinds.length !== 1 || (kinds[0] !== "rows" && kinds[0] !== "rise")) {
-        throw new Error(`appStore.${key}.animate takes one of rows or rise, got: ${kinds.join(", ") || "neither"}.`);
-      }
-      const kind = kinds[0];
-      const seconds = (placement.animate as Record<string, number>)[kind];
-      const min = event ? 15 : 5;
-      if (key === "universal") throw new Error(`appStore.universal.animate is not supported: ${NO_VIDEO}.`);
-      if (!placement.source || !isSvgPath(placement.source)) {
-        throw new Error(`appStore.${key}.animate needs an SVG appStore.${key}.source with its cards in a <mask>.`);
-      }
-      if (!Number.isFinite(seconds) || seconds < min || seconds > 30) {
-        throw new Error(`Invalid appStore.${key}.animate.${kind}: "${String(seconds)}". Use ${min} to 30 seconds.`);
+      if (kinds.length > 0 && kinds.every((kind) => kind === "loop" || kind === "elements")) {
+        validateSceneAnimate(placement.animate as SceneAnimate, key, event, placement.source, NO_VIDEO);
+      } else {
+        if (kinds.length !== 1 || (kinds[0] !== "rows" && kinds[0] !== "rise")) {
+          throw new Error(`appStore.${key}.animate takes one of rows or rise, got: ${kinds.join(", ") || "neither"}.`);
+        }
+        const kind = kinds[0];
+        const seconds = (placement.animate as Record<string, number>)[kind];
+        const min = event ? 15 : 5;
+        if (key === "universal") throw new Error(`appStore.universal.animate is not supported: ${NO_VIDEO}.`);
+        if (!placement.source || !isSvgPath(placement.source)) {
+          throw new Error(`appStore.${key}.animate needs an SVG appStore.${key}.source with its cards in a <mask>.`);
+        }
+        if (!Number.isFinite(seconds) || seconds < min || seconds > 30) {
+          throw new Error(`Invalid appStore.${key}.animate.${kind}: "${String(seconds)}". Use ${min} to 30 seconds.`);
+        }
       }
     }
   }
@@ -767,7 +832,7 @@ export async function validateInputImages(
   const bgW = bgMeta.width ?? 0;
   const bgH = bgMeta.height ?? 0;
 
-  // Raster minimums don't apply to vector inputs — SVGs rasterize at whatever density is needed
+  // Raster minimums don't apply to vector inputs: SVGs rasterize at whatever density is needed
   if (!iconIsSvg && (iconW < ICON_MIN || iconH < ICON_MIN)) {
     throw new Error(
       `Icon image is too small (${iconW}x${iconH}). Minimum size is ${ICON_MIN}x${ICON_MIN}px.`,

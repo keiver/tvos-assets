@@ -527,21 +527,58 @@
         "enabled": { "type": "boolean", "default": true, "description": "Write this placement at all." },
         "source": { "type": "string", "description": "Finished artwork (SVG or PNG) for this placement, replacing the backdrop and centre item. Row artwork, an SVG whose <mask> holds rows of one repeated shape over full-canvas fills, is re-tiled to the canvas, so one design serves the 21:9 header and the 3:2 search results." },
         "animate": {
-          "type": "object",
-          "description": "Video of row-artwork source, one of rows or rise. Not for universal.",
-          "properties": {
-            "rows": { "type": "number", "minimum": 5, "maximum": 30, "description": "Loop length in seconds. Rows slide one card per loop, alternating direction, everything outside the mask fixed." },
-            "rise": { "type": "number", "minimum": 5, "maximum": 30, "description": "Loop length in seconds. Cards rise out of the surface and sink back a few at a time, their shadows growing with them; the surface is empty in between." }
-          },
-          "minProperties": 1,
-          "maxProperties": 1,
-          "additionalProperties": false
+          "description": "Video of the source: { rows } or { rise } for row artwork, { loop, elements } for a scene (any SVG, played by the Google Chrome on this machine). Not for universal, which takes a scene's elements only, for its still.",
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "rows": { "type": "number", "minimum": 5, "maximum": 30, "description": "Loop length in seconds. Rows slide one card per loop, alternating direction, everything outside the mask fixed." }
+              },
+              "required": ["rows"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "rise": { "type": "number", "minimum": 5, "maximum": 30, "description": "Loop length in seconds. Cards rise out of the surface and sink back a few at a time, their shadows growing with them; the surface is empty in between." }
+              },
+              "required": ["rise"],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "loop": { "type": "number", "minimum": 5, "maximum": 30, "description": "Loop length in seconds of a scene: the SVG played by a browser, every SMIL dur dividing the loop." },
+                "elements": { "type": "array", "items": { "$ref": "#/$defs/sceneAnimation" }, "description": "Rules written into the SVG as <animate> tags before it plays. An SVG with its own <animate> needs none." }
+              },
+              "minProperties": 1,
+              "additionalProperties": false
+            }
+          ]
         },
         "center": { "type": "boolean", "default": true, "description": "Draw the centre item. false writes the backdrop alone, such as a UI capture for search results." },
         "backgroundImage": { "type": "string", "description": "Backdrop for this placement." },
         "centerImage": { "type": "string", "description": "Centre item for this placement." },
         "video": { "type": "string", "description": "A recording (.mov, .mp4, .m4v) cut into this placement's looping video: fitted to the canvas at a constant frame rate, its last 0.5 s dissolved into its start, capped at 30 s. header and searchResults only." }
       },
+      "additionalProperties": false
+    },
+    "sceneAnimation": {
+      "type": "object",
+      "description": "One <animate> written on every element select matches. Every key but select and stagger is SMIL's own.",
+      "properties": {
+        "select": { "type": "string", "description": "#id, tag, or '#id tag' (every tag inside the element with that id)." },
+        "attributeName": { "type": "string" },
+        "values": { "type": "string", "description": "Semicolon-separated SMIL values." },
+        "dur": { "type": "number", "exclusiveMinimum": 0, "description": "Seconds; must divide the loop." },
+        "begin": { "type": "number", "description": "Seconds into the animation the loop starts at." },
+        "keyTimes": { "type": "string" },
+        "calcMode": { "type": "string", "enum": ["linear", "discrete", "spline"] },
+        "keySplines": { "type": "string" },
+        "additive": { "type": "string", "enum": ["replace", "sum"] },
+        "stagger": { "type": "boolean", "description": "Spread the matches' begin across dur, so no two neighbours move in step." }
+      },
+      "required": ["select", "attributeName", "values", "dur"],
       "additionalProperties": false
     }
   }

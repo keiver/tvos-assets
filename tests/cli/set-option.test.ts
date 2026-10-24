@@ -39,9 +39,10 @@ describe("parseSetEntry", () => {
     expect(() => parseSetEntry("appStore.video.audioEnd=soon")).toThrow(/expected a number/);
   });
 
-  it("takes a placement's animate length, rows or rise", () => {
+  it("takes a placement's animate length, rows, rise or a scene's loop", () => {
     expect(parseSetEntry("appStore.header.animate.rows=20")).toEqual({ path: ["appStore", "header", "animate", "rows"], value: 20 });
     expect(parseSetEntry("appStore.searchResults.animate.rise=12.5").value).toBe(12.5);
+    expect(parseSetEntry("appStore.header.animate.loop=20").value).toBe(20);
     expect(() => parseSetEntry("appStore.header.animate.rise=long")).toThrow(/expected a number/);
     expect(() => parseSetEntry("appStore.header.animate.spin=20")).toThrow(/Unknown --set path/);
   });

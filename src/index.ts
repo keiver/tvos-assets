@@ -15,7 +15,7 @@ import pc from "picocolors";
 import { resolveConfig, discoverConfigPath, CONFIG_FILENAME } from "./config.js";
 import type { DeepPartial } from "./config.js";
 import { generateAssets, planAssets } from "./lib.js";
-import { enabledAssets } from "./generators/app-store.js";
+import { enabledAssets, sceneSidecarName, sceneSidecars } from "./generators/app-store.js";
 import { videoAssets } from "./generators/app-store-video.js";
 import type { TargetPlatform } from "./lib.js";
 import type { TvOSImageCreatorConfig } from "./types.js";
@@ -206,7 +206,7 @@ Examples:
         try {
           rmSync(tempDir, { recursive: true, force: true });
         } catch {
-          // Best-effort cleanup — ignore failures
+          // Best-effort cleanup, ignore failures
         }
       }
     }
@@ -310,6 +310,7 @@ Examples:
         if (config.appStore.enabled) {
           const videoExt = config.appStore.video.codec === "prores" ? ".mov" : ".mp4";
           for (const asset of enabledAssets(config)) log(`    ${APP_STORE_DIRNAME}/${asset.filename}`);
+          for (const asset of sceneSidecars(config)) log(`    ${APP_STORE_DIRNAME}/${sceneSidecarName(asset)}`);
           for (const asset of videoAssets(config)) log(`    ${APP_STORE_DIRNAME}/${asset.video}${videoExt}`);
         }
         if (!isDirMode) log(`    ${pc.dim("(packed into")} tvos-assets-<timestamp>.zip${pc.dim(")")}`);

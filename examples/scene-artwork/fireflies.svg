@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="823" viewBox="0 0 1920 823">
+<defs>
+<radialGradient id="night" cx="50%" cy="30%" r="80%"><stop stop-color="#1B2433"/><stop offset=".6" stop-color="#0C111A"/><stop offset="1" stop-color="#04060A"/></radialGradient>
+<linearGradient id="hill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#111A14"/><stop offset="1" stop-color="#050806"/></linearGradient>
+<radialGradient id="halo"><stop stop-color="#FFD84D" stop-opacity=".45"/><stop offset=".35" stop-color="#FFC838" stop-opacity=".16"/><stop offset="1" stop-color="#FFB800" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="1920" height="823" fill="url(#night)"/>
+<g id="hills">
+<path d="M0 640C260 560 520 600 760 580C1000 560 1200 520 1440 560C1640 590 1800 600 1920 580V823H0Z" fill="url(#hill)"/>
+<path d="M0 700C300 660 560 690 820 680C1100 670 1320 640 1560 670C1720 690 1840 700 1920 690V823H0Z" fill="#030503"/>
+</g>
+<g id="lights">
+<g opacity=".9"><circle cx="300" cy="520" r="26" fill="url(#halo)"/><circle cx="300" cy="520" r="4" fill="#FFE27A"/></g>
+<g opacity=".7"><circle cx="640" cy="440" r="20" fill="url(#halo)"/><circle cx="640" cy="440" r="3" fill="#FFE27A"/></g>
+<g opacity=".8"><circle cx="880" cy="600" r="30" fill="url(#halo)"/><circle cx="880" cy="600" r="4.5" fill="#FFE27A"/></g>
+<g opacity=".6"><circle cx="1180" cy="380" r="18" fill="url(#halo)"/><circle cx="1180" cy="380" r="3" fill="#FFE27A"/></g>
+<g opacity=".85"><circle cx="1420" cy="560" r="24" fill="url(#halo)"/><circle cx="1420" cy="560" r="4" fill="#FFE27A"/></g>
+<g opacity=".65"><circle cx="1660" cy="470" r="20" fill="url(#halo)"/><circle cx="1660" cy="470" r="3" fill="#FFE27A"/></g>
+</g>
+</svg>
