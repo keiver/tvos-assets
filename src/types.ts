@@ -45,6 +45,8 @@ export interface ImageSetAssetConfig {
   filePrefix: string;
   /** Backdrop for this image only; inputs.backgroundImage when unset. */
   backgroundImage?: string;
+  /** The mark on this image only; inputs.markImage, else the icon, when unset. */
+  iconImage?: string;
   /** How much of the shorter side the mark covers on this image only; brandAssets.iconScale when unset. */
   iconScale?: number;
 }
@@ -106,6 +108,8 @@ export interface SplashScreenConfig {
 
 export interface InputConfig {
   iconImage: string;
+  /** The brand on transparency drawn over backdrops (Top Shelf images, the App Store centre); the icon when unset. */
+  markImage?: string;
   backgroundImage: string;
   backgroundColor: string;
   darkBackgroundColor: string;
@@ -156,7 +160,8 @@ export interface AppStorePlacementConfig {
   /**
    * Loop length in seconds (5-30) of a video of row-artwork `source`: `rows` slides its rows,
    * `rise` lifts its cards out of the surface and back, a few at a time. A scene (`loop`,
-   * `elements`) is any SVG `source` played by a browser: its own SMIL plus the `elements` rules.
+   * `elements`) is an SVG played by a browser, its own SMIL plus the `elements` rules: the
+   * backdrop with the mark drawn in the safe area, or a `source` as it is.
    */
   animate?: { rows: number } | { rise: number } | SceneAnimate;
   /** A recording (.mov, .mp4, .m4v) to cut into this placement's looping video. */

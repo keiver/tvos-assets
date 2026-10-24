@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { SceneAnimation } from "../../src/types";
-import { animateTag, expandScene, parseSelect, sceneDocument, sceneElements, sceneRules, scenePhase, selectElements } from "../../src/utils/svg-scene";
+import { animateTag, expandScene, markCrop, parseSelect, parseViewBox, placeMark, sceneDocument, sceneElements, sceneRules, scenePhase, selectElements } from "../../src/utils/svg-scene";
 
 const EXAMPLE = readFileSync(join(__dirname, "../../examples/scene-artwork/fireflies.svg"), "utf8");
 
@@ -115,6 +115,52 @@ describe("sceneRules", () => {
     expect(() => sceneRules(svg('<image href="https://example.com/a.png"/>'))).toThrow("outside the file");
     expect(sceneRules(svg('<image href="data:image/png;base64,AAAA"/>')).periods).toEqual([]);
     expect(() => sceneRules(svg("<style>@keyframes a{}</style>"))).toThrow("@keyframes");
+  });
+});
+
+describe("placeMark", () => {
+  // A 10x10 mark with ids a scene could also use, a gradient reference and a <use>.
+  const MARK = `<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10" fill="none" role="img">
+<defs><radialGradient id="halo"><stop stop-color="#fff"/></radialGradient><circle id="dot" r="1"/></defs>
+<circle cx="5" cy="5" r="5" fill="url(#halo)"/><use href="#dot" x="5" y="5"/>
+</svg>`;
+  const art = { svg: MARK, viewBox: { x: 0, y: 0, width: 10, height: 10 }, borderRadius: 0 };
+
+  it("maps the canvas box into the scene's units through the cover fit and fits the mark into it", () => {
+    // SMALL is 200x100 units on a 400x400 canvas: scale 4 (the height fills), 200 px of the scene cut off each side.
+    const out = placeMark(SMALL, art, { x: 80, y: 30, width: 40, height: 40 }, { width: 400, height: 400 });
+    // Box in units: x = (80 + 200) / 4 = 70, y = 30 / 4 = 7.5, 10 wide; the 10 unit mark fits it at scale 1.
+    expect(out).toContain('<g id="mark" fill="none" transform="translate(70 7.5) scale(1)" clip-path="url(#mark-clip)">');
+    expect(out).toContain('<clipPath id="mark-clip"><rect x="0" y="0" width="10" height="10"/></clipPath>');
+    expect(out.indexOf('<g id="mark"')).toBeLessThan(out.lastIndexOf("</svg>"));
+    // The mark's prolog goes; the scene keeps its own.
+    expect(out.match(/<\?xml/g)).toHaveLength(1);
+  });
+
+  it("prefixes the mark's ids and references so they cannot collide with the scene's", () => {
+    const out = placeMark(SMALL, art, { x: 80, y: 30, width: 40, height: 40 }, { width: 400, height: 400 });
+    expect(out).toContain('<radialGradient id="mark-halo">');
+    expect(out).toContain('fill="url(#mark-halo)"');
+    expect(out).toContain('<use href="#mark-dot"');
+    expect(out).toContain('<circle id="moon"');
+  });
+
+  it("crops to the content box, rounds by the icon's radius and draws a PNG mark as an image", () => {
+    // A content box of 512 of 1024 centred: the middle half of the mark, 5 units wide from (2.5, 2.5).
+    const crop = markCrop({ ...art, content: { left: 256, top: 256, size: 512 } });
+    expect(crop).toEqual({ x: 2.5, y: 2.5, width: 5, height: 5 });
+    const png = { png: Buffer.from("png"), viewBox: { x: 0, y: 0, width: 100, height: 50 }, content: { left: 0, top: 256, size: 512 }, sourceSize: 50, borderRadius: 10 };
+    const out = placeMark(SMALL, png, { x: 0, y: 0, width: 200, height: 200 }, { width: 200, height: 100 });
+    // The canvas is the scene's own size, so the 200 px box is 200 units; the 50 unit crop scales by 4 from the origin; rx = 10/50 * 50.
+    expect(markCrop(png)).toEqual({ x: 0, y: 0, width: 50, height: 50 });
+    expect(out).toContain('transform="translate(0 0) scale(4)"');
+    expect(out).toContain('<rect x="0" y="0" width="50" height="50" rx="10"/>');
+    expect(out).toContain('<image href="data:image/png;base64,cG5n" x="0" y="0" width="100" height="50"/>');
+  });
+
+  it("reads a viewBox", () => {
+    expect(parseViewBox(" 0 0 1920 823 ")).toEqual({ x: 0, y: 0, width: 1920, height: 823 });
+    expect(parseViewBox("-5,10,20,30")).toEqual({ x: -5, y: 10, width: 20, height: 30 });
   });
 });
 

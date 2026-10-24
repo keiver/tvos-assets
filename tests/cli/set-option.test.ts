@@ -26,6 +26,7 @@ describe("parseSetEntry", () => {
 
   it("takes a Top Shelf image's own background and iconScale, which have no default", () => {
     expect(parseSetEntry("brandAssets.topShelfImage.backgroundImage=./shelf.svg").value).toBe("./shelf.svg");
+    expect(parseSetEntry("brandAssets.topShelfImageWide.iconImage=./mark.svg").value).toBe("./mark.svg");
     expect(parseSetEntry("brandAssets.topShelfImageWide.iconScale=0.375").value).toBe(0.375);
   });
 
@@ -58,6 +59,7 @@ describe("parseSetEntry", () => {
   });
 
   it("accepts optional paths that are absent from a default config", () => {
+    expect(parseSetEntry("inputs.markImage=./mark.svg").value).toBe("./mark.svg");
     expect(parseSetEntry("inputs.iconDarkImage=./dark.svg").value).toBe("./dark.svg");
     expect(parseSetEntry("brandAssets.appIconLarge.layers.front.imagePath=./f.svg")).toEqual({
       path: ["brandAssets", "appIconLarge", "layers", "front", "imagePath"],

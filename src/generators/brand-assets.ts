@@ -4,9 +4,17 @@ import { ensureDir, writeContentsJson } from "../utils/fs.js";
 import { brandAssetsContentsJson } from "./contents-json.js";
 import { generateImageStack } from "./imagestack.js";
 import { generateTopShelfImageSet } from "./imageset.js";
-import type { ContentBox } from "../utils/image-processing.js";
+import { iconMark } from "../utils/image-processing.js";
+import type { ContentBox, Mark } from "../utils/image-processing.js";
 
-export async function generateBrandAssets(outputDir: string, config: TvOSImageCreatorConfig, iconSourceSize?: number, content?: ContentBox): Promise<void> {
+/** The imagestacks are drawn from the icon and its measurements, the Top Shelf images from the mark. */
+export async function generateBrandAssets(
+  outputDir: string,
+  config: TvOSImageCreatorConfig,
+  iconSourceSize?: number,
+  content?: ContentBox,
+  mark: Mark = iconMark(config.inputs.iconImage, config.inputs.iconBorderRadius, iconSourceSize, content),
+): Promise<void> {
   const brandDir = join(outputDir, `${config.brandAssets.name}.brandassets`);
   ensureDir(brandDir);
 
@@ -64,7 +72,7 @@ export async function generateBrandAssets(outputDir: string, config: TvOSImageCr
   await Promise.all([
     withContext(brandAssets.appIconSmall.name, generateImageStack(brandDir, brandAssets.appIconSmall, config, iconSourceSize, content)),
     withContext(brandAssets.appIconLarge.name, generateImageStack(brandDir, brandAssets.appIconLarge, config, iconSourceSize, content)),
-    withContext(brandAssets.topShelfImage.name, generateTopShelfImageSet(brandDir, brandAssets.topShelfImage, config, iconSourceSize, content)),
-    withContext(brandAssets.topShelfImageWide.name, generateTopShelfImageSet(brandDir, brandAssets.topShelfImageWide, config, iconSourceSize, content)),
+    withContext(brandAssets.topShelfImage.name, generateTopShelfImageSet(brandDir, brandAssets.topShelfImage, config, mark)),
+    withContext(brandAssets.topShelfImageWide.name, generateTopShelfImageSet(brandDir, brandAssets.topShelfImageWide, config, mark)),
   ]);
 }

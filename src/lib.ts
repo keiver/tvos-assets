@@ -21,7 +21,7 @@ import { generatePreview } from "./generators/preview.js";
 import type { OutsideLinkStyle } from "./generators/preview.js";
 import type { TvOSImageCreatorConfig } from "./types.js";
 import { ensureDir, cleanDir, writeContentsJson, safeWriteFile } from "./utils/fs.js";
-import { assembleIconFromLayers, contentBox } from "./utils/image-processing.js";
+import { assembleIconFromLayers, contentBox, iconMark, measureMark } from "./utils/image-processing.js";
 import { splashLogoVariants } from "./splash.js";
 
 export type TargetPlatform = "tvos" | "ios";
@@ -196,6 +196,11 @@ async function generateResolved(
   // each parallax layer, so one transform keeps the layers registered.
   const content = await contentBox(config.inputs.iconImage);
 
+  // The icon's border radius is the icon's: a mark of its own is drawn as it is.
+  const mark = config.inputs.markImage
+    ? await measureMark(config.inputs.markImage)
+    : iconMark(config.inputs.iconImage, config.inputs.iconBorderRadius, iconSourceSize, content);
+
   step("Creating xcassets directory...");
   ensureDir(xcassetsDir);
   writeContentsJson(join(xcassetsDir, "Contents.json"), rootContentsJson(config.xcassetsMeta));
@@ -203,7 +208,7 @@ async function generateResolved(
   if (platforms.includes("tvos")) {
     step("Generating tvOS brand assets (app icons + top shelf)...");
     cleanDir(join(xcassetsDir, `${config.brandAssets.name}.brandassets`));
-    await generateBrandAssets(xcassetsDir, config, iconSourceSize, content);
+    await generateBrandAssets(xcassetsDir, config, iconSourceSize, content, mark);
   }
 
   if (platforms.includes("ios") && config.iosIcon.enabled) {
@@ -231,10 +236,10 @@ async function generateResolved(
 
   if (options.appStoreDir && config.appStore.enabled) {
     step("Generating App Store creative assets...");
-    await generateAppStoreAssets(options.appStoreDir, config, iconSourceSize, content);
+    await generateAppStoreAssets(options.appStoreDir, config, mark);
     if (videoAssets(config).length > 0) {
       step("Cutting App Store header and search-results recordings...");
-      await generateAppStoreVideos(options.appStoreDir, config);
+      await generateAppStoreVideos(options.appStoreDir, config, mark);
     }
   }
 

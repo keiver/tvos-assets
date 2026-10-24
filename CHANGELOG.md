@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+- feat(mark): `--mark` (`inputs.markImage`, plugin `mark`) is the brand on transparency drawn over
+  backdrops, on both Top Shelf images and in the App Store safe area, measured on its own like the
+  icon; the icon when unset. A flat icon that carries an opaque surface for iOS no longer brings
+  the surface onto the Top Shelf or the listing. `brandAssets.topShelfImage.iconImage` (and the
+  same on `topShelfImageWide`) overrides it for that image; `appStore.centerImage` still overrides
+  it for the listing.
+- feat(app-store): a scene plays the backdrop. `animate: { loop, elements }` on a placement
+  without a `source` plays its backdrop SVG in Chrome with the mark drawn in the safe area, as a
+  `<g id="mark">` in the scene's own coordinates (its ids prefixed `mark-`), so `elements` rules
+  reach it (`#mark ellipse`) and its own `<animate>` plays. `center: false` leaves it out. A
+  `source` scene plays as it is, as before. The file as played is written beside the still
+  whenever it differs from the input.
+
 ## [1.10.0] - 2026-10-24
 - feat(app-store): scene artwork, any SVG animated by its own <animate> or by selector rules, rendered in Chrome (#18)
 

@@ -132,6 +132,7 @@ program
     "--icon <path>",
     "Path to icon PNG or SVG (transparent background; optional when --layer-front and --layer-middle are given)",
   )
+  .option("--mark <path>", "Art drawn over backdrops, on the Top Shelf images and in the App Store centre (default: the icon)")
   .option("--background <path>", "Path to background PNG or SVG")
   .option("--color <hex>", 'Background color hex (e.g. "#B43939")')
   .option("--dark-color <hex>", "Dark mode background color hex (default: auto-darkened from --color)")
@@ -247,6 +248,7 @@ Examples:
 
       const config = resolveConfig({
         icon: options.icon,
+        mark: options.mark,
         background: options.background,
         color: options.color,
         darkColor: options.darkColor,
@@ -285,6 +287,7 @@ Examples:
           ? `  Icon:       ${pc.cyan(assembledFrom.join(" + "))}${pc.dim(" (assembled)")}`
           : `  Icon:       ${pc.cyan(config.inputs.iconImage)}`,
       );
+      if (config.inputs.markImage) log(`  Mark:       ${pc.cyan(config.inputs.markImage)}`);
       log(`  Background: ${pc.cyan(config.inputs.backgroundImage)}`);
       log(`  Color:      ${pc.cyan(config.inputs.backgroundColor)}`);
       const darkColorAuto =

@@ -5,7 +5,9 @@ import { existsSync, mkdirSync, rmSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig, validateInputImages } from "../../src/config";
 import { generateTopShelfImageSet, generateSplashLogoImageSet } from "../../src/generators/imageset";
-import { createTestIcon, createTestBackground } from "../fixtures/create-fixtures";
+import { contentBox, iconMark, measureMark } from "../../src/utils/image-processing";
+import type { Mark } from "../../src/utils/image-processing";
+import { createTestIcon, createTestBackground, createTestSvgLayer } from "../fixtures/create-fixtures";
 import type { TvOSImageCreatorConfig } from "../../src/types";
 
 const TMP = join(__dirname, "../../.test-tmp-imageset");
@@ -25,7 +27,7 @@ function parseContentsJson(filePath: string): unknown {
   return JSON.parse(raw.replace(/" :/g, '":'));
 }
 
-async function makeConfig(overrides?: Record<string, unknown>): Promise<{ config: TvOSImageCreatorConfig; iconSourceSize: number }> {
+async function makeConfig(overrides?: Record<string, unknown>): Promise<{ config: TvOSImageCreatorConfig; iconSourceSize: number; mark: Mark }> {
   const icon = await createTestIcon(TMP);
   const bg = await createTestBackground(TMP);
   const outputDir = join(TMP, "output");
@@ -47,16 +49,17 @@ async function makeConfig(overrides?: Record<string, unknown>): Promise<{ config
   }
 
   const { iconSourceSize } = await validateInputImages(config);
-  return { config, iconSourceSize };
+  const mark = iconMark(config.inputs.iconImage, config.inputs.iconBorderRadius, iconSourceSize, await contentBox(config.inputs.iconImage));
+  return { config, iconSourceSize, mark };
 }
 
 describe("generateTopShelfImageSet", () => {
   it("creates .imageset directory with Contents.json", async () => {
-    const { config, iconSourceSize } = await makeConfig();
+    const { config, mark } = await makeConfig();
     const parentDir = join(TMP, "topshelf");
     mkdirSync(parentDir, { recursive: true });
 
-    await generateTopShelfImageSet(parentDir, config.brandAssets.topShelfImage, config, iconSourceSize);
+    await generateTopShelfImageSet(parentDir, config.brandAssets.topShelfImage, config, mark);
 
     const imagesetDir = join(parentDir, "Top Shelf Image.imageset");
     expect(existsSync(imagesetDir)).toBe(true);
@@ -64,11 +67,11 @@ describe("generateTopShelfImageSet", () => {
   });
 
   it("generates opaque PNGs at @1x and @2x", async () => {
-    const { config, iconSourceSize } = await makeConfig();
+    const { config, mark } = await makeConfig();
     const parentDir = join(TMP, "topshelf-pngs");
     mkdirSync(parentDir, { recursive: true });
 
-    await generateTopShelfImageSet(parentDir, config.brandAssets.topShelfImage, config, iconSourceSize);
+    await generateTopShelfImageSet(parentDir, config.brandAssets.topShelfImage, config, mark);
 
     const imagesetDir = join(parentDir, "Top Shelf Image.imageset");
 
@@ -86,11 +89,11 @@ describe("generateTopShelfImageSet", () => {
   });
 
   it("Top Shelf Wide generates at correct wider dimensions", async () => {
-    const { config, iconSourceSize } = await makeConfig();
+    const { config, mark } = await makeConfig();
     const parentDir = join(TMP, "topshelf-wide");
     mkdirSync(parentDir, { recursive: true });
 
-    await generateTopShelfImageSet(parentDir, config.brandAssets.topShelfImageWide, config, iconSourceSize);
+    await generateTopShelfImageSet(parentDir, config.brandAssets.topShelfImageWide, config, mark);
 
     const imagesetDir = join(parentDir, "Top Shelf Image Wide.imageset");
     const meta1x = await sharp(join(imagesetDir, "wide@1x.png")).metadata();
@@ -99,11 +102,11 @@ describe("generateTopShelfImageSet", () => {
   });
 
   it("Contents.json lists correct image entries", async () => {
-    const { config, iconSourceSize } = await makeConfig();
+    const { config, mark } = await makeConfig();
     const parentDir = join(TMP, "topshelf-json");
     mkdirSync(parentDir, { recursive: true });
 
-    await generateTopShelfImageSet(parentDir, config.brandAssets.topShelfImage, config, iconSourceSize);
+    await generateTopShelfImageSet(parentDir, config.brandAssets.topShelfImage, config, mark);
 
     const imagesetDir = join(parentDir, "Top Shelf Image.imageset");
     const contents = parseContentsJson(join(imagesetDir, "Contents.json")) as {
@@ -118,13 +121,13 @@ describe("generateTopShelfImageSet", () => {
   });
 
   it("does nothing when disabled", async () => {
-    const { config, iconSourceSize } = await makeConfig({
+    const { config, mark } = await makeConfig({
       brandAssets: { topShelfImage: { enabled: false } },
     });
     const parentDir = join(TMP, "topshelf-disabled");
     mkdirSync(parentDir, { recursive: true });
 
-    await generateTopShelfImageSet(parentDir, config.brandAssets.topShelfImage, config, iconSourceSize);
+    await generateTopShelfImageSet(parentDir, config.brandAssets.topShelfImage, config, mark);
 
     expect(existsSync(join(parentDir, "Top Shelf Image.imageset"))).toBe(false);
   });
@@ -134,7 +137,7 @@ describe("generateTopShelfImageSet", () => {
     await sharp({ create: { width: 2320, height: 720, channels: 3, background: { r: 0, g: 200, b: 0 } } })
       .png()
       .toFile(green);
-    const { config, iconSourceSize } = await makeConfig();
+    const { config, mark } = await makeConfig();
     const shelf = { ...config.brandAssets.topShelfImage, backgroundImage: green, iconScale: config.brandAssets.iconScale / 2 };
 
     // Rows of the centre column that differ from the backdrop: the height the mark covers.
@@ -156,14 +159,53 @@ describe("generateTopShelfImageSet", () => {
     const halfDir = join(TMP, "topshelf-half");
     mkdirSync(fullDir, { recursive: true });
     mkdirSync(halfDir, { recursive: true });
-    await generateTopShelfImageSet(fullDir, { ...config.brandAssets.topShelfImage, backgroundImage: green }, config, iconSourceSize);
-    await generateTopShelfImageSet(halfDir, shelf, config, iconSourceSize);
+    await generateTopShelfImageSet(fullDir, { ...config.brandAssets.topShelfImage, backgroundImage: green }, config, mark);
+    await generateTopShelfImageSet(halfDir, shelf, config, mark);
 
     const { data } = await sharp(join(halfDir, "Top Shelf Image.imageset", "top@1x.png")).raw().toBuffer({ resolveWithObject: true });
     expect([data[0], data[1], data[2]]).toEqual([0, 200, 0]);
     const ratio = (await markHeight(halfDir)) / (await markHeight(fullDir));
     expect(ratio).toBeGreaterThan(0.45);
     expect(ratio).toBeLessThan(0.55);
+  });
+
+  /** Rows of the centre column that are blue: the height a blue mark covers. */
+  async function blueRows(dir: string): Promise<{ rows: number; height: number; centre: number[] }> {
+    const { data, info } = await sharp(join(dir, "Top Shelf Image.imageset", "top@1x.png")).raw().toBuffer({ resolveWithObject: true });
+    const x = Math.floor(info.width / 2);
+    const at = ((Math.floor(info.height / 2) * info.width) + x) * info.channels;
+    let rows = 0;
+    for (let y = 0; y < info.height; y++) {
+      const i = (y * info.width + x) * info.channels;
+      if (data[i + 2] > 200 && data[i] < 50) rows++;
+    }
+    return { rows, height: info.height, centre: [data[at], data[at + 1], data[at + 2]] };
+  }
+
+  it("draws the mark it is given, measured on its own, instead of the icon", async () => {
+    const { config } = await makeConfig();
+    const blue = createTestSvgLayer(TMP, "mark.svg", "#0000FF", 400);
+    const dir = join(TMP, "topshelf-mark");
+    mkdirSync(dir, { recursive: true });
+    await generateTopShelfImageSet(dir, config.brandAssets.topShelfImage, config, await measureMark(blue));
+
+    const { rows, height, centre } = await blueRows(dir);
+    expect(centre).toEqual([0, 0, 255]);
+    // The disc fills 800 of 1024 of its own canvas; at the default iconScale that is most of the 720 height.
+    expect(rows).toBeGreaterThan(height * 0.5);
+    expect(rows).toBeLessThan(height);
+  });
+
+  it("draws its own iconImage over the mark it is given", async () => {
+    const { config, mark } = await makeConfig();
+    const blue = createTestSvgLayer(TMP, "mark.svg", "#0000FF", 400);
+    const dir = join(TMP, "topshelf-own-mark");
+    mkdirSync(dir, { recursive: true });
+    await generateTopShelfImageSet(dir, { ...config.brandAssets.topShelfImage, iconImage: blue }, config, mark);
+
+    const { rows, height, centre } = await blueRows(dir);
+    expect(centre).toEqual([0, 0, 255]);
+    expect(rows).toBeGreaterThan(height * 0.5);
   });
 });
 

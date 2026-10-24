@@ -9,7 +9,7 @@ const DEFAULT_ICON_SCALE = 0.8;
 
 /**
  * Open an input image for a target output size. SVGs are rasterized at a density
- * scaled to the target, capped at MAX_SVG_DENSITY — so bitmap upscaling in the
+ * scaled to the target, capped at MAX_SVG_DENSITY, so bitmap upscaling in the
  * subsequent resize only occurs for extreme viewBox-to-target ratios (beyond
  * ~133x at the default 72dpi base).
  */
@@ -97,7 +97,7 @@ export async function resizeImageOpaque(
  *
  * One box is computed per run and applied to the flat icon *and* to every
  * parallax layer. Layers are authored on the icon's own artboard, so sharing a
- * single transform is what keeps them registered — trimming each layer to its
+ * single transform is what keeps them registered: trimming each layer to its
  * own bounds would slide the front layer off the middle one.
  */
 export interface ContentBox {
@@ -219,7 +219,7 @@ export async function compositeIconOnBackground(
   const sourceIconSize = options?.sourceIconSize ?? 0;
 
   try {
-    // Determine icon dimensions — scale relative to the shorter dimension
+    // Determine icon dimensions: scale relative to the shorter dimension
     const shortSide = Math.min(width, height);
     const iconSize = Math.round(shortSide * iconScale);
 
@@ -279,6 +279,46 @@ export interface PlacedImage {
   height: number;
 }
 
+/**
+ * The brand on transparency drawn over backdrops: the Top Shelf images and the App Store centre.
+ * The icon with its own measurements by default, else `inputs.markImage` measured on its own.
+ */
+export interface Mark {
+  path: string;
+  /** Shorter side of the file in its own pixels; the unit `borderRadius` is in. */
+  sourceSize?: number;
+  content?: ContentBox;
+  /** Corner radius in source pixels; 0 for art that is not the icon. */
+  borderRadius: number;
+}
+
+/** The icon as the mark, with the measurements already taken from it. */
+export function iconMark(iconImage: string, borderRadius: number, sourceSize?: number, content?: ContentBox): Mark {
+  return { path: iconImage, sourceSize, content, borderRadius };
+}
+
+/** A mark file measured the way the icon is: its shorter side and its content box. */
+export async function measureMark(path: string): Promise<Mark> {
+  const meta = await sharp(path).metadata();
+  return {
+    path,
+    sourceSize: Math.min(meta.width ?? 0, meta.height ?? 0) || undefined,
+    content: await contentBox(path),
+    borderRadius: 0,
+  };
+}
+
+/** The square `scale` of `rect`'s shorter side, centred in it: where a square centre item goes. */
+export function centerBox(rect: Rect, scale: number): Rect {
+  const size = Math.min(Math.max(1, Math.round(rect.width * scale)), Math.max(1, Math.round(rect.height * scale)));
+  return {
+    x: Math.round(rect.x + (rect.width - size) / 2),
+    y: Math.round(rect.y + (rect.height - size) / 2),
+    width: size,
+    height: size,
+  };
+}
+
 /** Render a centre item and the position that centres it in `rect`. */
 export async function placeCenterItem(item: CenterItem, rect: Rect): Promise<PlacedImage> {
   const boxWidth = Math.max(1, Math.round(rect.width * item.scale));
@@ -290,7 +330,7 @@ export async function placeCenterItem(item: CenterItem, rect: Rect): Promise<Pla
     let height: number;
 
     if (item.square) {
-      const size = Math.min(boxWidth, boxHeight);
+      const size = centerBox(rect, item.scale).width;
       buffer = await iconAtSize(item.path, size, item.content);
       const radius = item.borderRadius ?? 0;
       if (radius > 0 && item.sourceIconSize) {
@@ -442,7 +482,7 @@ const ASSEMBLED_ICON_MAX = 4096;
  *
  * Each layer is contained and centered exactly as `renderIconOnTransparentCanvas`
  * places it inside an imagestack, so the result is that stack seen head-on with
- * its background layer left out — the same artwork the icon input would carry,
+ * its background layer left out: the same artwork the icon input would carry,
  * without asking for a hand-maintained third copy of it.
  */
 export async function assembleIconFromLayers(paths: string[]): Promise<Buffer> {

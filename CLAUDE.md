@@ -39,7 +39,7 @@ Gotcha: never give a Commander `.option()` a default value for anything that als
 **Generators** (`src/generators/`):
 - `brand-assets.ts` — Orchestrates Brand Assets folder: calls imagestack + imageset generators
 - `imagestack.ts` — 3-layer parallax app icons (Front/Middle: icon on transparent canvas; Back: opaque background). Handles both small icon and App Store icon variants
-- `imageset.ts`: Top Shelf images (icon composited on background, opaque) and splash screen logo (icon or own art on transparency, per device type from `src/splash.ts`, optional dark variants, width-led so the art keeps its aspect ratio)
+- `imageset.ts`: Top Shelf images (the mark composited on the backdrop, opaque) and splash screen logo (icon or own art on transparency, per device type from `src/splash.ts`, optional dark variants, width-led so the art keeps its aspect ratio)
 - `colorset.ts` — Splash screen background colorset with light/dark + universal/tv variants
 - `icon.ts` — Standalone 1024×1024 opaque icon.png
 - `contents-json.ts` — All Contents.json builders. Uses Xcode's format: space before colons, 2-space indent, trailing newline
@@ -50,7 +50,7 @@ Gotcha: never give a Commander `.option()` a default value for anything that als
 - `fs.ts` — `ensureDir`, `cleanDir` (refuses to delete directories containing project markers like `package.json`, `.git`, `src`), `writeContentsJson`
 - `zip.ts` — `formatTimestamp`, `generateZipFilename`, `createZip` — archiver-based zip creation for timestamped output
 - `color.ts` — Hex→RGBA conversion, RGBA→Apple component strings (3 decimal places), `darkenHex()` for HSL-based lightness reduction
-- `svg-scene.ts`: scene artwork as text: `selectElements` (`#id`, `tag`, `#id tag`), `expandScene` (writes the `elements` rules in as `<animate>` tags), `sceneRules`, `sceneDocument` (the page the browser draws)
+- `svg-scene.ts`: scene artwork as text: `selectElements` (`#id`, `tag`, `#id tag`), `expandScene` (writes the `elements` rules in as `<animate>` tags), `placeMark` (the mark as a `<g id="mark">` in the scene's units, ids prefixed `mark-`), `sceneRules`, `sceneDocument` (the page the browser draws)
 - `scene-browser.ts`: `openSceneBrowser` (the installed Google Chrome through playwright-core, or `CHROME_PATH`) and `sceneFrames` (a page pool that seeks the SMIL with `setCurrentTime` and screenshots each frame)
 
 **Types** (`src/types.ts`): Config types, asset definitions, Contents.json structures. Key types: `TvOSImageCreatorConfig` (master config), `ImageStackAssetConfig`, `ImageSetAssetConfig`.

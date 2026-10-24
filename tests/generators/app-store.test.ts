@@ -4,14 +4,14 @@ import sharp from "sharp";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { resolveConfig } from "../../src/config";
-import { APP_STORE_ASSETS as ALL_ASSETS, designCentre, generateAppStoreAssets, sceneSidecars } from "../../src/generators/app-store";
+import { APP_STORE_ASSETS as ALL_ASSETS, composeScene, designCentre, generateAppStoreAssets, resolvePlacement, sceneSidecars } from "../../src/generators/app-store";
 import { parseRowArtwork } from "../../src/utils/svg-rows";
 import type { Rect } from "../../src/utils/image-processing";
 
 // The placements with an art safe area: the ones the icon composition draws.
 const APP_STORE_ASSETS = ALL_ASSETS.filter((a): a is typeof a & { safeArea: Rect } => Boolean(a.safeArea));
-import { contentBox } from "../../src/utils/image-processing";
-import { createTestBackground, createTestPng } from "../fixtures/create-fixtures";
+import { contentBox, iconMark, measureMark } from "../../src/utils/image-processing";
+import { createTestBackground, createTestPng, createTestSvgLayer } from "../fixtures/create-fixtures";
 import { ROW_SVG } from "../fixtures/row-artwork";
 
 const TMP = join(__dirname, "../../.test-tmp-app-store");
@@ -53,8 +53,11 @@ async function createBlackBackground(name = "black.png"): Promise<string> {
   return path;
 }
 
-/** Bounding box of near-white pixels. */
-async function brightBounds(path: string): Promise<{ left: number; top: number; right: number; bottom: number }> {
+/** Bounding box of near-white pixels, or of the pixels `lit` says are the mark's. */
+async function brightBounds(
+  path: string,
+  lit: (r: number, g: number, b: number) => boolean = (r) => r >= 200,
+): Promise<{ left: number; top: number; right: number; bottom: number }> {
   const { data, info } = await sharp(path).raw().toBuffer({ resolveWithObject: true });
   let left = info.width;
   let top = info.height;
@@ -62,7 +65,8 @@ async function brightBounds(path: string): Promise<{ left: number; top: number; 
   let bottom = -1;
   for (let y = 0; y < info.height; y++) {
     for (let x = 0; x < info.width; x++) {
-      if (data[(y * info.width + x) * info.channels] < 200) continue;
+      const i = (y * info.width + x) * info.channels;
+      if (!lit(data[i], data[i + 1], data[i + 2])) continue;
       if (x < left) left = x;
       if (x > right) right = x;
       if (y < top) top = y;
@@ -102,7 +106,7 @@ describe("generateAppStoreAssets", () => {
   it("centres the mark inside each art safe area at iconScale of its shorter side", async () => {
     const config = await enabledConfig();
     const dir = join(TMP, "AppStore");
-    await generateAppStoreAssets(dir, config, undefined, await contentBox(config.inputs.iconImage));
+    await generateAppStoreAssets(dir, config, iconMark(config.inputs.iconImage, 0, undefined, await contentBox(config.inputs.iconImage)));
 
     for (const asset of APP_STORE_ASSETS) {
       const { x, y, width, height } = asset.safeArea;
@@ -327,6 +331,42 @@ describe("scene artwork config", () => {
     expect(sceneSidecars(silent)).toEqual([]);
   });
 
+  it("plays the backdrop when there is no source, with the centre item unless center is false", async () => {
+    const art = writeScene();
+    const config = await enabledConfig({
+      backgroundImage: art,
+      header: { animate: { loop: 20 } },
+      searchResults: { animate: { loop: 20 }, center: false },
+      universal: { backgroundImage: art, animate: { elements: [breathe] } },
+    });
+    expect(sceneSidecars(config).map((asset) => asset.filename)).toEqual(["header.png", "universal.png"]);
+    const mark = iconMark(config.inputs.iconImage, 0);
+    const header = await composeScene(config, ALL_ASSETS[0], mark);
+    expect(header.svg).toContain('<g id="mark"');
+    expect(header.svg).toContain('<image href="data:image/png;base64,');
+    expect(header.files).toEqual([art, mark.path]);
+    const search = await composeScene(config, ALL_ASSETS[1], mark);
+    expect(search.svg).not.toContain('id="mark"');
+    expect(search.files).toEqual([art]);
+  });
+
+  it("refuses a scene whose own animation does not divide the loop", async () => {
+    const art = join(TMP, "own.svg");
+    writeFileSync(art, SCENE_SVG.replace("<g id=\"lights\">", '<g id="lights"><circle r="1"><animate attributeName="r" values="1;2" dur="3s"/></circle>'));
+    const config = await enabledConfig({ header: { source: art, animate: { loop: 20 } } });
+    await expect(composeScene(config, ALL_ASSETS[0], iconMark(config.inputs.iconImage, 0))).rejects.toThrow(/lasts 3 s, which does not divide the 20 s loop/);
+  });
+
+  it("resolves the centre item to the mark with its measurements, or to centerImage contain-fit", async () => {
+    const config = await enabledConfig();
+    const mark = { path: join(TMP, "m.svg"), sourceSize: 500, content: { left: 10, top: 20, size: 900 }, borderRadius: 40 };
+    expect(resolvePlacement(config, config.appStore.header, mark).center).toEqual({
+      path: mark.path, scale: 0.8, square: true, content: mark.content, borderRadius: 40, sourceIconSize: 500,
+    });
+    const wordmark = await enabledConfig({ centerImage: config.inputs.iconImage });
+    expect(resolvePlacement(wordmark, wordmark.appStore.header, mark).center).toEqual({ path: config.inputs.iconImage, scale: 0.8, square: false });
+  });
+
   it("names what is wrong with a scene", async () => {
     const art = writeScene();
     const png = join(TMP, "black.png");
@@ -335,7 +375,8 @@ describe("scene artwork config", () => {
       [{ universal: { source: art, animate: { loop: 20 } } }, /appStore\.universal\.animate\.loop is not supported/],
       [{ header: { source: art, animate: { loop: 3 } } }, /Invalid appStore\.header\.animate\.loop: "3"\. Use 5 to 30/],
       [{ eventCard: { enabled: true, source: art, animate: { loop: 10 } } }, /Invalid appStore\.eventCard\.animate\.loop: "10"\. Use 15 to 30/],
-      [{ header: { source: png, animate: { loop: 20 } } }, /appStore\.header\.animate needs an SVG appStore\.header\.source/],
+      [{ header: { source: png, animate: { loop: 20 } } }, /appStore\.header\.animate needs an SVG to play: appStore\.header\.source, or the backdrop/],
+      [{ header: { animate: { loop: 20 } } }, /appStore\.header\.animate needs an SVG to play: .*inputs\.backgroundImage\), got .*black\.png/],
       [{ header: { source: art, animate: { loop: 20, elements: [{ ...breathe, dur: 3 }] } } }, /elements\[0\]\.dur \(3 s\) does not divide the 20 s loop/],
       [{ header: { source: art, animate: { loop: 20, elements: [{ ...breathe, select: "g > circle" }] } } }, /elements\[0\]\.select: .*not one of #id, tag or #id tag/],
       [{ header: { source: art, animate: { loop: 20, elements: [{ ...breathe, ease: true }] } } }, /elements\[0\] has unknown keys: ease/],
@@ -372,5 +413,32 @@ describe("scene artwork stills (Chrome)", () => {
     const before = statSync(join(dir, "header.png")).mtimeMs;
     await generateAppStoreAssets(dir, config);
     expect(statSync(join(dir, "header.png")).mtimeMs).toBe(before);
+  });
+
+  it("draws the mark in the safe area of a backdrop scene, in the file as played too", async () => {
+    const art = writeScene();
+    const blue = createTestSvgLayer(TMP, "blue.svg", "#0000FF", 400);
+    const config = await enabledConfig({
+      backgroundImage: art,
+      header: { animate: { loop: 20, elements: [breathe] } },
+      searchResults: { enabled: false },
+      universal: { enabled: false },
+    });
+    const dir = join(TMP, "AppStore");
+    await generateAppStoreAssets(dir, config, await measureMark(blue));
+
+    const { x, y, width, height } = ALL_ASSETS[0].safeArea as Rect;
+    const bounds = await brightBounds(join(dir, "header.png"), (r, _g, b) => b >= 200 && r < 60);
+    // The disc is 800 of its 1024 canvas, so the content box is the disc; it fills 0.8 of the 661 safe-area height.
+    const expected = Math.round(height * 0.8);
+    expect(Math.abs(bounds.right - bounds.left + 1 - expected)).toBeLessThanOrEqual(3);
+    expect(Math.abs((bounds.left + bounds.right) / 2 - (x + width / 2))).toBeLessThanOrEqual(2);
+    expect(Math.abs((bounds.top + bounds.bottom) / 2 - (y + height / 2))).toBeLessThanOrEqual(2);
+    const played = readFileSync(join(dir, "header.svg"), "utf8");
+    expect(played).toContain('<g id="mark" transform="translate(');
+    expect(played).toContain('<clipPath id="mark-clip">');
+    expect(played.match(/<animate /g)).toHaveLength(6);
+    const store = JSON.parse(readFileSync(join(dir, ".tvos-assets-store.json"), "utf8")) as Record<string, string>;
+    expect(store["header.svg"]).toBe(store["header.png"]);
   });
 });

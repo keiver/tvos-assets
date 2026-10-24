@@ -10,6 +10,7 @@ const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
  * they cannot be discovered by walking the template. All are optional strings.
  */
 const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
+  "inputs.markImage",
   "inputs.iconDarkImage",
   "inputs.iconTintedImage",
   "appStore.backgroundImage",
@@ -17,6 +18,8 @@ const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
   "appStore.video.audio",
   "brandAssets.topShelfImage.backgroundImage",
   "brandAssets.topShelfImageWide.backgroundImage",
+  "brandAssets.topShelfImage.iconImage",
+  "brandAssets.topShelfImageWide.iconImage",
   "splashScreen.logo.image",
   "splashScreen.logo.darkImage",
   ...IDIOMS.flatMap((idiom) => ["image", "darkImage"].map((key) => `splashScreen.logo.idioms.${idiom}.${key}`)),
