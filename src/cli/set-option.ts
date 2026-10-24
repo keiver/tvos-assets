@@ -10,6 +10,7 @@ const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
  * they cannot be discovered by walking the template. All are optional strings.
  */
 const OPTIONAL_STRING_PATHS: ReadonlySet<string> = new Set([
+  "inputs.markImage",
   "inputs.iconDarkImage",
   "inputs.iconTintedImage",
   "appStore.backgroundImage",

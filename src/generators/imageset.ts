@@ -4,31 +4,30 @@ import type {
   SplashScreenLogoConfig,
   TvOSImageCreatorConfig,
 } from "../types.js";
-import sharp from "sharp";
 import { ensureDir, writeContentsJson, safeWriteFile } from "../utils/fs.js";
 import {
   compositeIconOnBackground,
-  contentBox,
   heightAtWidth,
+  iconMark,
+  measureMark,
   renderAtSize,
   scaleMultiplier,
   validateOutputDimensions,
 } from "../utils/image-processing.js";
 import { splashLogoFilename, splashLogoVariants } from "../splash.js";
-import type { ContentBox } from "../utils/image-processing.js";
+import type { Mark } from "../utils/image-processing.js";
 import {
   imageSetContentsJson,
   buildTopShelfImageEntries,
   buildSplashLogoImageEntries,
 } from "./contents-json.js";
 
-/** Generate a Top Shelf imageset (background + icon composited) */
+/** Generate a Top Shelf imageset: the backdrop with the mark composited on it. */
 export async function generateTopShelfImageSet(
   parentDir: string,
   asset: ImageSetAssetConfig,
   config: TvOSImageCreatorConfig,
-  iconSourceSize?: number,
-  content?: ContentBox,
+  mark: Mark = iconMark(config.inputs.iconImage, config.inputs.iconBorderRadius),
 ): Promise<void> {
   if (!asset.enabled) return;
 
@@ -40,13 +39,7 @@ export async function generateTopShelfImageSet(
   const contents = imageSetContentsJson(imageEntries, config.xcassetsMeta);
   writeContentsJson(join(imagesetDir, "Contents.json"), contents);
 
-  // A mark of this image's own is measured on its own; the icon's measurements fit the icon.
-  const mark = asset.iconImage ?? config.inputs.iconImage;
-  if (asset.iconImage) {
-    const meta = await sharp(asset.iconImage).metadata();
-    iconSourceSize = Math.min(meta.width ?? 0, meta.height ?? 0) || undefined;
-    content = await contentBox(asset.iconImage);
-  }
+  const own = asset.iconImage ? await measureMark(asset.iconImage) : mark;
 
   // Generate PNGs at each scale
   for (const scale of asset.scales) {
@@ -58,15 +51,15 @@ export async function generateTopShelfImageSet(
 
     const buffer = await compositeIconOnBackground(
       asset.backgroundImage ?? config.inputs.backgroundImage,
-      mark,
+      own.path,
       w,
       h,
       {
         opaque: true,
-        borderRadius: config.inputs.iconBorderRadius,
-        sourceIconSize: iconSourceSize,
+        borderRadius: own.borderRadius,
+        sourceIconSize: own.sourceSize,
         iconScale: asset.iconScale ?? config.brandAssets.iconScale,
-        content,
+        content: own.content,
       },
     );
 

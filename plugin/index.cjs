@@ -4,10 +4,12 @@
  * Usage in app.json:
  *
  * `icon` is optional when `layers` supplies art for both front and middle: the
- * icon is then assembled from that art.
+ * icon is then assembled from that art. `mark` is the art drawn over backdrops
+ * (Top Shelf images, the App Store centre); the icon when unset.
  *
  *   ["tvos-assets/plugin", {
  *     "icon": "./assets/brand/icon.svg",
+ *     "mark": "./assets/brand/mark.svg",
  *     "background": "./assets/brand/background.png",
  *     "color": "#1C1C1E",
  *     "darkColor": "#1C1C1E",
@@ -46,7 +48,7 @@ function loadConfigPlugins() {
     return require("@expo/config-plugins");
   } catch (err) {
     // Only fall back when the module itself is absent from this package's
-    // resolution paths — real errors inside @expo/config-plugins must surface.
+    // resolution paths; real errors inside @expo/config-plugins must surface.
     const isModuleMissing =
       err && err.code === "MODULE_NOT_FOUND" && String(err.message).includes("@expo/config-plugins");
     if (!isModuleMissing) throw err;
@@ -164,6 +166,10 @@ function buildResolveArgs(projectRoot, props) {
 
   if (props.appStore) {
     overrides.appStore = appStoreOverrides(projectRoot, props.appStore);
+  }
+
+  if (props.mark) {
+    overrides.inputs = { markImage: resolveInput(projectRoot, props.mark) };
   }
 
   if (props.splash) {

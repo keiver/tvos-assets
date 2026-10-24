@@ -128,6 +128,7 @@ function displayConfig(
   copy.inputs.iconImage = copy.inputs.iconAssembledFrom ? "" : show(copy.inputs.iconImage);
   copy.inputs.iconAssembledFrom = copy.inputs.iconAssembledFrom?.map(show);
   copy.inputs.backgroundImage = show(copy.inputs.backgroundImage);
+  if (copy.inputs.markImage) copy.inputs.markImage = show(copy.inputs.markImage);
   if (copy.inputs.iconDarkImage) copy.inputs.iconDarkImage = show(copy.inputs.iconDarkImage);
   if (copy.inputs.iconTintedImage) copy.inputs.iconTintedImage = show(copy.inputs.iconTintedImage);
   copy.output.directory = show(copy.output.directory);
@@ -180,7 +181,7 @@ function displayConfig(
  *
  * Either way, a link that would spell out the home directory (an absolute path
  * under it, or a relative path that climbs out of a foreign output directory
- * and back down through it) is a username leak in a shareable artifact — those
+ * and back down through it) is a username leak in a shareable artifact; those
  * render as plain text instead of a link (empty href; `linked()` degrades).
  */
 function fileHref(target: string, previewDir: string, outside: OutsideLinkStyle): string {
@@ -565,6 +566,7 @@ async function collectInputs(
   ];
 
   const rest: InputCandidate[] = [
+    { role: "mark", path: config.inputs.markImage },
     { role: "background", path: config.inputs.backgroundImage },
     { role: "top shelf background", path: config.brandAssets.topShelfImage.backgroundImage },
     { role: "top shelf wide background", path: config.brandAssets.topShelfImageWide.backgroundImage },

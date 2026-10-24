@@ -11,8 +11,10 @@ import {
   scaleMultiplier,
   validateOutputDimensions,
   applyBorderRadius,
+  centerBox,
+  measureMark,
 } from "../../src/utils/image-processing";
-import { createTestPng } from "../fixtures/create-fixtures";
+import { createTestPng, createTestSvgLayer } from "../fixtures/create-fixtures";
 
 const TMP = join(__dirname, "../../.test-tmp-imgproc");
 
@@ -109,7 +111,7 @@ describe("compositeIconOnBackground", () => {
   it("respects custom iconScale", async () => {
     const icon = await makeIcon();
     const bg = await makeBg();
-    // Just verify it doesn't throw — the actual scale is visual
+    // Just verify it doesn't throw; the actual scale is visual
     const buffer = await compositeIconOnBackground(bg, icon, 400, 400, { iconScale: 0.3 });
     expect(buffer.length).toBeGreaterThan(0);
   });
@@ -282,6 +284,26 @@ describe("renderIconOnTransparentCanvas with borderRadius", () => {
     expect(meta.width).toBe(400);
     expect(meta.height).toBe(240);
     expect(meta.channels).toBe(4);
+  });
+});
+
+describe("centerBox", () => {
+  it("is the square at scale of the shorter side, centred in the area", () => {
+    expect(centerBox({ x: 1097, y: 493, width: 1646, height: 661 }, 0.8)).toEqual({ x: 1656, y: 559, width: 529, height: 529 });
+    expect(centerBox({ x: 0, y: 0, width: 1, height: 1 }, 0.1)).toEqual({ x: 0, y: 0, width: 1, height: 1 });
+  });
+});
+
+describe("measureMark", () => {
+  it("takes the shorter side and the content box from the file, with no radius", async () => {
+    const disc = createTestSvgLayer(TMP, "disc.svg", "#0000FF", 400);
+    const mark = await measureMark(disc);
+    expect(mark.path).toBe(disc);
+    expect(mark.sourceSize).toBe(1024);
+    expect(mark.borderRadius).toBe(0);
+    expect(mark.content?.size).toBeGreaterThanOrEqual(798);
+    expect(mark.content?.size).toBeLessThanOrEqual(802);
+    expect(Math.abs((mark.content?.left ?? 0) - 112)).toBeLessThanOrEqual(2);
   });
 });
 

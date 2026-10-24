@@ -5,13 +5,14 @@ import sharp, { type Sharp } from "sharp";
 import { isSvgPath } from "../config.js";
 import type { AppStorePlacementConfig, SceneAnimate, TvOSImageCreatorConfig } from "../types.js";
 import { ensureDir, safeWriteFile } from "../utils/fs.js";
-import { compositeCenterInRect } from "../utils/image-processing.js";
-import type { CenterItem, ContentBox, Rect } from "../utils/image-processing.js";
+import { centerBox, compositeCenterInRect, iconMark } from "../utils/image-processing.js";
+import type { CenterItem, Mark, Rect } from "../utils/image-processing.js";
 import { rowStill } from "../utils/rise-frames.js";
 import { openSceneBrowser, sceneFrames } from "../utils/scene-browser.js";
 import { animateAt, filterReach, parseRowArtwork } from "../utils/svg-rows.js";
 import type { RowArtwork } from "../utils/svg-rows.js";
-import { expandScene, sceneRules } from "../utils/svg-scene.js";
+import { expandScene, parseViewBox, placeMark, sceneRules } from "../utils/svg-scene.js";
+import type { MarkArt } from "../utils/svg-scene.js";
 import { StoreCache, inputKey } from "../utils/store-cache.js";
 
 export type AppStorePlacement = "header" | "searchResults" | "universal" | "eventCard" | "eventDetails";
@@ -89,13 +90,8 @@ export interface ResolvedPlacement {
   center?: CenterItem;
 }
 
-/** Placement override, then the appStore default, then the icon and background inputs. */
-export function resolvePlacement(
-  config: TvOSImageCreatorConfig,
-  placement: AppStorePlacementConfig,
-  iconSourceSize?: number,
-  content?: ContentBox,
-): ResolvedPlacement {
+/** Placement override, then the appStore default, then the mark and the background input. */
+export function resolvePlacement(config: TvOSImageCreatorConfig, placement: AppStorePlacementConfig, mark: Mark): ResolvedPlacement {
   const store = config.appStore;
   const backgroundImage = placement.backgroundImage ?? store.backgroundImage ?? config.inputs.backgroundImage;
   if (!placement.center) return { backgroundImage };
@@ -104,12 +100,12 @@ export function resolvePlacement(
   const center: CenterItem = centerImage
     ? { path: centerImage, scale: store.iconScale, square: false }
     : {
-        path: config.inputs.iconImage,
+        path: mark.path,
         scale: store.iconScale,
         square: true,
-        content,
-        borderRadius: config.inputs.iconBorderRadius,
-        sourceIconSize: iconSourceSize,
+        content: mark.content,
+        borderRadius: mark.borderRadius,
+        sourceIconSize: mark.sourceSize,
       };
   return { backgroundImage, center };
 }
@@ -160,9 +156,23 @@ export function sceneAnimate(placement: AppStorePlacementConfig): SceneAnimate |
   return animate as SceneAnimate;
 }
 
-/** Enabled scene placements with `elements`, the ones that also get their expanded SVG written. */
+/** The SVG a scene placement plays: its `source`, else its backdrop. */
+export function sceneArt(config: TvOSImageCreatorConfig, placement: AppStorePlacementConfig): string | undefined {
+  return placement.source ?? resolvePlacement(config, placement, iconMark(config.inputs.iconImage, 0)).backgroundImage;
+}
+
+/** Whether a scene placement gets the centre item: a backdrop scene with `center` and a safe area. */
+export function sceneDrawsCenter(config: TvOSImageCreatorConfig, asset: AppStoreAsset): boolean {
+  const placement = config.appStore[asset.placement];
+  return !placement.source && placement.center && Boolean(asset.safeArea);
+}
+
+/** Enabled scene placements whose file as played differs from the input (rules or a centre item), so it is written too. */
 export function sceneSidecars(config: TvOSImageCreatorConfig): AppStoreAsset[] {
-  return enabledAssets(config).filter((asset) => Boolean(sceneAnimate(config.appStore[asset.placement])?.elements?.length));
+  return enabledAssets(config).filter((asset) => {
+    const scene = sceneAnimate(config.appStore[asset.placement]);
+    return Boolean(scene) && (Boolean(scene?.elements?.length) || sceneDrawsCenter(config, asset));
+  });
 }
 
 /** The expanded SVG's filename beside a placement's still: `header.svg` for `header.png`. */
@@ -170,20 +180,60 @@ export function sceneSidecarName(asset: AppStoreAsset): string {
   return asset.filename.replace(/\.png$/, ".svg");
 }
 
-/** A scene's still, its first frame drawn by the browser, and the SVG it was drawn from. */
-export async function renderScene(
-  browser: Browser,
-  source: string,
-  scene: SceneAnimate,
-  width: number,
-  height: number,
-): Promise<{ png: Buffer; svg: string }> {
-  const svg = expandScene(readFileSync(source, "utf8"), scene.elements);
+/** A mark file as art for `placeMark`: an SVG's text and viewBox, or a PNG's bytes and pixel size. */
+export async function readMarkArt(mark: Mark): Promise<MarkArt> {
+  const { content, sourceSize, borderRadius } = mark;
+  if (isSvgPath(mark.path)) {
+    const svg = readFileSync(mark.path, "utf8");
+    return { svg, viewBox: parseViewBox(sceneRules(svg).viewBox), content, sourceSize, borderRadius };
+  }
+  const meta = await sharp(mark.path).metadata();
+  return { png: readFileSync(mark.path), viewBox: { x: 0, y: 0, width: meta.width ?? 0, height: meta.height ?? 0 }, content, sourceSize, borderRadius };
+}
+
+export interface ComposedScene {
+  /** The file as played: the art, the centre item drawn in, the `elements` rules written in. */
+  svg: string;
+  scene: SceneAnimate;
+  /** What the output is made from, for the store cache: the files read and the settings used. */
+  files: (string | undefined)[];
+  settings: unknown[];
+}
+
+/**
+ * A scene placement's SVG as the browser plays it, checked against the loop. A backdrop scene gets
+ * the centre item (the mark, or `centerImage` contain-fit) in the safe area; a `source` plays as it is.
+ */
+export async function composeScene(config: TvOSImageCreatorConfig, asset: AppStoreAsset, mark: Mark): Promise<ComposedScene> {
+  const placement = config.appStore[asset.placement];
+  const scene = sceneAnimate(placement) as SceneAnimate;
+  const art = sceneArt(config, placement) as string;
+  let svg = readFileSync(art, "utf8");
+  const files: (string | undefined)[] = [art];
+  const settings: unknown[] = [scene];
+  if (sceneDrawsCenter(config, asset)) {
+    const { center } = resolvePlacement(config, placement, mark);
+    const item = center as CenterItem;
+    const rect = asset.safeArea as Rect;
+    const box = item.square
+      ? centerBox(rect, item.scale)
+      : { x: rect.x + (rect.width - rect.width * item.scale) / 2, y: rect.y + (rect.height - rect.height * item.scale) / 2, width: rect.width * item.scale, height: rect.height * item.scale };
+    const itemMark: Mark = item.square ? mark : { path: item.path, borderRadius: 0 };
+    svg = placeMark(svg, await readMarkArt(itemMark), box, asset);
+    files.push(item.path);
+    settings.push(box, item.square);
+  }
+  svg = expandScene(svg, scene.elements);
   sceneRules(svg, scene.loop);
+  return { svg, scene, files, settings };
+}
+
+/** A scene's still: its first frame drawn by the browser. */
+export async function renderScene(browser: Browser, svg: string, width: number, height: number): Promise<Buffer> {
   const frames = await sceneFrames(browser, svg, width, height, 1);
   try {
     const raw = await frames.frame(0);
-    return { png: await sharp(raw, { raw: { width, height, channels: 3 } }).png().toBuffer(), svg };
+    return await sharp(raw, { raw: { width, height, channels: 3 } }).png().toBuffer();
   } finally {
     await frames.close();
   }
@@ -213,8 +263,7 @@ export async function renderSource(
 export async function generateAppStoreAssets(
   outDir: string,
   config: TvOSImageCreatorConfig,
-  iconSourceSize?: number,
-  content?: ContentBox,
+  mark: Mark = iconMark(config.inputs.iconImage, config.inputs.iconBorderRadius),
 ): Promise<void> {
   const assets = enabledAssets(config);
   if (assets.length === 0) return;
@@ -225,14 +274,13 @@ export async function generateAppStoreAssets(
   try {
   for (const asset of assets) {
     const placement = config.appStore[asset.placement];
-    const scene = placement.source ? sceneAnimate(placement) : undefined;
-    if (placement.source && scene) {
-      const sidecar = scene.elements?.length ? sceneSidecarName(asset) : undefined;
-      const key = inputKey([placement.source], ["scene", asset.width, asset.height, scene]);
+    if (sceneAnimate(placement) && (placement.source || asset.safeArea)) {
+      const { svg, files, settings } = await composeScene(config, asset, mark);
+      const sidecar = sceneSidecars(config).includes(asset) ? sceneSidecarName(asset) : undefined;
+      const key = inputKey(files, ["scene", asset.width, asset.height, ...settings]);
       if (cache.fresh(asset.filename, key) && (!sidecar || cache.fresh(sidecar, key))) continue;
       browser ??= await openSceneBrowser();
-      const { png, svg } = await renderScene(browser, placement.source, scene, asset.width, asset.height);
-      safeWriteFile(join(outDir, asset.filename), png);
+      safeWriteFile(join(outDir, asset.filename), await renderScene(browser, svg, asset.width, asset.height));
       cache.record(asset.filename, key);
       if (sidecar) {
         safeWriteFile(join(outDir, sidecar), Buffer.from(svg));
@@ -253,7 +301,7 @@ export async function generateAppStoreAssets(
     }
     if (!asset.safeArea) continue; // config validation requires a source for these
 
-    const { backgroundImage, center } = resolvePlacement(config, placement, iconSourceSize, content);
+    const { backgroundImage, center } = resolvePlacement(config, placement, mark);
     const buffer = await compositeCenterInRect(backgroundImage, asset.width, asset.height, asset.safeArea, center);
     safeWriteFile(join(outDir, asset.filename), buffer);
   }

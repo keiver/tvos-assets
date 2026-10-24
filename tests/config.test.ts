@@ -763,6 +763,28 @@ describe("resolveConfig", () => {
     ).toThrow(message);
   });
 
+  // --- The mark ---
+
+  it("resolves the mark from the CLI, an override or the config file, and leaves it unset otherwise", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const mark = createTestSvgLayer(TMP, "mark.svg", "#0000FF", 400);
+    expect(resolveConfig({ icon, background: bg, color: "#FF0000" }).inputs.markImage).toBeUndefined();
+    expect(resolveConfig({ icon, background: bg, color: "#FF0000", mark }).inputs.markImage).toBe(resolve(mark));
+    expect(resolveConfig({ icon, background: bg, color: "#FF0000", overrides: { inputs: { markImage: mark } } }).inputs.markImage).toBe(resolve(mark));
+    const configPath = join(TMP, "mark.json");
+    writeFileSync(configPath, JSON.stringify({ inputs: { iconImage: icon, backgroundImage: bg, backgroundColor: "#FF0000", markImage: mark } }));
+    expect(resolveConfig({ config: configPath }).inputs.markImage).toBe(resolve(mark));
+    expect(() => resolveConfig({ icon, background: bg, color: "#FF0000", mark: "missing.svg" })).toThrow(/Mark image not found/);
+  });
+
+  it("checks the mark's data, not just its extension", async () => {
+    const { icon, bg } = await createStandardInputs();
+    const fake = join(TMP, "really-a-jpeg-mark.png");
+    await sharp({ create: { width: 8, height: 8, channels: 3, background: { r: 1, g: 2, b: 3 } } }).jpeg().toFile(fake);
+    const config = resolveConfig({ icon, background: bg, color: "#FF0000", mark: fake });
+    await expect(validateInputImages(config)).rejects.toThrow(/Mark image is not valid PNG data/);
+  });
+
   it("checks the data of Top Shelf backgrounds and splash art, not just the extension", async () => {
     const { icon, bg } = await createStandardInputs();
     const jpegAsPng = join(TMP, "really-a-jpeg.png");

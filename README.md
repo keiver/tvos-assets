@@ -61,6 +61,7 @@ SVG inputs are rasterized at the density each size needs, so a small viewBox sti
 | Option | Config key | Plugin | Type | Default | Description |
 |---|---|---|---|---|---|
 | `--icon <path>` | `inputs.iconImage` | `icon` | path | required\* | Icon PNG or SVG on transparency. \*Not needed when `--layer-front` and `--layer-middle` are both given: the icon is [assembled from them](#assembling-the-icon-from-layer-art). |
+| `--mark <path>` | `inputs.markImage` | `mark` | path | the icon | The brand on transparency drawn over backdrops: both Top Shelf images and the App Store centre. Measured on its own, like the icon. Name it when the icon carries an opaque surface for iOS. |
 | `--background <path>` | `inputs.backgroundImage` | `background` | path | required | Background PNG or SVG. |
 | `--color <hex>` | `inputs.backgroundColor` | `color` | `#RRGGBB` | required | Splash background, light mode. |
 | `--dark-color <hex>` | `inputs.darkBackgroundColor` | `darkColor` | `#RRGGBB` | derived | Splash background, dark mode. Derived from `--color` at half the HSL lightness. |
@@ -89,7 +90,7 @@ SVG inputs are rasterized at the density each size needs, so a small viewBox sti
 | `--set brandAssets.topShelfImage.filePrefix=` | `brandAssets.topShelfImage(Wide).filePrefix` | via `config` | string | `top` / `wide` | File name prefix. |
 | `--set brandAssets.topShelfImage.backgroundImage=` | `brandAssets.topShelfImage(Wide).backgroundImage` | via `config` | path | `--background` | Backdrop for that Top Shelf image only, cover-cropped from its centre. The app icons keep `--background`. |
 | `--set brandAssets.topShelfImage.iconScale=` | `brandAssets.topShelfImage(Wide).iconScale` | via `config` | number | `--tv-icon-scale` | How much of the 720pt height the mark covers on that Top Shelf image only. The app icons keep `--tv-icon-scale`. |
-| `--set brandAssets.topShelfImage.iconImage=` | `brandAssets.topShelfImage(Wide).iconImage` | via `config` | path | the icon | The mark on that Top Shelf image only, measured on its own: the parallax layers' art, say, when the flat icon carries an opaque surface for iOS. |
+| `--set brandAssets.topShelfImage.iconImage=` | `brandAssets.topShelfImage(Wide).iconImage` | via `config` | path | `--mark` | The mark on that Top Shelf image only, measured on its own. |
 | `--no-ios-icon` | `iosIcon.enabled` | via `config` | boolean | `true` | iOS `AppIcon.appiconset` on or off. |
 | `--ios-icon-name <name>` | `iosIcon.name` | via `config` | string | `AppIcon` | The `.appiconset` name. Must match `ASSETCATALOG_COMPILER_APPICON_NAME` on the iOS target. |
 | `--no-splash` | `splashScreen.logo.enabled`, `splashScreen.background.enabled` | via `config` | boolean | `true` | Splash logo and color on or off. |
@@ -102,10 +103,10 @@ SVG inputs are rasterized at the density each size needs, so a small viewBox sti
 | `--set splashScreen.background.tv.dark=` | `splashScreen.background.{universal,tv}.{light,dark}` | `splash.backgroundColor`, `splash.darkBackgroundColor` | `#RRGGBB` | `--color` / `--dark-color` | Splash colors per device and appearance. The plugin props set every device; `darkBackgroundColor` defaults to `backgroundColor`. |
 | `--app-store` | `appStore.enabled` | `appStore` | boolean | `false` | Write the [App Store creative assets](#app-store-creative-assets) into `AppStore/` (plugin: `appStore.outDir`). |
 | `--app-store-background <path>` | `appStore.backgroundImage` | `appStore.background` | path | `--background` | Backdrop for the App Store images. |
-| `--app-store-center <path>` | `appStore.centerImage` | `appStore.centerImage` | path | the icon | Art centred in each safe area, such as a wordmark. |
+| `--app-store-center <path>` | `appStore.centerImage` | `appStore.centerImage` | path | `--mark` | Art centred in each safe area instead of the mark, such as a wordmark, contain-fit. |
 | `--set appStore.iconScale=` | `appStore.iconScale` | `appStore.iconScale` | number | `0.8` | How much of each safe area the centred art covers. |
 | `--set appStore.header.source=` | `appStore.<placement>.source` | same keys | path | none | Finished art (SVG or PNG) for a placement. Required for `eventCard` and `eventDetails`. See [Row artwork](#row-artwork). |
-| `--set appStore.header.animate.rows=20` | `appStore.<placement>.animate` | same keys | `{ rows: seconds }`, `{ rise: seconds }` or `{ loop: seconds, elements: [...] }` | none | A looping video: row artwork's rows sliding or its [cards rising](#cards-that-rise), or a [scene](#scene-artwork) played in Chrome. 5-30 s, or 15-30 s for In-App Events. `universal` takes a scene's `elements` only. |
+| `--set appStore.header.animate.rows=20` | `appStore.<placement>.animate` | same keys | `{ rows: seconds }`, `{ rise: seconds }` or `{ loop: seconds, elements: [...] }` | none | A looping video: row artwork's rows sliding or its [cards rising](#cards-that-rise), or a [scene](#scene-artwork) played in Chrome: the backdrop with the mark, or a `source`. 5-30 s, or 15-30 s for In-App Events. `universal` takes a scene's `elements` only. |
 | `--set appStore.searchResults.video=` | `appStore.<placement>.video` | same keys | path | none | A [recording](#recordings) cut into the placement's looping video. Not for `universal`. |
 | `--set appStore.universal.enabled=false` | `appStore.<placement>.enabled` | same keys | boolean | on; In-App Events off | Write a placement or skip it: `header`, `searchResults`, `universal`, `eventCard`, `eventDetails`. |
 | `--set appStore.searchResults.center=false` | `appStore.<placement>.{backgroundImage,centerImage,center}` | same keys | per placement | `center: true` | Per-placement backdrop and centred art; `center: false` writes the backdrop alone. |
@@ -278,7 +279,7 @@ With `--app-store`, tvos-assets also writes the creative assets App Store Connec
 
 Each placement in App Store Connect takes one image or one video. Images are opaque PNGs. Videos are written when a placement has `animate` or a recording.
 
-Out of the box, each image is your backdrop (`--app-store-background`, else `--background`) with the icon, or `--app-store-center` art such as a wordmark, centred in the safe area from Apple's templates. Each placement can have its own:
+Out of the box, each image is your backdrop (`--app-store-background`, else `--background`) with the mark (`--mark`, else the icon), or `--app-store-center` art such as a wordmark, centred in the safe area from Apple's templates. Each placement can have its own:
 
 ```json
 "appStore": {
@@ -373,22 +374,26 @@ Cards that draw the same share their frames, so this is fast too: a 20 s 4K head
 
 ### Scene artwork
 
-Row artwork is one kind of `source`. A **scene** is any other SVG: a night sky, a wordmark on a gradient, whatever the file draws, cover-fitted to each canvas. `animate` with `loop` makes its video, and `elements` says what moves: each rule selects elements of the file and writes an `<animate>` on every one of them, in SMIL's own words.
+A **scene** is an SVG played by a browser: a night sky, a wordmark on a gradient, whatever the file draws, cover-fitted to each canvas. `animate` with `loop` makes its video, and `elements` says what moves: each rule selects elements of the file and writes an `<animate>` on every one of them, in SMIL's own words. A placement without a `source` plays its backdrop (an SVG `--background`, `--app-store-background` or its own `backgroundImage`) with the mark drawn in the safe area, the same picture as its still; with a `source`, it plays that file as it is, like row artwork.
 
 ```json
 "appStore": {
   "enabled": true,
-  "header": { "source": "./store/scene.svg", "animate": { "loop": 20, "elements": [
+  "backgroundImage": "./store/scene.svg",
+  "header": { "animate": { "loop": 20, "elements": [
     { "select": "#lights g", "attributeName": "opacity", "values": "0.35;1;0.35", "dur": 4, "stagger": true },
-    { "select": "#lights circle", "attributeName": "cy", "values": "0;-10;0", "dur": 10, "additive": "sum", "stagger": true }
+    { "select": "#lights circle", "attributeName": "cy", "values": "0;-10;0", "dur": 10, "additive": "sum", "stagger": true },
+    { "select": "#mark g", "attributeName": "opacity", "values": "1;0.6;1", "dur": 5 }
   ] } },
-  "universal": { "source": "./store/scene.svg", "animate": { "elements": [
+  "universal": { "animate": { "elements": [
     { "select": "#lights g", "attributeName": "opacity", "values": "0.35;1;0.35", "dur": 4, "stagger": true }
   ] } }
 }
 ```
 
-Frames come from the Google Chrome on your machine (or the browser at `CHROME_PATH`): the file's animations paused and seeked to each frame's time, so the video is what Safari and Chrome play when they open the SVG. Beside each still, `header.svg` (and so on) is the file as played, `<animate>` tags written in: open it in a browser to see the loop without rendering it. `universal` takes `elements` without `loop`, since App Store Connect takes no video there; its still is the scene's first frame, like the others.
+Frames come from the Google Chrome on your machine (or the browser at `CHROME_PATH`): the file's animations paused and seeked to each frame's time, so the video is what Safari and Chrome play when they open the SVG. Beside each still, `header.svg` (and so on) is the file as played, the mark and the `<animate>` tags written in: open it in a browser to see the loop without rendering it. `universal` takes `elements` without `loop`, since App Store Connect takes no video there; its still is the scene's first frame, like the others.
+
+The mark goes into the file as `<g id="mark">`, in the scene's own coordinates, with every id of its own prefixed `mark-` so a gradient named `halo` in both files stays two gradients. Rules reach it the same way they reach the scene: `#mark ellipse`, or `#mark-eyes g` for a group the mark calls `eyes`. An `<animate>` the mark carries itself plays too, and its `dur` must divide the loop like the scene's. `center: false` leaves the mark out.
 
 | Key | Meaning |
 |---|---|
@@ -401,7 +406,7 @@ An SVG that already carries its own `<animate>` tags needs no `elements`: `anima
 
 | Rule | Why |
 |---|---|
-| `<svg>` has a `viewBox`, or numeric `width` and `height` | The fit to each canvas needs one. |
+| `<svg>` has a `viewBox`, or numeric `width` and `height` | The fit to each canvas needs one; the mark's too, to place it. |
 | Every animation's `dur` divides `loop` | So the last frame runs into the first. |
 | No `<text>`, no `<script>`, no `<image>` linking outside the file, no CSS `@keyframes` | Fonts and scripts differ per machine; a CSS animation's length cannot be checked against the loop. |
 

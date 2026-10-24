@@ -12,6 +12,7 @@
  * 4. A rule's `select` is `#id`, `tag` or `#id tag`, and matches at least one element.
  */
 import type { SceneAnimation } from "../types.js";
+import type { ContentBox, Rect } from "./image-processing.js";
 
 export interface SceneElement {
   name: string;
@@ -191,6 +192,87 @@ export function sceneRules(svg: string, loop?: number): SceneArtwork {
     periods.push(dur);
   }
   return { viewBox, periods };
+}
+
+/** The mark as art to draw into a scene: the file's text or bytes with the measurements `Mark` carries. */
+export interface MarkArt {
+  /** The file's text when it is an SVG. */
+  svg?: string;
+  /** The file's bytes when it is a PNG. */
+  png?: Buffer;
+  /** The file's own coordinate space: an SVG's viewBox, a PNG's pixels. */
+  viewBox: Rect;
+  content?: ContentBox;
+  sourceSize?: number;
+  borderRadius: number;
+}
+
+const num = (n: number): string => String(+n.toFixed(4));
+/** The square `contentBox` measures in. */
+const BOX_SPACE = 1024;
+/** Root attributes that describe the file, not how it draws; the rest ride along onto the group. */
+const ROOT_ONLY = /^(xmlns(:\w+)?|width|height|viewBox|preserveAspectRatio|x|y|id|version|baseProfile|role|aria-[\w-]+|xml:space)$/;
+
+/** The four numbers of a viewBox. */
+export function parseViewBox(viewBox: string): Rect {
+  const [x, y, width, height] = viewBox.trim().split(/[\s,]+/).map(Number);
+  return { x, y, width, height };
+}
+
+/** The content box, measured contain-fit in 1024 space, back in the mark's own coordinates. */
+export function markCrop(mark: MarkArt): Rect {
+  const m = mark.viewBox;
+  if (!mark.content) return m;
+  const fit = Math.min(BOX_SPACE / m.width, BOX_SPACE / m.height);
+  const padX = (BOX_SPACE - m.width * fit) / 2;
+  const padY = (BOX_SPACE - m.height * fit) / 2;
+  const size = mark.content.size / fit;
+  return { x: m.x + (mark.content.left - padX) / fit, y: m.y + (mark.content.top - padY) / fit, width: size, height: size };
+}
+
+/**
+ * The scene with the mark drawn in `box` (canvas pixels, from `centerBox`), as a `<g id="mark">` in
+ * the scene's own coordinates, so one timeline drives both and `elements` rules reach it. The
+ * mark's ids are prefixed `mark-`, its content box is what the box fits (`meet`, centred), and a
+ * clip keeps it to that box, rounded by the icon's border radius when the mark is the icon.
+ */
+export function placeMark(scene: string, mark: MarkArt, box: Rect, canvas: { width: number; height: number }): string {
+  const v = parseViewBox(sceneRules(scene).viewBox);
+  const s = Math.max(canvas.width / v.width, canvas.height / v.height);
+  const offX = (canvas.width - v.width * s) / 2;
+  const offY = (canvas.height - v.height * s) / 2;
+  const bx = v.x + (box.x - offX) / s, by = v.y + (box.y - offY) / s, bw = box.width / s, bh = box.height / s;
+
+  const crop = markCrop(mark);
+  const k = Math.min(bw / crop.width, bh / crop.height);
+  const tx = bx + (bw - crop.width * k) / 2 - crop.x * k;
+  const ty = by + (bh - crop.height * k) / 2 - crop.y * k;
+  const rx = mark.borderRadius > 0 && mark.sourceSize ? (mark.borderRadius / mark.sourceSize) * crop.width : 0;
+
+  let carried = "";
+  let body: string;
+  if (mark.svg) {
+    const text = mark.svg.replace(/<\?xml[\s\S]*?\?>/, "").replace(/<!DOCTYPE[^>]*>/i, "");
+    const root = text.match(/<svg\b([^>]*)>/) ?? [];
+    const open = root[0] ?? "";
+    for (const m of (root[1] ?? "").matchAll(/\s([\w:-]+)="([^"]*)"/g)) {
+      if (!ROOT_ONLY.test(m[1])) carried += ` ${m[1]}="${m[2]}"`;
+    }
+    const start = text.indexOf(open) + open.length;
+    body = text
+      .slice(start, text.lastIndexOf("</svg>"))
+      .replace(/\sid="([^"]*)"/g, ' id="mark-$1"')
+      .replace(/url\(#/g, "url(#mark-")
+      .replace(/href="#/g, 'href="#mark-');
+  } else {
+    const m = mark.viewBox;
+    body = `<image href="data:image/png;base64,${(mark.png as Buffer).toString("base64")}" x="${num(m.x)}" y="${num(m.y)}" width="${num(m.width)}" height="${num(m.height)}"/>`;
+  }
+
+  const clip = `<clipPath id="mark-clip"><rect x="${num(crop.x)}" y="${num(crop.y)}" width="${num(crop.width)}" height="${num(crop.height)}"${rx > 0 ? ` rx="${num(rx)}"` : ""}/></clipPath>`;
+  const group = `<g id="mark"${carried} transform="translate(${num(tx)} ${num(ty)}) scale(${num(k)})" clip-path="url(#mark-clip)">${clip}${body}</g>`;
+  const end = scene.lastIndexOf("</svg>");
+  return scene.slice(0, end) + group + scene.slice(end);
 }
 
 /**

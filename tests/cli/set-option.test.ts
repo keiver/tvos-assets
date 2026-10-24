@@ -59,6 +59,7 @@ describe("parseSetEntry", () => {
   });
 
   it("accepts optional paths that are absent from a default config", () => {
+    expect(parseSetEntry("inputs.markImage=./mark.svg").value).toBe("./mark.svg");
     expect(parseSetEntry("inputs.iconDarkImage=./dark.svg").value).toBe("./dark.svg");
     expect(parseSetEntry("brandAssets.appIconLarge.layers.front.imagePath=./f.svg")).toEqual({
       path: ["brandAssets", "appIconLarge", "layers", "front", "imagePath"],

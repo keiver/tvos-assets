@@ -72,6 +72,12 @@ describe("plugin appStore prop", () => {
     );
   });
 
+  it("maps the mark to inputs.markImage, resolved against the project root", () => {
+    const args = plugin.buildResolveArgs(PROJECT_ROOT, { icon: "./icon.png", mark: "./assets/brand/mark.svg", background: "./bg.png", color: "#000000" });
+    expect(args.overrides.inputs).toEqual({ markImage: resolve(PROJECT_ROOT, "assets/brand/mark.svg") });
+    expect(plugin.buildResolveArgs(PROJECT_ROOT, { icon: "./icon.png" }).overrides.inputs).toBeUndefined();
+  });
+
   it("maps centre art, per-placement art and video settings", () => {
     const args = plugin.buildResolveArgs(PROJECT_ROOT, {
       icon: "./icon.png",

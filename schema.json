@@ -17,6 +17,10 @@
           "type": "string",
           "description": "Path to the app icon PNG or SVG. Must have a transparent background. The icon is composited onto the background image for app icons and Top Shelf images, and rendered standalone for the splash screen logo. SVGs are rasterized at the density each output size requires. Optional when every icon layer of an imagestack carries its own art (brandAssets.<stack>.layers.front/middle.imagePath): the icon is then assembled from those layers, back to front."
         },
+        "markImage": {
+          "type": "string",
+          "description": "PNG or SVG on transparency drawn over backdrops: both Top Shelf images and the App Store centre. Measured on its own, like the icon. Defaults to the icon; name it when the icon carries an opaque surface for iOS."
+        },
         "backgroundImage": {
           "type": "string",
           "description": "Path to the background PNG or SVG. Used as the base layer for app icons and Top Shelf images. Resized with cover-fit and center-cropped to each required dimension."
@@ -485,7 +489,7 @@
         },
         "iconImage": {
           "type": "string",
-          "description": "PNG or SVG mark for this image only, measured on its own. Defaults to the icon."
+          "description": "PNG or SVG mark for this image only, measured on its own. Defaults to inputs.markImage, else the icon."
         },
         "iconScale": {
           "type": "number",
@@ -531,7 +535,7 @@
         "enabled": { "type": "boolean", "default": true, "description": "Write this placement at all." },
         "source": { "type": "string", "description": "Finished artwork (SVG or PNG) for this placement, replacing the backdrop and centre item. Row artwork, an SVG whose <mask> holds rows of one repeated shape over full-canvas fills, is re-tiled to the canvas, so one design serves the 21:9 header and the 3:2 search results." },
         "animate": {
-          "description": "Video of the source: { rows } or { rise } for row artwork, { loop, elements } for a scene (any SVG, played by the Google Chrome on this machine). Not for universal, which takes a scene's elements only, for its still.",
+          "description": "A looping video: { rows } or { rise } for row artwork in source, { loop, elements } for a scene played by the Google Chrome on this machine: the backdrop SVG with the centre item drawn in the safe area, or the source SVG as it is. Not for universal, which takes a scene's elements only, for its still.",
           "oneOf": [
             {
               "type": "object",

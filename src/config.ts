@@ -15,6 +15,8 @@ export type DeepPartial<T> = {
 
 export interface CLIArgs {
   icon?: string;
+  /** The brand on transparency drawn over backdrops; the icon when unset. */
+  mark?: string;
   background?: string;
   color?: string;
   darkColor?: string;
@@ -212,10 +214,15 @@ export function isSvgPath(filePath: string): boolean {
 
 const SCENE_RULE_KEYS = ["select", "attributeName", "values", "dur", "begin", "keyTimes", "calcMode", "keySplines", "additive", "stagger"];
 
-/** The scene form of `appStore.<key>.animate`: `loop` for the video, `elements` for the motion written into the SVG. */
-function validateSceneAnimate(animate: SceneAnimate, key: string, event: boolean, source: string | undefined, noVideo: string): void {
+/**
+ * The scene form of `appStore.<key>.animate`: `loop` for the video, `elements` for the motion written
+ * into the SVG it plays, `art`: the placement's `source`, else its backdrop.
+ */
+function validateSceneAnimate(animate: SceneAnimate, key: string, event: boolean, art: string, noVideo: string): void {
   const label = `appStore.${key}.animate`;
-  if (!source || !isSvgPath(source)) throw new Error(`${label} needs an SVG appStore.${key}.source.`);
+  if (!isSvgPath(art)) {
+    throw new Error(`${label} needs an SVG to play: appStore.${key}.source, or the backdrop (appStore.${key}.backgroundImage, appStore.backgroundImage or inputs.backgroundImage), got ${art}.`);
+  }
   const min = event ? 15 : 5;
   if (key === "universal") {
     if (animate.loop !== undefined) throw new Error(`${label}.loop is not supported: ${noVideo}; give universal elements only, for its still.`);
@@ -620,6 +627,9 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
   merged.inputs.darkBackgroundColor = darkBackgroundColor;
   merged.inputs.iconBorderRadius = iconBorderRadius;
 
+  const rawMark = (cliArgs.mark ?? merged.inputs.markImage ?? "").trim();
+  merged.inputs.markImage = rawMark ? validateImagePath(rawMark, "Mark image") : undefined;
+
   // Optional iOS appearance-variant icons: CLI > config file; validated when present
   const rawIconDark = (cliArgs.iconDark ?? merged.inputs.iconDarkImage ?? "").trim();
   merged.inputs.iconDarkImage = rawIconDark
@@ -692,7 +702,8 @@ export function resolveConfig(cliArgs: CLIArgs): TvOSImageCreatorConfig {
     if (placement.animate) {
       const kinds = Object.keys(placement.animate);
       if (kinds.length > 0 && kinds.every((kind) => kind === "loop" || kind === "elements")) {
-        validateSceneAnimate(placement.animate as SceneAnimate, key, event, placement.source, NO_VIDEO);
+        const art = placement.source ?? placement.backgroundImage ?? merged.appStore.backgroundImage ?? merged.inputs.backgroundImage;
+        validateSceneAnimate(placement.animate as SceneAnimate, key, event, art, NO_VIDEO);
       } else {
         if (kinds.length !== 1 || (kinds[0] !== "rows" && kinds[0] !== "rise")) {
           throw new Error(`appStore.${key}.animate takes one of rows or rise, got: ${kinds.join(", ") || "neither"}.`);
@@ -855,6 +866,7 @@ export async function validateInputImages(
 
   // Optional inputs (variant icons, per-layer art): verify data format matches extension
   const optionalInputs: Array<{ path: string | undefined; label: string }> = [
+    { path: config.inputs.markImage, label: "Mark image" },
     { path: config.inputs.iconDarkImage, label: "Dark icon image" },
     { path: config.inputs.iconTintedImage, label: "Tinted icon image" },
     { path: config.brandAssets.appIconSmall.layers.front.imagePath, label: "appIconSmall front layer" },

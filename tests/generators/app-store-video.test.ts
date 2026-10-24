@@ -21,6 +21,7 @@ import {
 } from "../../src/generators/app-store-video";
 import { risePhase, riseTiming } from "../../src/utils/rise-frames";
 import { openSceneBrowser } from "../../src/utils/scene-browser";
+import { expandScene } from "../../src/utils/svg-scene";
 import { RAISED_SVG, ROW_SVG } from "../fixtures/row-artwork";
 import { readFileSync } from "node:fs";
 
@@ -329,17 +330,13 @@ describeWithFfmpeg("encodeRows (ffmpeg)", () => {
 });
 
 describeWithFfmpeg("encodeScene (ffmpeg and Chrome)", () => {
-  it("plays the rules in Chrome for one loop, each light breathing out of step with the next", async () => {
-    const source = join(TMP, "scene.svg");
-    writeFileSync(source, SCENE_SVG);
+  it("plays the file as composed in Chrome for one loop, each light breathing out of step with the next", async () => {
+    const svg = expandScene(SCENE_SVG, [{ select: "#lights g", attributeName: "opacity", values: "0;1;0", dur: 5, stagger: true }]);
     const output = join(TMP, "scene.mp4");
     const ffmpeg = ffmpegPath();
     const browser = await openSceneBrowser();
     try {
-      await encodeScene({
-        ffmpeg, encoder: await pickEncoder(ffmpeg, "h264"), source, output, width: 480, height: 206, fps: 30, seconds: 5, codec: "h264", browser,
-        elements: [{ select: "#lights g", attributeName: "opacity", values: "0;1;0", dur: 5, stagger: true }],
-      });
+      await encodeScene({ ffmpeg, encoder: await pickEncoder(ffmpeg, "h264"), svg, output, width: 480, height: 206, fps: 30, seconds: 5, codec: "h264", browser });
     } finally {
       await browser.close();
     }
@@ -352,23 +349,6 @@ describeWithFfmpeg("encodeScene (ffmpeg and Chrome)", () => {
     expect(red(frame(2.06), 75, 130)).toBeGreaterThan(red(frame(0), 75, 130) + 60);
     // The second light (640,440) begins 2.91 s in, so at 2.06 s it is on its way down, dimmer than the first.
     expect(red(frame(2.06), 160, 110)).toBeLessThan(red(frame(2.06), 75, 130) - 40);
-  });
-
-  it("refuses a rule whose dur does not divide the loop", async () => {
-    const source = join(TMP, "scene.svg");
-    writeFileSync(source, SCENE_SVG);
-    const ffmpeg = ffmpegPath();
-    const browser = await openSceneBrowser();
-    try {
-      await expect(
-        encodeScene({
-          ffmpeg, encoder: await pickEncoder(ffmpeg, "h264"), source, output: join(TMP, "bad.mp4"), width: 480, height: 206, fps: 30, seconds: 5, codec: "h264", browser,
-          elements: [{ select: "#lights g", attributeName: "opacity", values: "0;1;0", dur: 2 }],
-        }),
-      ).rejects.toThrow(/lasts 2 s, which does not divide the 5 s loop/);
-    } finally {
-      await browser.close();
-    }
   });
 });
 
