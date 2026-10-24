@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+- feat(app-store): scene artwork. Any SVG `source` becomes a placement's video with
+  `animate: { loop, elements }`: each rule in `elements` selects elements of the file (`#id`, `tag`,
+  `#id tag`) and writes an `<animate>` on every one in SMIL's own words, `stagger` spreading their
+  starts, and the file as played is written beside the still (`header.svg`). Frames come from the
+  Google Chrome on the machine (or `CHROME_PATH`), seeked per frame, so the video is what a browser
+  plays for the same file. `universal` takes `elements` without `loop`, for its still. Row artwork's
+  `rows` and `rise` are unchanged.
+
 ## [1.9.0] - 2026-10-15
 - feat(splash): splash logo per device type, written after expo-splash-screen (#17)
 

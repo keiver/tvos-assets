@@ -141,6 +141,15 @@ describe("planAssets", () => {
     expect(on.total).toBe(off.total + 3);
   });
 
+  it("counts a scene placement's still, its file as played and its video", async () => {
+    const config = await makeConfig();
+    const rule = { select: "#lights g", attributeName: "opacity", values: "0;1;0", dur: 4 };
+    const header = { ...config.appStore.header, source: "/art/scene.svg", animate: { loop: 20, elements: [rule] } };
+    expect(planAssets({ ...config, appStore: { ...config.appStore, enabled: true, header } }).appStore).toBe(5);
+    const silent = { ...config.appStore.header, source: "/art/scene.svg", animate: { loop: 20 } };
+    expect(planAssets({ ...config, appStore: { ...config.appStore, enabled: true, header: silent } }).appStore).toBe(4);
+  });
+
   it("counts every splash logo PNG: each device type's scales, twice with a dark image", async () => {
     const config = await makeConfig();
     const logo = config.splashScreen.logo;

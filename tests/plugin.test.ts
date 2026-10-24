@@ -89,13 +89,16 @@ describe("plugin appStore prop", () => {
     });
     expect(recorded.overrides.appStore.searchResults).toEqual({ video: resolve(PROJECT_ROOT, "applestore/tour.mov") });
     expect(recorded.overrides.appStore.video).toEqual({ audio: resolve(PROJECT_ROOT, "applestore/music.mp3"), audioStart: 12, audioEnd: 40 });
+    const scene = { loop: 20, elements: [{ select: "#lights g", attributeName: "opacity", values: "0;1;0", dur: 4, stagger: true }] };
     const sourced = plugin.buildResolveArgs(PROJECT_ROOT, {
       appStore: {
         header: { source: "./store/header.svg", animate: { rows: 20 } },
+        searchResults: { source: "./store/scene.svg", animate: scene },
         universal: { enabled: false },
       },
     });
     expect(sourced.overrides.appStore.header).toEqual({ source: resolve(PROJECT_ROOT, "store/header.svg"), animate: { rows: 20 } });
+    expect(sourced.overrides.appStore.searchResults).toEqual({ source: resolve(PROJECT_ROOT, "store/scene.svg"), animate: scene });
     expect(sourced.overrides.appStore.universal).toEqual({ enabled: false });
     expect(args.overrides.appStore).toEqual({
       enabled: true,

@@ -1,14 +1,17 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { Browser } from "playwright-core";
 import sharp, { type Sharp } from "sharp";
 import { isSvgPath } from "../config.js";
-import type { AppStorePlacementConfig, TvOSImageCreatorConfig } from "../types.js";
+import type { AppStorePlacementConfig, SceneAnimate, TvOSImageCreatorConfig } from "../types.js";
 import { ensureDir, safeWriteFile } from "../utils/fs.js";
 import { compositeCenterInRect } from "../utils/image-processing.js";
 import type { CenterItem, ContentBox, Rect } from "../utils/image-processing.js";
 import { rowStill } from "../utils/rise-frames.js";
+import { openSceneBrowser, sceneFrames } from "../utils/scene-browser.js";
 import { animateAt, filterReach, parseRowArtwork } from "../utils/svg-rows.js";
 import type { RowArtwork } from "../utils/svg-rows.js";
+import { expandScene, sceneRules } from "../utils/svg-scene.js";
 import { StoreCache, inputKey } from "../utils/store-cache.js";
 
 export type AppStorePlacement = "header" | "searchResults" | "universal" | "eventCard" | "eventDetails";
@@ -150,6 +153,42 @@ export function readRowArtwork(source: string | undefined): RowArtwork | undefin
   }
 }
 
+/** The placement's scene settings, when its `animate` is a scene (`loop`, `elements`) and not row motion. */
+export function sceneAnimate(placement: AppStorePlacementConfig): SceneAnimate | undefined {
+  const animate = placement.animate as Record<string, unknown> | undefined;
+  if (!animate || "rows" in animate || "rise" in animate) return undefined;
+  return animate as SceneAnimate;
+}
+
+/** Enabled scene placements with `elements`, the ones that also get their expanded SVG written. */
+export function sceneSidecars(config: TvOSImageCreatorConfig): AppStoreAsset[] {
+  return enabledAssets(config).filter((asset) => Boolean(sceneAnimate(config.appStore[asset.placement])?.elements?.length));
+}
+
+/** The expanded SVG's filename beside a placement's still: `header.svg` for `header.png`. */
+export function sceneSidecarName(asset: AppStoreAsset): string {
+  return asset.filename.replace(/\.png$/, ".svg");
+}
+
+/** A scene's still, its first frame drawn by the browser, and the SVG it was drawn from. */
+export async function renderScene(
+  browser: Browser,
+  source: string,
+  scene: SceneAnimate,
+  width: number,
+  height: number,
+): Promise<{ png: Buffer; svg: string }> {
+  const svg = expandScene(readFileSync(source, "utf8"), scene.elements);
+  sceneRules(svg, scene.loop);
+  const frames = await sceneFrames(browser, svg, width, height, 1);
+  try {
+    const raw = await frames.frame(0);
+    return { png: await sharp(raw, { raw: { width, height, channels: 3 } }).png().toBuffer(), svg };
+  } finally {
+    await frames.close();
+  }
+}
+
 /** Finished artwork on the canvas: row artwork re-tiled to it, any other SVG or PNG cover-filled. */
 export async function renderSource(
   source: string,
@@ -181,9 +220,26 @@ export async function generateAppStoreAssets(
   if (assets.length === 0) return;
   ensureDir(outDir);
   const cache = new StoreCache(outDir);
+  let browser: Browser | undefined;
 
+  try {
   for (const asset of assets) {
     const placement = config.appStore[asset.placement];
+    const scene = placement.source ? sceneAnimate(placement) : undefined;
+    if (placement.source && scene) {
+      const sidecar = scene.elements?.length ? sceneSidecarName(asset) : undefined;
+      const key = inputKey([placement.source], ["scene", asset.width, asset.height, scene]);
+      if (cache.fresh(asset.filename, key) && (!sidecar || cache.fresh(sidecar, key))) continue;
+      browser ??= await openSceneBrowser();
+      const { png, svg } = await renderScene(browser, placement.source, scene, asset.width, asset.height);
+      safeWriteFile(join(outDir, asset.filename), png);
+      cache.record(asset.filename, key);
+      if (sidecar) {
+        safeWriteFile(join(outDir, sidecar), Buffer.from(svg));
+        cache.record(sidecar, key);
+      }
+      continue;
+    }
     if (placement.source) {
       const art = readRowArtwork(placement.source);
       const centre = designCentre(asset, art);
@@ -200,5 +256,8 @@ export async function generateAppStoreAssets(
     const { backgroundImage, center } = resolvePlacement(config, placement, iconSourceSize, content);
     const buffer = await compositeCenterInRect(backgroundImage, asset.width, asset.height, asset.safeArea, center);
     safeWriteFile(join(outDir, asset.filename), buffer);
+  }
+  } finally {
+    await browser?.close();
   }
 }

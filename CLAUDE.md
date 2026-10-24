@@ -50,6 +50,8 @@ Gotcha: never give a Commander `.option()` a default value for anything that als
 - `fs.ts` — `ensureDir`, `cleanDir` (refuses to delete directories containing project markers like `package.json`, `.git`, `src`), `writeContentsJson`
 - `zip.ts` — `formatTimestamp`, `generateZipFilename`, `createZip` — archiver-based zip creation for timestamped output
 - `color.ts` — Hex→RGBA conversion, RGBA→Apple component strings (3 decimal places), `darkenHex()` for HSL-based lightness reduction
+- `svg-scene.ts`: scene artwork as text: `selectElements` (`#id`, `tag`, `#id tag`), `expandScene` (writes the `elements` rules in as `<animate>` tags), `sceneRules`, `sceneDocument` (the page the browser draws)
+- `scene-browser.ts`: `openSceneBrowser` (the installed Google Chrome through playwright-core, or `CHROME_PATH`) and `sceneFrames` (a page pool that seeks the SMIL with `setCurrentTime` and screenshots each frame)
 
 **Types** (`src/types.ts`): Config types, asset definitions, Contents.json structures. Key types: `TvOSImageCreatorConfig` (master config), `ImageStackAssetConfig`, `ImageSetAssetConfig`.
 
